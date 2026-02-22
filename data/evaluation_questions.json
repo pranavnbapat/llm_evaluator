@@ -1,0 +1,101 @@
+{
+  "evaluation_questions": [
+    {
+      "id": "Q1_FACTUAL_KNOWLEDGE",
+      "category": "Factual Knowledge & Reasoning",
+      "type": "direct_question",
+      "difficulty": "medium",
+      "expected_elements": ["capital city", "population number or range", "EU membership year", "country location"],
+      "evaluation_criteria": {
+        "factual_accuracy": "All facts must be verifiable",
+        "completeness": "Must include all 4 expected elements",
+        "conciseness": "Response should be 3-8 sentences"
+      },
+      "question_en": "What is the capital of Portugal, what is its approximate population, when did it join the European Union, and where is it located geographically?",
+      "reference_answer": {
+        "capital": "Lisbon",
+        "population": "Approximately 500,000-550,000 (city), 2.8 million (metro)",
+        "eu_membership": "1986",
+        "location": "Southwestern Europe, Iberian Peninsula, Atlantic coast"
+      }
+    },
+    {
+      "id": "Q2_LOGICAL_REASONING",
+      "category": "Logical Reasoning & Problem Solving",
+      "type": "word_problem",
+      "difficulty": "medium",
+      "expected_elements": ["calculation steps", "correct final answer (45)", "clear explanation"],
+      "evaluation_criteria": {
+        "logical_correctness": "Mathematical steps must be sound",
+        "clarity": "Explanation must be easy to follow",
+        "answer_accuracy": "Final answer must be exactly 45"
+      },
+      "question_en": "A farmer has 15 sheep and 3 dogs. All but 8 sheep run away. Then the farmer buys 12 more sheep and sells 5 of the remaining ones. How many sheep does the farmer have now? Explain your reasoning step by step.",
+      "reference_answer": {
+        "steps": [
+          "Start with 15 sheep",
+          "'All but 8' means 8 remain (15 - 7 = 8)",
+          "Add 12 new sheep: 8 + 12 = 20",
+          "Sell 5: 20 - 5 = 15",
+          "Dogs are irrelevant to the count"
+        ],
+        "final_answer": 15
+      }
+    },
+    {
+      "id": "Q3_INSTRUCTION_FOLLOWING",
+      "category": "Instruction Following & Format Adherence",
+      "type": "format_constrained",
+      "difficulty": "easy",
+      "expected_elements": ["JSON format", "exact keys specified", "language-appropriate translation", "no markdown code blocks"],
+      "evaluation_criteria": {
+        "format_adherence": "Must be valid JSON with exact structure",
+        "content_accuracy": "Translation must be correct",
+        "constraint_satisfaction": "No extra text outside JSON"
+      },
+      "question_en": "Translate the phrase 'The European Green Deal is our roadmap to a sustainable future' into your language and output ONLY a JSON object with exactly these keys: 'original_text', 'translated_text', 'target_language'. Do not include markdown code blocks or any other text.",
+      "reference_answer": {
+        "format": "JSON",
+        "required_keys": ["original_text", "translated_text", "target_language"]
+      }
+    },
+    {
+      "id": "Q4_CULTURAL_NUANCE",
+      "category": "Cultural & Contextual Understanding",
+      "type": "cultural_reasoning",
+      "difficulty": "hard",
+      "expected_elements": ["acknowledgment of linguistic diversity", "examples from specific countries", "awareness of EU language policy", "respectful tone"],
+      "evaluation_criteria": {
+        "cultural_sensitivity": "Must respect all language communities",
+        "accuracy": "Facts about EU language policy must be correct",
+        "depth": "Should mention at least 3 specific languages/countries"
+      },
+      "question_en": "Why does the European Union have 24 official languages, and what are the practical challenges and benefits of maintaining multilingualism at the EU institutional level? Discuss with specific examples from at least three different language communities.",
+      "reference_answer": {
+        "key_points": [
+          "Principle of multilingualism ensures democratic participation",
+          "24 languages = all official languages of member states",
+          "Challenges: translation costs, coordination, consistency",
+          "Benefits: inclusivity, cultural preservation, equal access"
+        ]
+      }
+    },
+    {
+      "id": "Q5_SUMMARIZATION_ACCURACY",
+      "category": "Text Summarization & Information Extraction",
+      "type": "summarization",
+      "difficulty": "medium",
+      "context": "The Common Agricultural Policy (CAP) is the agricultural policy of the European Union. It implements a system of agricultural subsidies and other programs. It was introduced in 1962 and has undergone several reforms since then. The CAP accounts for about one-third of the EU's total budget. Its main objectives are to improve agricultural productivity, ensure a fair standard of living for farmers, stabilize markets, assure availability of supplies, and ensure reasonable prices for consumers. Recent reforms have focused on making agriculture more environmentally sustainable and shifting payments from production-based subsidies to direct income support for farmers.",
+      "expected_elements": ["CAP definition", "introduced in 1962", "budget proportion (~1/3)", "main objectives", "recent reform focus"],
+      "evaluation_criteria": {
+        "information_retention": "Must include all key facts from context",
+        "conciseness": "Maximum 3 sentences",
+        "accuracy": "No hallucination or added information"
+      },
+      "question_en": "Summarize the following text about the EU's Common Agricultural Policy in at most 3 sentences, capturing the key points: {context}",
+      "reference_answer": {
+        "key_elements": ["CAP introduced 1962", "~1/3 of EU budget", "objectives: productivity, farmer income, market stability", "recent focus: sustainability, income support"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,135 @@
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# =============================================================================
+# Virtual Environments
+# =============================================================================
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# =============================================================================
+# IDE / Editors
+# =============================================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# =============================================================================
+# Environment & Secrets (NEVER commit these)
+# =============================================================================
+.env
+.env.*
+!.env.example
+!.env.runpod.example
+secrets/
+*.pem
+*.key
+credentials/
+
+# =============================================================================
+# Evaluation Results & Data (Generated)
+# =============================================================================
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Results directory (contains generated evaluation data)
+results/*.db
+results/*.sqlite
+results/*.json
+results/*.jsonl
+results/*.csv
+results/*.xlsx
+results/logs/
+evaluation_results/
+
+# RunPod downloaded results (local copies)
+runpod_results_*/
+*.tar.gz
+*.zip
+
+# =============================================================================
+# Logs
+# =============================================================================
+*.log
+logs/
+log/
+/workspace/
+
+# =============================================================================
+# Cache
+# =============================================================================
+.cache/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+.pytype/
+coverage.xml
+*.cover
+.hypothesis/
+.hypothesis
+
+# =============================================================================
+# HuggingFace / ML Cache (if accidentally created locally)
+# =============================================================================
+models/
+*.bin
+*.safetensors
+*.msgpack
+*.h5
+*.ot
+checkpoints/
+wandb/
+
+# =============================================================================
+# Testing
+# =============================================================================
+.tox/
+noxfile.py
+.coverage
+.cache
+nosetests.xml
+
+# =============================================================================
+# Misc
+# =============================================================================
+*.bak
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+desktop.ini
