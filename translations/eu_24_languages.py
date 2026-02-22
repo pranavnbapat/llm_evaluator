@@ -233,4 +233,5 @@ if __name__ == "__main__":
     print(f"Total EU Languages: {total_languages}")
     print(f"Total Questions per Language: {questions_per_language}")
     print(f"Total Evaluation Runs per Model: {total_runs}")
-    print(f"\nLanguages: {', '.join([f'{code} ({info[\"name\"]})' for code, info in EU_LANGUAGES.items()])}")
+    lang_list = [f"{code} ({info['name']})" for code, info in EU_LANGUAGES.items()]
+    print(f"\nLanguages: {', '.join(lang_list)}")
