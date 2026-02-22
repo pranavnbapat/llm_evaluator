@@ -51,8 +51,8 @@ venv.bak/
 # Environment & Secrets (NEVER commit these)
 # =============================================================================
 .env
-.env.*
-!.env.example
+.env.sample
+!.env.sample
 !.env.runpod.example
 secrets/
 *.pem
