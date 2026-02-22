@@ -104,6 +104,22 @@ class VLlmManager:
         print(f"   ❌ Timeout waiting for vLLM")
         return False
     
+    def _get_model_name(self) -> Optional[str]:
+        """Get the model name from vLLM."""
+        try:
+            url = f"http://{self.host}:{self.port}/v1/models"
+            headers = {}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+            response = requests.get(url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("data"):
+                    return data["data"][0]["id"]
+        except:
+            pass
+        return None
+    
     def stop(self):
         """Stop vLLM."""
         if self.process:
@@ -121,8 +137,11 @@ class VLlmManager:
         """Send chat completion request."""
         url = f"http://{self.host}:{self.port}/v1/chat/completions"
         
+        # Get actual model name from vLLM
+        model_name = self._get_model_name() or "default"
+        
         payload = {
-            "model": "default",
+            "model": model_name,
             "messages": messages,
             "temperature": kwargs.get("temperature", 0.0),
             "max_tokens": kwargs.get("max_tokens", 2048),
