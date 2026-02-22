@@ -11,22 +11,22 @@ The fastest way to run evaluations is on RunPod with A40 48GB GPU.
 ssh root@YOUR_RUNPOD_IP
 cd /workspace
 git clone https://github.com/YOUR_USERNAME/llm_evaluator.git
-cd llm_evaluator/runpod_setup
+cd llm_evaluator
 
 # 2. Setup (installs vLLM, creates venv)
-bash setup.sh
+bash runpod_setup/setup.sh
 
 # 3. Edit config with your tokens
-nano config.yaml
+nano runpod_setup/config.yaml
 # Set: hf_token, openai_api_key
 
 # 4. Download models (~1-3 hours)
 export HF_TOKEN="hf_your_token"
-python download_models.py
+.venv/bin/python runpod_setup/download_models.py
 
 # 5. Run evaluation (~2-3 hours)
 export OPENAI_API_KEY="sk_your_key"
-python evaluate.py
+.venv/bin/python runpod_setup/evaluate.py
 
 # 6. Download results to your laptop
 scp -r root@YOUR_RUNPOD_IP:/workspace/evaluation_results ./

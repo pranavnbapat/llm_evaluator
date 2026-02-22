@@ -51,16 +51,6 @@ echo "✓ System packages installed"
 echo ""
 
 # ----------------------------------------------------------------------------
-# Install vLLM (System-wide)
-# ----------------------------------------------------------------------------
-
-echo "🐍 Installing vLLM (this may take a few minutes)..."
-pip install -q vllm huggingface-hub hf_transfer openai pyyaml
-
-echo "✓ vLLM installed"
-echo ""
-
-# ----------------------------------------------------------------------------
 # Setup Project Virtual Environment
 # ----------------------------------------------------------------------------
 
@@ -75,9 +65,14 @@ else
 fi
 
 # Install project dependencies
+echo "  Installing project dependencies..."
 .venv/bin/pip install -q -r requirements.txt
 
-echo "✓ Project dependencies installed"
+# Install vLLM in venv (avoids system conflicts)
+echo "  Installing vLLM (this may take a few minutes)..."
+.venv/bin/pip install -q vllm huggingface-hub hf_transfer
+
+echo "✓ All dependencies installed"
 echo ""
 
 # ----------------------------------------------------------------------------

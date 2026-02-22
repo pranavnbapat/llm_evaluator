@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/workspace/llm_evaluator/.venv/bin/python3
 """
 Download all configured models to /workspace/models/
 

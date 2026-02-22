@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/workspace/llm_evaluator/.venv/bin/python3
 """
 Main evaluation script - cycles through all models, runs evaluations, saves results.
 

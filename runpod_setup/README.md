@@ -36,7 +36,7 @@ vllm_api_key: "sk-anything"          # Can leave as-is
 
 ```bash
 export HF_TOKEN="hf_your_token"
-python download_models.py
+.venv/bin/python runpod_setup/download_models.py
 ```
 
 Takes 1-3 hours, downloads ~150GB to `/workspace/models/`.
@@ -45,7 +45,7 @@ Takes 1-3 hours, downloads ~150GB to `/workspace/models/`.
 
 ```bash
 export OPENAI_API_KEY="sk_your_key"
-python evaluate.py
+.venv/bin/python runpod_setup/evaluate.py
 ```
 
 This will:
@@ -120,7 +120,7 @@ nvidia-smi
 
 ```bash
 # Retry download
-python download_models.py
+.venv/bin/python runpod_setup/download_models.py
 ```
 
 ### "vLLM won't start"
@@ -131,7 +131,7 @@ ps aux | grep vllm
 killall vllm  # Force kill
 
 # Then retry
-python evaluate.py
+.venv/bin/python runpod_setup/evaluate.py
 ```
 
 ## Configuration
