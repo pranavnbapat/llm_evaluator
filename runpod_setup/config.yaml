@@ -6,7 +6,7 @@
 # ----------------------------------------------------------------------------
 # API Keys (REQUIRED - fill these in)
 # ----------------------------------------------------------------------------
-hf_token: ""                    # HuggingFace token for downloading models
+hf_token: "PLACEHOLDER_TOKEN"                    # HuggingFace token for downloading models
 vllm_api_key: "sk-runpod-eval"  # Can leave as-is, for securing vLLM endpoint
 
 # ----------------------------------------------------------------------------
