@@ -39,8 +39,7 @@ def download_model(name: str, config: dict, hf_token: str):
             local_dir=str(local_path),
             local_dir_use_symlinks=False,
             resume_download=True,
-            token=hf_token,
-            exclude=["*.msgpack", "*.h5", "*.ot"]  # Skip unused formats
+            token=hf_token
         )
         
         # Calculate size
