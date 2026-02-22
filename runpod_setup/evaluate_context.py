@@ -352,7 +352,7 @@ def main():
     vllm = VLlmManager(config)
     
     # Get list of models to evaluate
-    models = config["models"]
+    models = list(config["models"].values())
     
     print(f"\n📋 Models to evaluate: {len(models)}")
     for m in models:
