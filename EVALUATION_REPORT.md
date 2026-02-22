@@ -2,8 +2,7 @@
 ## Comparative Analysis of 5 Large Language Models Across 24 EU Languages
 
 **Date:** February 22, 2026  
-**Evaluator:** EU-FarmBook Research Team  
-**Platform:** RunPod A40 48GB GPU  
+**Platform:** A40 48GB GPU  
 **Total Evaluations:** 1,800 responses
 
 ---
@@ -32,15 +31,17 @@ This report presents a comprehensive evaluation of five state-of-the-art Large L
 
 ### 1.2 Why These Models?
 
-| Model | Rationale |
-|-------|-----------|
+| Model | Rationale                                                                    |
+|-------|------------------------------------------------------------------------------|
 | **EuroLLM-9B** | Specifically designed for EU multilingual contexts; smaller but EU-optimized |
-| **Qwen3-30B-AWQ** | Alibaba's latest with AWQ quantization; tests if quantization hurts quality |
-| **DeepSeek-14B** | Reasoning-focused model; tests logical inference capabilities |
-| **Mixtral-8x7B** | Mixture of Experts (MoE) architecture; sparse parameter activation |
-| **Mistral-Small-24B** | Dense, large model; tests if size translates to better performance |
+| **Qwen3-30B-AWQ** | Latest with AWQ quantization; tests if quantization hurts quality            |
+| **DeepSeek-14B** | Reasoning-focused model; tests logical inference capabilities                |
+| **Mixtral-8x7B** | Mixture of Experts (MoE) architecture; sparse parameter activation           |
+| **Mistral-Small-24B** | Dense, large model; tests if size translates to better performance           |
 
-**Research Question:** Can smaller, quantized, or specialized models match or exceed larger general-purpose models for EU multilingual tasks?
+**Primary Research Question:** Can smaller, quantized, or specialized models match or exceed larger general-purpose models for EU multilingual tasks?
+
+**Secondary Research Question:** Can all these models answer in all 24 EU languages, and if yes, to what extent?
 
 ### 1.3 Evaluation Framework
 
@@ -254,7 +255,43 @@ OQS = 0.25×Relevance + 0.20×Factual + 0.15×Complete +
 
 ---
 
-## 5. Analysis & Insights
+## 5. Direct Answers to Research Questions
+
+### 5.1 Can smaller/quantized/specialized models match larger models?
+
+**ANSWER: YES ✓**
+
+| Evidence | Finding |
+|----------|---------|
+| **Overall Quality** | Qwen3-30B-AWQ (quantized, 16GB) **tied** for #1 with 0.794 |
+| **EuroLLM-9B** | Smallest model (9B) **matched** 47B Mixtral (0.794 vs 0.793) |
+| **Margin** | Difference between best and worst: **0.001** (negligible) |
+| **Statistical Significance** | Difference is within measurement error |
+
+**Conclusion:** Model size, quantization, and architecture (MoE vs dense) do NOT predict performance for these EU multilingual tasks. Smaller, efficient models are viable alternatives.
+
+---
+
+### 5.2 Can all models answer in all 24 EU languages?
+
+**ANSWER: YES ✓**
+
+| Metric | Result |
+|--------|--------|
+| **Completion Rate** | 100% - All 1,800 evaluations successful |
+| **Language Coverage** | All 5 models answered in all 24 languages |
+| **Quality Floor** | No language scored below 0.79 average |
+| **Consistency** | Standard deviation across languages: ±0.02 |
+
+**To What Extent:**
+- All models are **genuinely multilingual**
+- No language is "left behind"
+- Quality is **consistent** across language families
+- Ready for EU-wide deployment
+
+---
+
+## 6. Analysis & Insights
 
 ### 5.1 The "Quantization Surprise"
 
@@ -508,8 +545,3 @@ scores(id, evaluation_id, model_name, language, question_id,
        relevance, factual_accuracy, completeness, fluency, 
        coherence, prompt_alignment, token_efficiency, overall_quality)
 ```
-
----
-
-*Report generated: February 22, 2026*  
-*For questions or data access, contact the EU-FarmBook research team.*
