@@ -420,10 +420,16 @@ Expand to **20-50 questions** covering:
 
 **Source:** `translations/eu_24_languages.py`
 
-**Process:**
-1. **DeepL API Translation** (initial draft)
-2. **Native Speaker Review** (quality assurance)
-3. **EU Terminology Database Validation** (consistency with official EU terms)
+**⚠️ Unknown Translation Method**
+
+The translations were provided in the repository (`translations/eu_24_languages.py`). The file header claims:
+> "Sources: Native speaker review, DeepL API validation, EU terminology database"
+
+However, **we cannot verify the actual translation process used**. The translations may have been:
+- Machine translated (DeepL, Google Translate, etc.)
+- AI-generated (GPT-4, etc.)
+- Professionally translated
+- A combination of methods
 
 **Example Translation (Q1 - Factual):**
 ```python
@@ -440,36 +446,26 @@ Expand to **20-50 questions** covering:
 "Cad é príomhchathair na Portaingéile, cad é an daonra thart air..."
 ```
 
-### 10.2 Quality Assurance
+### 10.2 Translation Quality Unknown
 
-| Quality Check | Method |
-|--------------|--------|
-| **Accuracy** | Back-translation verification (DE→EN→DE) |
-| **Terminology** | EU official terms database cross-reference |
-| **Cultural** | Native speaker idiomatic review |
-| **Technical** | UTF-8 encoding validation for all scripts |
+**We did NOT verify:**
+- ❌ Accuracy against source text
+- ❌ Native speaker quality review
+- ❌ EU terminology consistency
+- ❌ Back-translation validation
 
-### 10.3 Why This Approach?
+**This is a limitation** - translation quality may affect model performance scores, especially for:
+- Low-resource languages (Irish, Maltese)
+- Complex grammatical structures
+- EU-specific terminology
 
-**Advantages:**
-- ✅ Scalable (24 languages)
-- ✅ Consistent terminology
-- ✅ EU-context appropriate
-- ✅ Cost-effective vs. full human translation
+### 10.3 Recommendation for Future Work
 
-**Limitations:**
-- ⚠️ DeepL may miss subtle cultural nuances
-- ⚠️ Rare languages (Maltese, Irish) have less training data
-- ⚠️ Idiomatic expressions may not translate perfectly
-
-### 10.4 Alternative Approaches Considered
-
-| Approach | Cost | Quality | Time | Chosen? |
-|----------|------|---------|------|---------|
-| Professional human translators | €€€€ | ★★★★★ | Weeks | ❌ |
-| DeepL + native review | €€ | ★★★★☆ | Days | ✅ |
-| Raw DeepL only | € | ★★★☆☆ | Hours | ❌ |
-| GPT-4 translation | €€€ | ★★★★☆ | Days | ❌ |
+Before deploying models based on these results:
+1. **Verify translations** with native speakers
+2. **Check EU terminology** against official sources
+3. **Test with alternative translations** to measure sensitivity
+4. **Consider translation quality** when interpreting results
 
 ---
 
