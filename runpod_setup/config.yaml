@@ -25,9 +25,9 @@ models:
     name: "Qwen3-30B-A3B-AWQ"
     repo: "stelterlab/Qwen3-30B-A3B-Instruct-2507-AWQ"
     local_path: "/workspace/models/qwen3_30b_a3b_awq"
-    quant: "awq"
-    max_model_len: 8192        # ↓ Reduced from 32768
-    gpu_memory_util: 0.55      # ↓ Reduced from 0.65
+    quant: "compressed-tensors"  # FIXED: was "awq", actually uses compressed-tensors
+    max_model_len: 8192
+    gpu_memory_util: 0.65
 
   deepseek_14b:
     name: "DeepSeek-R1-14B"

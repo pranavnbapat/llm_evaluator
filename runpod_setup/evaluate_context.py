@@ -68,9 +68,6 @@ class VLlmManager:
         
         if model_config.get("quant"):
             cmd.extend(["--quantization", model_config["quant"]])
-            # AWQ models often need enforce-eager for stability
-            if model_config["quant"] == "awq":
-                cmd.append("--enforce-eager")
         
         print(f"\n🚀 Starting vLLM with {model_config['name']}...")
         print(f"   Command: {' '.join(cmd[:6])} ... {' '.join(cmd[-6:])}")
