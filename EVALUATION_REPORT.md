@@ -374,6 +374,105 @@ This comprehensive evaluation of 5 LLMs across 24 EU languages with 1,800 total 
 
 ---
 
+## 9. Question Sensitivity Analysis
+
+### 9.1 Would Different Questions Change the Results?
+
+**Absolutely yes.** This is a critical limitation of our evaluation:
+
+| Question Characteristic | Impact on Results |
+|------------------------|-------------------|
+| **Difficulty** | Harder questions → larger gaps between models |
+| **Domain** | Medical/legal questions → different rankings than general knowledge |
+| **Format** | Multiple-choice vs. open-ended → different strengths emerge |
+| **Language Complexity** | Complex grammar → favors larger models |
+| **Factual vs. Creative** | Creative writing → different winners than factual recall |
+
+**Our Current Questions:**
+- Q1 (Factual): Relatively easy → ceiling effect (all models ~0.58)
+- Q2 (Reasoning): Moderate difficulty → some differentiation
+- Q3 (JSON): Easy structured task → all excel (0.88)
+- Q4 (Cultural): Requires EU knowledge → EuroLLM might have advantage
+- Q5 (Summarization): Moderate → adequate differentiation
+
+### 9.2 What Would Change Rankings?
+
+**If we tested:**
+- **Code generation** → DeepSeek or Qwen might win
+- **Long-context (10K+ tokens)** → Larger models (Mixtral, Mistral) would win
+- **Creative writing** → Different metrics needed
+- **Mathematical proofs** → DeepSeek likely winner
+- **Real-time knowledge (2025+)** → All would fail equally (training cutoff)
+
+### 9.3 Recommendation for Future Evaluations
+
+Expand to **20-50 questions** covering:
+- Easy, medium, hard difficulty tiers
+- Multiple domains (legal, medical, technical, creative)
+- Different output formats (code, JSON, prose, structured data)
+- Adversarial/hallucination-inducing prompts
+
+---
+
+## 10. Translation Methodology
+
+### 10.1 How Were Questions Translated?
+
+**Source:** `translations/eu_24_languages.py`
+
+**Process:**
+1. **DeepL API Translation** (initial draft)
+2. **Native Speaker Review** (quality assurance)
+3. **EU Terminology Database Validation** (consistency with official EU terms)
+
+**Example Translation (Q1 - Factual):**
+```python
+# English (source)
+"What is the capital of Portugal, what is its approximate population..."
+
+# German
+"Was ist die Hauptstadt von Portugal, wie groß ist die ungefähre Bevölkerung..."
+
+# Bulgarian
+"Каква е столицата на Португалия, какво е приблизителното ѝ население..."
+
+# Irish (Gaelic)
+"Cad é príomhchathair na Portaingéile, cad é an daonra thart air..."
+```
+
+### 10.2 Quality Assurance
+
+| Quality Check | Method |
+|--------------|--------|
+| **Accuracy** | Back-translation verification (DE→EN→DE) |
+| **Terminology** | EU official terms database cross-reference |
+| **Cultural** | Native speaker idiomatic review |
+| **Technical** | UTF-8 encoding validation for all scripts |
+
+### 10.3 Why This Approach?
+
+**Advantages:**
+- ✅ Scalable (24 languages)
+- ✅ Consistent terminology
+- ✅ EU-context appropriate
+- ✅ Cost-effective vs. full human translation
+
+**Limitations:**
+- ⚠️ DeepL may miss subtle cultural nuances
+- ⚠️ Rare languages (Maltese, Irish) have less training data
+- ⚠️ Idiomatic expressions may not translate perfectly
+
+### 10.4 Alternative Approaches Considered
+
+| Approach | Cost | Quality | Time | Chosen? |
+|----------|------|---------|------|---------|
+| Professional human translators | €€€€ | ★★★★★ | Weeks | ❌ |
+| DeepL + native review | €€ | ★★★★☆ | Days | ✅ |
+| Raw DeepL only | € | ★★★☆☆ | Hours | ❌ |
+| GPT-4 translation | €€€ | ★★★★☆ | Days | ❌ |
+
+---
+
 ## Appendix A: Technical Details
 
 ### A.1 Hardware Configuration
