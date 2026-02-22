@@ -84,7 +84,7 @@ class VLlmManager:
         # Wait for ready
         return self._wait_for_ready()
     
-    def _wait_for_ready(self, timeout: int = 120) -> bool:
+    def _wait_for_ready(self, timeout: int = 300) -> bool:
         """Wait for vLLM to be ready."""
         url = f"http://{self.host}:{self.port}/health"
         
