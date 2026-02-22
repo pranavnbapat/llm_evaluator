@@ -63,22 +63,22 @@ credentials/
 # Evaluation Results & Data (Generated)
 # =============================================================================
 # SQLite databases
-*.db
+#*.db
 *.sqlite
 *.sqlite3
 
 # Results directory (contains generated evaluation data)
-results/*.db
-results/*.sqlite
-results/*.json
-results/*.jsonl
-results/*.csv
-results/*.xlsx
-results/logs/
-evaluation_results/
+#results/*.db
+#results/*.sqlite
+#results/*.json
+#results/*.jsonl
+#results/*.csv
+#results/*.xlsx
+#results/logs/
+#evaluation_results/
 
 # RunPod downloaded results (local copies)
-runpod_results_*/
+#runpod_results_*/
 *.tar.gz
 *.zip
 
