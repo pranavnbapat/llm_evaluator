@@ -57,7 +57,8 @@ models:
 # Evaluation Configuration
 # ----------------------------------------------------------------------------
 evaluation:
-  languages: ["EN", "DE", "FR", "ES", "IT"]  # EU languages to test
+  # All 24 EU languages
+  languages: ["BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU", "GA", "IT", "LV", "LT", "MT", "PL", "PT", "RO", "SK", "SL", "ES", "SV"]
   num_runs: 3                                   # Runs per question
   temperature: 0.0                              # Deterministic
   max_tokens: 2048                              # Max response length
