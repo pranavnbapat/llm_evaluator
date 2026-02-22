@@ -155,7 +155,7 @@ class VLlmManager:
             headers["Authorization"] = f"Bearer {self.api_key}"
         
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=60)
+            response = requests.post(url, json=payload, headers=headers, timeout=120)
             response.raise_for_status()
             return response.json()["choices"][0]["message"]["content"]
         except Exception as e:

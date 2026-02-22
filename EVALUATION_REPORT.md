@@ -39,9 +39,13 @@ This report presents a comprehensive evaluation of five state-of-the-art Large L
 | **Mixtral-8x7B** | Mixture of Experts (MoE) architecture; sparse parameter activation           |
 | **Mistral-Small-24B** | Dense, large model; tests if size translates to better performance           |
 
-**Primary Research Question:** Can smaller, quantized, or specialized models match or exceed larger general-purpose models for EU multilingual tasks?
+**Primary Research Question:**-
+- Can current open-weight LLMs reliably generate valid responses in all 24 official EU languages under a controlled and reproducible evaluation setup?
 
-**Secondary Research Question:** Can all these models answer in all 24 EU languages, and if yes, to what extent?
+**Secondary Research Questions:**
+- How consistent is response quality across languages for this capability? 
+- Are there meaningful practical performance differences between models for these structured, medium-complexity multilingual tasks? 
+- Do smaller and/or quantised models provide the same level of multilingual coverage as larger models?
 
 ### 1.3 Evaluation Framework
 
@@ -257,7 +261,7 @@ OQS = 0.25×Relevance + 0.20×Factual + 0.15×Complete +
 
 ## 5. Direct Answers to Research Questions
 
-### 5.1 Can smaller/quantized/specialized models match larger models?
+### 5.1 Can current open-weight LLMs reliably generate valid responses in all 24 official EU languages under a controlled and reproducible evaluation setup?
 
 **ANSWER: YES ✓**
 
@@ -272,7 +276,7 @@ OQS = 0.25×Relevance + 0.20×Factual + 0.15×Complete +
 
 ---
 
-### 5.2 Can all models answer in all 24 EU languages?
+### 5.2 Can smaller/quantized/specialized models match larger models?
 
 **ANSWER: YES ✓**
 
@@ -287,22 +291,12 @@ OQS = 0.25×Relevance + 0.20×Factual + 0.15×Complete +
 - All models are **genuinely multilingual**
 - No language is "left behind"
 - Quality is **consistent** across language families
-- Ready for EU-wide deployment
 
 ---
 
 ## 6. Analysis & Insights
 
-### 5.1 The "Quantization Surprise"
-
-**Finding:** Qwen3-30B-AWQ (4-bit quantized, 16GB) matched or exceeded larger full-precision models.
-
-**Implications:**
-- Quantization does not necessarily degrade quality
-- Can deploy larger models on cheaper hardware
-- Significant cost savings for inference
-
-### 5.2 The "Size Paradox"
+### 6.1 The "Size Paradox"
 
 **Finding:** 9B EuroLLM performed equivalently to 47B Mixtral and 24B Mistral.
 
@@ -311,7 +305,7 @@ OQS = 0.25×Relevance + 0.20×Factual + 0.15×Complete +
 - Training data quality and domain relevance matter more
 - Smaller, specialized models can be sufficient
 
-### 5.3 The "Factual Knowledge Gap"
+### 6.2 The "Factual Knowledge Gap"
 
 **Finding:** All models scored lowest (0.580) on factual knowledge questions.
 
@@ -322,16 +316,15 @@ OQS = 0.25×Relevance + 0.20×Factual + 0.15×Complete +
 
 **Recommendation:** Use RAG (Retrieval-Augmented Generation) for factual queries.
 
-### 5.4 Multilingual Robustness
+### 6.3 Multilingual Robustness
 
 **Finding:** All 24 languages achieved acceptable scores (0.79+ average).
 
 **Implications:**
 - Current LLMs are genuinely multilingual
 - No language completely "left behind"
-- Ready for EU-wide deployment
 
-### 5.5 Task-Specific Strengths
+### 6.4 Task-Specific Strengths
 
 | Task | Model Performance | Implication |
 |------|------------------|-------------|
@@ -342,9 +335,9 @@ OQS = 0.25×Relevance + 0.20×Factual + 0.15×Complete +
 
 ---
 
-## 6. Limitations & Caveats
+## 7. Limitations & Caveats
 
-### 6.1 Evaluation Limitations
+### 7.1 Evaluation Limitations
 
 1. **Coherence Scoring:** The low coherence scores (0.344) across all models suggest the metric may be miscalibrated or overly strict.
 
@@ -354,7 +347,7 @@ OQS = 0.25×Relevance + 0.20×Factual + 0.15×Complete +
 
 4. **No Human Evaluation:** Automated metrics may not correlate with human judgment.
 
-### 6.2 Technical Limitations
+### 7.2 Technical Limitations
 
 1. **vLLM Timeout:** EuroLLM and Qwen3 initially failed to start within timeout window on some runs.
 
@@ -364,9 +357,9 @@ OQS = 0.25×Relevance + 0.20×Factual + 0.15×Complete +
 
 ---
 
-## 7. Recommendations
+## 8. Recommendations
 
-### 7.1 For Deployment
+### 8.1 For Deployment
 
 | Use Case | Recommended Model | Reason |
 |----------|------------------|--------|
@@ -375,7 +368,7 @@ OQS = 0.25×Relevance + 0.20×Factual + 0.15×Complete +
 | **Reasoning tasks** | DeepSeek-14B | Optimized for logical inference |
 | **General purpose** | Any of top 3 | Performance is equivalent |
 
-### 7.2 For Future Evaluation
+### 8.2 For Future Evaluation
 
 1. **Expand question set** to 20-50 diverse questions
 2. **Add human evaluators** for subjective quality assessment
@@ -383,7 +376,7 @@ OQS = 0.25×Relevance + 0.20×Factual + 0.15×Complete +
 4. **Include latency benchmarks** with proper isolation
 5. **Test on edge cases** (adversarial prompts, ambiguous questions)
 
-### 7.3 For Model Selection
+### 8.3 For Model Selection
 
 **Decision Matrix:**
 - If VRAM < 20GB → Qwen3-30B-AWQ or EuroLLM-9B
@@ -393,7 +386,7 @@ OQS = 0.25×Relevance + 0.20×Factual + 0.15×Complete +
 
 ---
 
-## 8. Conclusion
+## 9. Conclusion
 
 This comprehensive evaluation of 5 LLMs across 24 EU languages with 1,800 total responses reveals that:
 
@@ -411,9 +404,9 @@ This comprehensive evaluation of 5 LLMs across 24 EU languages with 1,800 total 
 
 ---
 
-## 9. Question Sensitivity Analysis
+## 10. Question Sensitivity Analysis
 
-### 9.1 Would Different Questions Change the Results?
+### 10.1 Would Different Questions Change the Results?
 
 **Absolutely yes.** This is a critical limitation of our evaluation:
 
@@ -432,7 +425,7 @@ This comprehensive evaluation of 5 LLMs across 24 EU languages with 1,800 total 
 - Q4 (Cultural): Requires EU knowledge → EuroLLM might have advantage
 - Q5 (Summarization): Moderate → adequate differentiation
 
-### 9.2 What Would Change Rankings?
+### 10.2 What Would Change Rankings?
 
 **If we tested:**
 - **Code generation** → DeepSeek or Qwen might win
@@ -441,7 +434,7 @@ This comprehensive evaluation of 5 LLMs across 24 EU languages with 1,800 total 
 - **Mathematical proofs** → DeepSeek likely winner
 - **Real-time knowledge (2025+)** → All would fail equally (training cutoff)
 
-### 9.3 Recommendation for Future Evaluations
+### 10.3 Recommendation for Future Evaluations
 
 Expand to **20-50 questions** covering:
 - Easy, medium, hard difficulty tiers
