@@ -7,8 +7,8 @@ import pandas as pd
 
 
 # ---------- CONFIG ----------
-SQLITE_PATH = Path("results/evaluation_results.db")
-OUT_XLSX = Path("evaluation_results.xlsx")
+SQLITE_PATH = Path("results/evaluation_scores.db")
+OUT_XLSX = Path("evaluation_scores.xlsx")
 # ---------------------------------------------
 
 
