@@ -24,11 +24,10 @@ This installs vLLM, creates venv, and sets up directories.
 
 ### 3. Configure
 
-Edit `config.yaml` with your tokens:
+Edit `config.yaml` with your token:
 
 ```yaml
 hf_token: "hf_your_token"           # For downloading models
-openai_api_key: "sk_your_key"        # For evaluation metrics
 vllm_api_key: "sk-anything"          # Can leave as-is
 ```
 

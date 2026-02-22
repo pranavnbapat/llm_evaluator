@@ -70,7 +70,7 @@ echo "  Installing project dependencies..."
 
 # Install vLLM in venv (avoids system conflicts)
 echo "  Installing vLLM (this may take a few minutes)..."
-.venv/bin/pip install -q vllm huggingface-hub hf_transfer
+.venv/bin/pip install -q vllm huggingface-hub hf_transfer pyyaml tqdm
 
 echo "✓ All dependencies installed"
 echo ""

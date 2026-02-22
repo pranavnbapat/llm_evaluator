@@ -258,13 +258,6 @@ def main():
     with open(config_path) as f:
         config = yaml.safe_load(f)
     
-    # Check OpenAI key (for evaluation)
-    openai_key = os.getenv("OPENAI_API_KEY") or config.get("openai_api_key")
-    if not openai_key:
-        print("⚠️  Warning: OPENAI_API_KEY not set. Evaluation metrics may fail.")
-    else:
-        os.environ["OPENAI_API_KEY"] = openai_key
-    
     # Initialize components
     vllm = VLlmManager(config)
     evaluator = Evaluator(vllm, config)

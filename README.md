@@ -139,6 +139,19 @@ sqlite3 evaluation_results.db "SELECT model_name, AVG(latency_ms) FROM evaluatio
 
 Models (~150GB) persist in `/workspace/` across pod restarts.
 
+## 🔬 Evaluation Method
+
+All metrics are computed **locally** on your RunPod GPU - no external API calls needed:
+
+| Metric | Method |
+|--------|--------|
+| Relevance | Sentence-transformers embeddings |
+| Factual Accuracy | Rule-based + reference matching |
+| Completeness | Checklist-based scoring |
+| Fluency | Perplexity + language detection |
+| Coherence | Statistical discourse analysis |
+| Prompt Alignment | Pattern matching |
+
 ---
 
 ## 📄 License
