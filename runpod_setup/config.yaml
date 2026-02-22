@@ -23,7 +23,7 @@ models:
     
   qwen3_30b_awq:
     name: "Qwen3-30B-A3B-AWQ"
-    repo: "Qwen/Qwen3-30B-A3B-Instruct-2507-AWQ"
+    repo: "stelterlab/Qwen3-30B-A3B-Instruct-2507-AWQ"
     local_path: "/workspace/models/qwen3_30b_a3b_awq"
     quant: "awq"                  # AWQ quantization
     max_model_len: 32768
