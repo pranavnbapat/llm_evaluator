@@ -45,11 +45,14 @@ class VLlmManager:
         self.process: Optional[subprocess.Popen] = None
         self.port = config["vllm"]["port"]
         self.host = config["vllm"]["host"]
+        self.client_host = "127.0.0.1" if self.host in ("0.0.0.0", "::") else self.host
         self.api_key = config.get("vllm_api_key", "")
         
     def start(self, model_config: dict) -> bool:
         """Start vLLM with given model."""
         model_path = model_config["local_path"]
+        # Safe, consistent log suffix
+        model_name = model_config["name"].replace(" ", "_").replace("-", "_").lower()
         
         # Build command
         cmd = [
@@ -65,28 +68,35 @@ class VLlmManager:
         
         if model_config.get("quant"):
             cmd.extend(["--quantization", model_config["quant"]])
+            # AWQ models often need enforce-eager for stability
+            if model_config["quant"] == "awq":
+                cmd.append("--enforce-eager")
         
         print(f"\n🚀 Starting vLLM with {model_config['name']}...")
-        print(f"   Command: {' '.join(cmd[:5])} ...")
+        print(f"   Command: {' '.join(cmd[:6])} ... {' '.join(cmd[-6:])}")
         
-        # Start process
+        # Start process with logging
         env = os.environ.copy()
         env["HF_HOME"] = self.config["paths"]["cache_dir"]
-        env["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
+        env.pop("VLLM_WORKER_MULTIPROC_METHOD", None)
+        
+        # Create log file for this model
+        log_file = open(f"/tmp/vllm_{model_name}.log", "w")
+        self.log_file = log_file
         
         self.process = subprocess.Popen(
             cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
             env=env
         )
         
         # Wait for ready
-        return self._wait_for_ready()
+        return self._wait_for_ready(model_name)
     
-    def _wait_for_ready(self, timeout: int = 300) -> bool:
+    def _wait_for_ready(self, model_name: str, timeout: int = 300) -> bool:
         """Wait for vLLM to be ready."""
-        url = f"http://{self.host}:{self.port}/health"
+        url = f"http://{self.client_host}:{self.port}/health"
         
         for i in range(timeout // 5):
             try:
@@ -99,18 +109,30 @@ class VLlmManager:
             
             if self.process.poll() is not None:
                 print(f"   ❌ vLLM process died")
+                print(f"   📄 Check log: /tmp/vllm_{model_name}.log")
+                # Show last 20 lines of log
+                try:
+                    with open(f"/tmp/vllm_{model_name}.log", "r") as f:
+                        lines = f.readlines()
+                        print(f"   📝 Last error lines:")
+                        for line in lines[-20:]:
+                            print(f"      {line.strip()}")
+                except:
+                    pass
                 return False
             
             print(f"   ⏳ Waiting for vLLM... ({i*5}s)")
             time.sleep(5)
         
         print(f"   ❌ Timeout waiting for vLLM")
+        print(f"   📄 Check full log: /tmp/vllm_{model_name}.log")
         return False
     
     def _get_model_name(self) -> Optional[str]:
         """Get the model name from vLLM."""
         try:
-            url = f"http://{self.host}:{self.port}/v1/models"
+            # Use client_host for requests (0.0.0.0 is a bind address, not a destination)
+            url = f"http://{self.client_host}:{self.port}/v1/models"
             headers = {}
             if self.api_key:
                 headers["Authorization"] = f"Bearer {self.api_key}"
@@ -135,10 +157,14 @@ class VLlmManager:
             self.process = None
             time.sleep(3)  # Cool down
             print(f"   ✅ Stopped")
+        # Close log file
+        if hasattr(self, 'log_file') and self.log_file:
+            self.log_file.close()
     
     def chat_completion(self, messages: list, **kwargs) -> Optional[str]:
         """Send chat completion request."""
-        url = f"http://{self.host}:{self.port}/v1/chat/completions"
+        # Use client_host for requests (0.0.0.0 is a bind address, not a destination)
+        url = f"http://{self.client_host}:{self.port}/v1/chat/completions"
         
         # Get actual model name from vLLM
         model_name = self._get_model_name() or "default"
