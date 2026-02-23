@@ -20,13 +20,13 @@ vllm_api_key: "${VLLM_API_KEY:-sk-runpod-eval}"
 # Model Configuration
 # ----------------------------------------------------------------------------
 models:
-#  eurollm_9b:
-#    name: "EuroLLM-9B-Instruct"
-#    repo: "utter-project/EuroLLM-9B-Instruct-2512"
-#    local_path: "/workspace/models/eurollm_9b"
-#    quant: null                   # No quantization
-#    max_model_len: 8192
-#    gpu_memory_util: 0.75
+  eurollm_9b:
+    name: "EuroLLM-9B-Instruct"
+    repo: "utter-project/EuroLLM-9B-Instruct-2512"
+    local_path: "/workspace/models/eurollm_9b"
+    quant: null                   # No quantization
+    max_model_len: 8192
+    gpu_memory_util: 0.75
 
   qwen3_30b_awq:
     name: "Qwen3-30B-A3B-AWQ"
