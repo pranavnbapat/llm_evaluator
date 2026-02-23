@@ -119,9 +119,10 @@ class VLlmManager:
         """Start vLLM with given model."""
         model_path = model_config["local_path"]
         
-        # Build command
+        # Build command - use venv's vllm
+        vllm_path = Path(sys.executable).parent / "vllm"
         cmd = [
-            "vllm", "serve", model_path,
+            str(vllm_path), "serve", model_path,
             "--host", self.host,
             "--port", str(self.port),
             "--api-key", self.api_key,

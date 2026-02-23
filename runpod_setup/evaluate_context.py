@@ -54,9 +54,10 @@ class VLlmManager:
         # Safe, consistent log suffix
         model_name = model_config["name"].replace(" ", "_").replace("-", "_").lower()
         
-        # Build command
+        # Build command - use venv's vllm
+        vllm_path = Path(sys.executable).parent / "vllm"
         cmd = [
-            "vllm", "serve", model_path,
+            str(vllm_path), "serve", model_path,
             "--host", self.host,
             "--port", str(self.port),
             "--api-key", self.api_key,
