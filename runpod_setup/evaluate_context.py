@@ -44,7 +44,7 @@ class VLlmManager:
     def __init__(self, config: dict):
         self.config = config
         self.process: Optional[subprocess.Popen] = None
-        self.port = config["vllm"]["port"]
+        self.port = int(config["vllm"]["port"])
         self.host = config["vllm"]["host"]
         self.client_host = "127.0.0.1" if self.host in ("0.0.0.0", "::") else self.host
         self.api_key = config.get("vllm_api_key", "")
@@ -203,7 +203,7 @@ class Evaluator:
         
         # Load questions WITH CONTEXT
         self.questions = get_all_questions_with_context()
-        self.num_runs = config["evaluation"]["num_runs"]
+        self.num_runs = int(config["evaluation"]["num_runs"])
     
     def _init_db(self):
         """Initialize SQLite database."""
