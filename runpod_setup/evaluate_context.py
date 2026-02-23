@@ -18,6 +18,7 @@ Database: evaluation_results_euf_context.db
 Scores: evaluation_scores_euf_context.db
 """
 import os
+import re
 import sys
 import yaml
 import json
@@ -27,7 +28,7 @@ import sqlite3
 import subprocess
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import requests
 from tqdm import tqdm
 
@@ -355,11 +356,71 @@ Your response:"""
         conn.close()
 
 
+def load_env_file(env_path: Path) -> None:
+    """Load environment variables from .env file."""
+    if env_path.exists():
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    # Remove quotes if present
+                    if (value.startswith('"') and value.endswith('"')) or \
+                       (value.startswith("'") and value.endswith("'")):
+                        value = value[1:-1]
+                    # Only set if not already set in environment
+                    if key not in os.environ:
+                        os.environ[key] = value
+
+
+def substitute_env_vars(value: Any) -> Any:
+    """Recursively substitute environment variables in config values.
+    
+    Supports formats:
+        ${VAR} - Substitutes env var or empty string if not set
+        ${VAR:-default} - Substitutes env var or default if not set
+    """
+    if isinstance(value, str):
+        # Pattern to match ${VAR} or ${VAR:-default}
+        pattern = r'\$\{([^}]+)\}'
+        
+        def replace_var(match: re.Match) -> str:
+            var_expr = match.group(1)
+            if ':-' in var_expr:
+                var_name, default = var_expr.split(':-', 1)
+                return os.environ.get(var_name, default)
+            else:
+                return os.environ.get(var_expr, '')
+        
+        return re.sub(pattern, replace_var, value)
+    elif isinstance(value, dict):
+        return {k: substitute_env_vars(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [substitute_env_vars(item) for item in value]
+    else:
+        return value
+
+
 def load_config() -> dict:
-    """Load configuration from config.yaml."""
+    """Load configuration from config.yaml with environment variable substitution."""
     config_path = Path(__file__).parent / "config.yaml"
+    env_path = Path(__file__).parent / ".env"
+    
+    # Load .env file first
+    load_env_file(env_path)
+    
+    # Load YAML config
     with open(config_path) as f:
-        return yaml.safe_load(f)
+        config = yaml.safe_load(f)
+    
+    # Substitute environment variables
+    config = substitute_env_vars(config)
+    
+    return config
 
 
 def main():
