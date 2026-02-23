@@ -54,6 +54,9 @@ venv.bak/
 .env.sample
 !.env.sample
 !.env.runpod.example
+
+# RunPod setup specific env file
+runpod_setup/.env
 secrets/
 *.pem
 *.key

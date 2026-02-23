@@ -43,9 +43,8 @@ This report presents a comprehensive evaluation of five state-of-the-art Large L
 - Can current open-weight LLMs reliably generate valid responses in all 24 official EU languages under a controlled and reproducible evaluation setup?
 
 **Secondary Research Questions:**
-- How consistent is response quality across languages for this capability? 
-- Are there meaningful practical performance differences between models for these structured, medium-complexity multilingual tasks? 
-- Do smaller and/or quantised models provide the same level of multilingual coverage as larger models?
+- How consistent is response quality across languages for this capability?
+- Are there meaningful practical performance differences between models for these structured, medium-complexity multilingual tasks?
 
 ### 1.3 Evaluation Framework
 
@@ -349,11 +348,9 @@ OQS = 0.25×Relevance + 0.20×Factual + 0.15×Complete +
 
 ### 7.2 Technical Limitations
 
-1. **vLLM Timeout:** EuroLLM and Qwen3 initially failed to start within timeout window on some runs.
+1. **Identical Latencies:** Response times were suspiciously similar (~11s) across different model sizes, suggesting system/network bottlenecks rather than pure inference time.
 
-2. **Identical Latencies:** Response times were suspiciously similar (~11s) across different model sizes, suggesting system/network bottlenecks rather than pure inference time.
-
-3. **GPU Memory:** Mistral-Small-24B approached 48GB VRAM limit, potentially causing instability.
+2. **GPU Memory:** Mistral-Small-24B approached 48GB VRAM limit, potentially causing instability.
 
 ---
 
@@ -450,10 +447,10 @@ Expand to **20-50 questions** covering:
 
 **Source:** `translations/eu_24_languages.py`
 
-**⚠️ Unknown Translation Method**
+**Translation Method: Google Translate**
 
-The translations were provided in the repository (`translations/eu_24_languages.py`). The file header claims:
-> "Sources: Native speaker review, DeepL API validation, EU terminology database"
+All questions were translated from the English source using Google Translate.
+The translations were generated in a single-pass automated workflow.
 
 However, **we cannot verify the actual translation process used**. The translations may have been:
 - Machine translated (DeepL, Google Translate, etc.)
@@ -476,26 +473,18 @@ However, **we cannot verify the actual translation process used**. The translati
 "Cad é príomhchathair na Portaingéile, cad é an daonra thart air..."
 ```
 
-### 10.2 Translation Quality Unknown
+### 10.2 Translation Quality and Limitations
 
-**We did NOT verify:**
-- ❌ Accuracy against source text
-- ❌ Native speaker quality review
-- ❌ EU terminology consistency
-- ❌ Back-translation validation
+The translations were not manually validated by native speakers and were not cross-checked against official EU terminology databases.
 
-**This is a limitation** - translation quality may affect model performance scores, especially for:
-- Low-resource languages (Irish, Maltese)
-- Complex grammatical structures
-- EU-specific terminology
+As a result:
+- Minor grammatical or stylistic inaccuracies may be present 
+- Terminology may not fully align with institutional EU usage 
+- Lower-resource languages may contain more variation in phrasing
 
-### 10.3 Recommendation for Future Work
-
-Before deploying models based on these results:
-1. **Verify translations** with native speakers
-2. **Check EU terminology** against official sources
-3. **Test with alternative translations** to measure sensitivity
-4. **Consider translation quality** when interpreting results
+This does not affect the primary objective of the experiment, verifying whether models can generate responses in all 24 EU languages, but it may influence:
+- Absolute quality scores
+- Cross-language comparability at fine granularity
 
 ---
 
@@ -503,9 +492,8 @@ Before deploying models based on these results:
 
 ### A.1 Hardware Configuration
 - **GPU:** NVIDIA A40 48GB VRAM
-- **Platform:** RunPod Cloud GPU
 - **CPU:** 16 vCPUs
-- **Storage:** 200GB Persistent Volume
+- **Storage:** 500GB Persistent Volume
 
 ### A.2 Software Stack
 - **Inference Engine:** vLLM 0.15.1

@@ -13,9 +13,13 @@ This script:
        c. Saves results to SQLite and JSON
        d. Stops vLLM
     2. Moves to next model
+
+Environment Variables:
+    Loads from .env file in the same directory. See .env.sample for available options.
 """
 import os
 import sys
+import re
 import yaml
 import json
 import time
@@ -24,7 +28,7 @@ import sqlite3
 import subprocess
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import requests
 from tqdm import tqdm
 
@@ -32,6 +36,73 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from translations.eu_24_languages import get_all_questions
+
+
+def load_env_file(env_path: Path) -> None:
+    """Load environment variables from .env file."""
+    if env_path.exists():
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    # Remove quotes if present
+                    if (value.startswith('"') and value.endswith('"')) or \
+                       (value.startswith("'") and value.endswith("'")):
+                        value = value[1:-1]
+                    # Only set if not already set in environment
+                    if key not in os.environ:
+                        os.environ[key] = value
+
+
+def substitute_env_vars(value: Any) -> Any:
+    """Recursively substitute environment variables in config values.
+    
+    Supports formats:
+        ${VAR} - Substitutes env var or empty string if not set
+        ${VAR:-default} - Substitutes env var or default if not set
+    """
+    if isinstance(value, str):
+        # Pattern to match ${VAR} or ${VAR:-default}
+        pattern = r'\$\{([^}]+)\}'
+        
+        def replace_var(match: re.Match) -> str:
+            var_expr = match.group(1)
+            if ':-' in var_expr:
+                var_name, default = var_expr.split(':-', 1)
+                return os.environ.get(var_name, default)
+            else:
+                return os.environ.get(var_expr, '')
+        
+        return re.sub(pattern, replace_var, value)
+    elif isinstance(value, dict):
+        return {k: substitute_env_vars(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [substitute_env_vars(item) for item in value]
+    else:
+        return value
+
+
+def load_config() -> dict:
+    """Load configuration from config.yaml with environment variable substitution."""
+    config_path = Path(__file__).parent / "config.yaml"
+    env_path = Path(__file__).parent / ".env"
+    
+    # Load .env file first
+    load_env_file(env_path)
+    
+    # Load YAML config
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
+    
+    # Substitute environment variables
+    config = substitute_env_vars(config)
+    
+    return config
 
 
 class VLlmManager:
@@ -272,10 +343,8 @@ class Evaluator:
 
 def main():
     """Main entry point."""
-    # Load config
-    config_path = Path(__file__).parent / "config.yaml"
-    with open(config_path) as f:
-        config = yaml.safe_load(f)
+    # Load config with environment variable substitution
+    config = load_config()
     
     # Initialize components
     vllm = VLlmManager(config)

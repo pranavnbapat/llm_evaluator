@@ -5,20 +5,84 @@ Download all configured models to /workspace/models/
 Usage:
     export HF_TOKEN=your_token
     python download_models.py
+
+Or set HF_TOKEN in the .env file in the same directory.
 """
 import os
+import re
 import sys
 import yaml
 from pathlib import Path
+from typing import Any
 from huggingface_hub import snapshot_download
 from tqdm import tqdm
 
 
+def load_env_file(env_path: Path) -> None:
+    """Load environment variables from .env file."""
+    if env_path.exists():
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    # Remove quotes if present
+                    if (value.startswith('"') and value.endswith('"')) or \
+                       (value.startswith("'") and value.endswith("'")):
+                        value = value[1:-1]
+                    # Only set if not already set in environment
+                    if key not in os.environ:
+                        os.environ[key] = value
+
+
+def substitute_env_vars(value: Any) -> Any:
+    """Recursively substitute environment variables in config values.
+
+    Supports formats:
+        ${VAR} - Substitutes env var or empty string if not set
+        ${VAR:-default} - Substitutes env var or default if not set
+    """
+    if isinstance(value, str):
+        # Pattern to match ${VAR} or ${VAR:-default}
+        pattern = r'\$\{([^}]+)\}'
+
+        def replace_var(match: re.Match) -> str:
+            var_expr = match.group(1)
+            if ':-' in var_expr:
+                var_name, default = var_expr.split(':-', 1)
+                return os.environ.get(var_name, default)
+            else:
+                return os.environ.get(var_expr, '')
+
+        return re.sub(pattern, replace_var, value)
+    elif isinstance(value, dict):
+        return {k: substitute_env_vars(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [substitute_env_vars(item) for item in value]
+    else:
+        return value
+
+
 def load_config():
-    """Load configuration from config.yaml."""
+    """Load configuration from config.yaml with environment variable substitution."""
     config_path = Path(__file__).parent / "config.yaml"
+    env_path = Path(__file__).parent / ".env"
+
+    # Load .env file first
+    load_env_file(env_path)
+
+    # Load YAML config
     with open(config_path) as f:
-        return yaml.safe_load(f)
+        config = yaml.safe_load(f)
+
+    # Substitute environment variables
+    config = substitute_env_vars(config)
+
+    return config
 
 
 def download_model(name: str, config: dict, hf_token: str):
@@ -57,9 +121,9 @@ def download_model(name: str, config: dict, hf_token: str):
 def main():
     """Download all models."""
     config = load_config()
-    
-    # Get HF token
-    hf_token = os.getenv("HF_TOKEN") or config.get("hf_token")
+
+    # Get HF token (already substituted from config.yaml which reads from env)
+    hf_token = config.get("hf_token") or os.getenv("HF_TOKEN")
     if not hf_token:
         print("❌ Error: HF_TOKEN not set")
         print("   Set it as environment variable or in config.yaml")

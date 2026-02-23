@@ -1,13 +1,20 @@
 # ============================================================================
 # LLM Evaluator Configuration
 # ============================================================================
-# Edit this file with your actual tokens before running evaluation
+# This file uses environment variable substitution for sensitive values.
+# Set your actual tokens in the .env file in this directory.
+#
+# Format: ${ENV_VAR_NAME} or ${ENV_VAR_NAME:-default_value}
+# ----------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------
-# API Keys (REQUIRED - fill these in)
+# API Keys (loaded from environment variables)
 # ----------------------------------------------------------------------------
-hf_token: ""                    # HuggingFace token for downloading models
-vllm_api_key: "sk-runpod-eval"  # Can leave as-is, for securing vLLM endpoint
+# HuggingFace token - set HF_TOKEN in .env file
+hf_token: "${HF_TOKEN}"
+
+# vLLM API key - set VLLM_API_KEY in .env file (defaults to "sk-runpod-eval")
+vllm_api_key: "${VLLM_API_KEY:-sk-runpod-eval}"
 
 # ----------------------------------------------------------------------------
 # Model Configuration
@@ -35,7 +42,7 @@ models:
     local_path: "/workspace/models/deepseek_14b"
     quant: null
     max_model_len: 8192        # ↓ Reduced from 16384
-    gpu_memory_util: 0.70      # ↓ Reduced from 0.75
+    gpu_memory_util: 0.75
 
   mixtral_8x7b:
     name: "Mixtral-8x7B-Instruct"
@@ -43,7 +50,7 @@ models:
     local_path: "/workspace/models/mixtral_8x7b"
     quant: null
     max_model_len: 8192        # ↓ Reduced from 16384
-    gpu_memory_util: 0.75      # ↓ Reduced from 0.90
+    gpu_memory_util: 0.80      # ↓ Reduced from 0.90
 
   mistral_small_24b:
     name: "Mistral-Small-24B"
@@ -59,22 +66,22 @@ models:
 evaluation:
   # All 24 EU languages
   languages: ["BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU", "GA", "IT", "LV", "LT", "MT", "PL", "PT", "RO", "SK", "SL", "ES", "SV"]
-  num_runs: 3                                   # Runs per question
-  temperature: 0.0                              # Deterministic
-  max_tokens: 2048                              # Max response length
+  num_runs: ${NUM_RUNS:-3}                      # Runs per question
+  temperature: ${TEMPERATURE:-0.0}              # Deterministic
+  max_tokens: ${MAX_TOKENS:-2048}               # Max response length
 
 # ----------------------------------------------------------------------------
 # vLLM Configuration
 # ----------------------------------------------------------------------------
 vllm:
-  port: 8000
-  host: "0.0.0.0"
-  timeout: 120                                  # Seconds to wait for startup
+  port: ${VLLM_PORT:-8000}
+  host: "${VLLM_HOST:-0.0.0.0}"
+  timeout: ${VLLM_TIMEOUT:-120}                 # Seconds to wait for startup
 
 # ----------------------------------------------------------------------------
 # Paths
 # ----------------------------------------------------------------------------
 paths:
-  models_dir: "/workspace/models"
-  results_dir: "/workspace/evaluation_results"
-  cache_dir: "/workspace/.cache/huggingface"
+  models_dir: "${MODELS_DIR:-/workspace/models}"
+  results_dir: "${RESULTS_DIR:-/workspace/evaluation_results}"
+  cache_dir: "${CACHE_DIR:-/workspace/.cache/huggingface}"
