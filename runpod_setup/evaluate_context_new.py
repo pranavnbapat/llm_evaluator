@@ -61,12 +61,14 @@ class VLlmManager:
             str(vllm_path), "serve", model_path,
             "--host", self.host,
             "--port", str(self.port),
-            "--api-key", self.api_key,
             "--tensor-parallel-size", "1",
             "--dtype", model_config.get("dtype", "auto"),
             "--max-model-len", str(model_config["max_model_len"]),
             "--gpu-memory-utilization", str(model_config["gpu_memory_util"]),
         ]
+        # Only add api-key if actually set
+        if self.api_key:
+            cmd.extend(["--api-key", self.api_key])
         
         if model_config.get("quant"):
             cmd.extend(["--quantization", model_config["quant"]])
@@ -78,7 +80,9 @@ class VLlmManager:
         env = os.environ.copy()
         env["HF_HOME"] = self.config["paths"]["cache_dir"]
         env.pop("VLLM_WORKER_MULTIPROC_METHOD", None)
-        env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+        # Help with CUDA memory fragmentation (use new env var name)
+        env["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
+        env.pop("PYTORCH_CUDA_ALLOC_CONF", None)  # Remove deprecated key if exists
         
         # Create log file for this model
         log_file = open(f"/tmp/vllm_{model_name}.log", "w")
@@ -88,7 +92,8 @@ class VLlmManager:
             cmd,
             stdout=log_file,
             stderr=subprocess.STDOUT,
-            env=env
+            env=env,
+            start_new_session=True
         )
         
         # Wait for ready
@@ -103,6 +108,8 @@ class VLlmManager:
                 response = requests.get(url, timeout=5)
                 if response.status_code == 200:
                     print(f"   ✅ vLLM ready!")
+                    mid = self._get_model_name()
+                    print(f"   🔎 vLLM model id: {mid}")
                     return True
             except:
                 pass
@@ -149,53 +156,83 @@ class VLlmManager:
         """Stop vLLM."""
         if self.process:
             print(f"\n🛑 Stopping vLLM...")
-            self.process.terminate()
             try:
+                os.killpg(self.process.pid, signal.SIGTERM)
                 self.process.wait(timeout=10)
             except:
-                self.process.kill()
+                try:
+                    os.killpg(self.process.pid, signal.SIGKILL)
+                    self.process.wait(timeout=5)
+                except:
+                    pass
             self.process = None
             time.sleep(3)  # Cool down
-
-            # Clear CUDA cache to help with memory fragmentation
-            try:
-                import subprocess
-                subprocess.run(["python3", "-c", "import torch; torch.cuda.empty_cache()"], 
-                              capture_output=True, timeout=10)
-                time.sleep(2)
-            except:
-                pass
-
             print(f"   ✅ Stopped")
         # Close log file
         if hasattr(self, 'log_file') and self.log_file:
             self.log_file.close()
     
     def chat_completion(self, messages: list, **kwargs) -> Optional[str]:
-        """Send chat completion request."""
-        # Use client_host for requests (0.0.0.0 is a bind address, not a destination)
-        url = f"http://{self.client_host}:{self.port}/v1/chat/completions"
-        
-        # Get actual model name from vLLM
+        """Send chat completion request. If chat fails (often due to chat templates),
+        fallback to plain /v1/completions with a single prompt string."""
         model_name = self._get_model_name() or "default"
-        
-        payload = {
-            "model": model_name,
-            "messages": messages,
-            "temperature": kwargs.get("temperature", 0.0),
-            "max_tokens": kwargs.get("max_tokens", 2048),
-        }
-        
         headers = {}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         
+        temperature = kwargs.get("temperature", 0.0)
+        max_tokens = kwargs.get("max_tokens", 2048)
+        
+        # 1) Try chat endpoint first
+        chat_url = f"http://{self.client_host}:{self.port}/v1/chat/completions"
+        chat_payload = {
+            "model": model_name,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=120)
-            response.raise_for_status()
-            return response.json()["choices"][0]["message"]["content"]
+            r = requests.post(chat_url, json=chat_payload, headers=headers, timeout=240)
+            if r.status_code == 200:
+                data = r.json()
+                return data["choices"][0]["message"]["content"]
+            
+            # Print the real reason once
+            print(f"   ❌ Chat API error: HTTP {r.status_code}")
+            try:
+                print(f"   ❌ Chat Body: {r.json()}")
+            except Exception:
+                print(f"   ❌ Chat Body (text): {r.text[:1000]}")
         except Exception as e:
-            print(f"   ❌ API error: {e}")
+            print(f"   ❌ Chat API exception: {type(e).__name__}: {e}")
+        
+        # 2) Fallback: plain completions (no chat template needed)
+        completions_url = f"http://{self.client_host}:{self.port}/v1/completions"
+        prompt_text = messages[-1]["content"] if messages else ""
+        
+        comp_payload = {
+            "model": model_name,
+            "prompt": prompt_text,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        
+        try:
+            print(f"   🔄 Trying fallback to /v1/completions...")
+            r2 = requests.post(completions_url, json=comp_payload, headers=headers, timeout=240)
+            if r2.status_code != 200:
+                print(f"   ❌ Completions API error: HTTP {r2.status_code}")
+                try:
+                    print(f"   ❌ Completions Body: {r2.json()}")
+                except Exception:
+                    print(f"   ❌ Completions Body (text): {r2.text[:1000]}")
+                return None
+            
+            data2 = r2.json()
+            return data2["choices"][0].get("text", "").strip() or None
+        except Exception as e:
+            print(f"   ❌ Completions API exception: {type(e).__name__}: {e}")
             return None
 
 

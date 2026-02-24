@@ -2,7 +2,7 @@
 import re
 import json
 import math
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple, Union
 from dataclasses import dataclass
 import numpy as np
 from collections import Counter
@@ -119,7 +119,7 @@ class ResponseEvaluator:
     def calculate_factual_accuracy(
         self,
         response: str,
-        reference_facts: Dict[str, Any],
+        reference_facts: Union[Dict[str, Any], List[str]],
     ) -> float:
         """
         Calculate factual accuracy against reference facts.
@@ -131,13 +131,19 @@ class ResponseEvaluator:
         response_lower = response.lower()
         correct = 0
         
-        for key, value in reference_facts.items():
-            # Check if key concept is mentioned
-            if str(key).lower() in response_lower:
-                correct += 0.5
-            # Check if value is mentioned
-            if str(value).lower() in response_lower:
-                correct += 0.5
+        # Handle both dict and list formats
+        if isinstance(reference_facts, dict):
+            for key, value in reference_facts.items():
+                # Check if key concept is mentioned
+                if str(key).lower() in response_lower:
+                    correct += 0.5
+                # Check if value is mentioned
+                if str(value).lower() in response_lower:
+                    correct += 0.5
+        else:  # List format
+            for fact in reference_facts:
+                if str(fact).lower() in response_lower:
+                    correct += 1.0
         
         return min(1.0, correct / len(reference_facts))
     
