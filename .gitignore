@@ -70,6 +70,8 @@ credentials/
 *.sqlite
 *.sqlite3
 
+*.xlsx
+
 # Results directory (contains generated evaluation data)
 #results/*.db
 #results/*.sqlite

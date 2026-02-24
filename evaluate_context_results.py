@@ -117,18 +117,24 @@ def main():
         except:
             context = []
         
-        # Extract reference facts from context
-        reference_facts = []
+        # Extract full context documents for semantic comparison
+        context_documents = []
         for ctx in context:
             if isinstance(ctx, dict):
-                # Add title and description as reference facts
-                ref_text = ctx.get('description', '')
-                if ref_text:
-                    reference_facts.append(ref_text[:500])  # First 500 chars
+                # Combine title and description for full context
+                title = ctx.get('title', '')
+                description = ctx.get('description', '')
+                full_text = f"{title}. {description}".strip()
+                if full_text:
+                    context_documents.append(full_text[:1000])  # First 1000 chars
+        
+        # Also extract reference facts as fallback
+        reference_facts = context_documents.copy()
         
         # Build reference data
         ref_data = {
             "reference_facts": reference_facts,
+            "context_documents": context_documents,  # NEW: full context for semantic similarity
             "expected_elements": ["practical advice", "specific methods", "evidence-based recommendations"],
             "context_provided": len(context) > 0
         }

@@ -50,9 +50,11 @@ class EmbeddingModel:
         return cls._instance
     
     def load(self):
-        """Lazy load the embedding model."""
+        """Lazy load the embedding model on CPU to avoid GPU conflicts."""
         if self.model is None and ML_AVAILABLE and self.model_name:
-            self.model = SentenceTransformer(self.model_name)
+            import torch
+            # Force CPU to avoid GPU memory conflicts with vLLM
+            self.model = SentenceTransformer(self.model_name, device='cpu')
         return self.model
     
     def encode(self, texts: List[str]) -> np.ndarray:
@@ -146,6 +148,50 @@ class ResponseEvaluator:
                     correct += 1.0
         
         return min(1.0, correct / len(reference_facts))
+    
+    def calculate_context_utilization(
+        self,
+        response: str,
+        context_documents: List[str],
+    ) -> float:
+        """
+        Calculate how well the response utilizes the provided context.
+        Uses semantic similarity (embeddings) instead of exact string matching.
+        
+        Returns max similarity to any context document (0-1 scale).
+        """
+        if not context_documents or not response.strip():
+            return 0.0
+        
+        try:
+            # Encode response
+            response_embedding = self.embedding_model.encode([response])[0]
+            
+            # Encode each context document and find max similarity
+            max_similarity = 0.0
+            for doc in context_documents:
+                if not doc or not doc.strip():
+                    continue
+                doc_embedding = self.embedding_model.encode([doc])[0]
+                
+                # Calculate cosine similarity manually (avoid sklearn dependency issues)
+                import numpy as np
+                dot_product = np.dot(response_embedding, doc_embedding)
+                norm_a = np.linalg.norm(response_embedding)
+                norm_b = np.linalg.norm(doc_embedding)
+                
+                if norm_a == 0 or norm_b == 0:
+                    continue
+                    
+                similarity = dot_product / (norm_a * norm_b)
+                max_similarity = max(max_similarity, similarity)
+            
+            # Normalize to 0-1
+            return float(max(0.0, min(1.0, max_similarity)))
+        except Exception as e:
+            # Log error and return fallback
+            print(f"   ⚠️ Context utilization error: {e}")
+            return 0.5
     
     def calculate_fluency(self, response: str, expected_language: str = None) -> float:
         """
@@ -338,13 +384,19 @@ class ResponseEvaluator:
         # Get question-specific expected elements
         expected_elements = reference_data.get("expected_elements", []) if reference_data else []
         reference_facts = reference_data.get("reference_facts", {}) if reference_data else {}
+        context_documents = reference_data.get("context_documents", []) if reference_data else []
         
         # Calculate individual scores
         relevance = self.calculate_relevance(question_text, response_text)
         
         completeness = self.calculate_completeness(response_text, expected_elements)
         
-        factual_accuracy = self.calculate_factual_accuracy(response_text, reference_facts)
+        # Use context utilization (semantic similarity) when context documents are provided
+        # Otherwise fall back to factual accuracy (string matching)
+        if context_documents:
+            factual_accuracy = self.calculate_context_utilization(response_text, context_documents)
+        else:
+            factual_accuracy = self.calculate_factual_accuracy(response_text, reference_facts)
         
         fluency = self.calculate_fluency(response_text, language)
         
