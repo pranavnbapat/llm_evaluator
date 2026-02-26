@@ -64,54 +64,109 @@ def compute_summary(values: List[float]) -> StatisticalSummary:
 
 def compute_icc(
     values: List[List[float]],
-    model: str = "single_rater"
+    model: str = "icc2_1",
+    n_bootstrap: int = 1000,
+    confidence: float = 0.95,
+    random_state: Optional[int] = None,
 ) -> Tuple[float, float]:
     """
-    Compute Intraclass Correlation Coefficient (ICC) for reproducibility.
+    Compute Intraclass Correlation Coefficient (ICC) with bootstrap CI.
+    
+    Supported models:
+        - "icc2_1" / "two_way_random" / "absolute": ICC(2,1)
+        - "icc3_1" / "two_way_mixed" / "consistency": ICC(3,1)
     
     Args:
-        values: List of lists, where each inner list is measurements for one subject
-        model: ICC model type
+        values: List of lists, where each inner list is measurements for one subject.
+                This should be balanced (same number of raters) for strict ICC assumptions.
+        model: ICC model type.
+        n_bootstrap: Number of bootstrap resamples for CI.
+        confidence: Confidence level for CI.
+        random_state: Optional random seed for reproducibility.
     
     Returns:
-        (icc_value, confidence_interval)
+        (icc_value, ci_half_width)
     """
-    # Simplified ICC calculation
-    # For proper implementation, use pingouin or similar library
-    
     if not values or len(values) < 2:
         return 0.0, 0.0
     
-    # Convert to numpy array
+    # Convert to numpy array with NaN padding, then drop incomplete rows
     max_len = max(len(v) for v in values)
     data = np.full((len(values), max_len), np.nan)
-    
     for i, v in enumerate(values):
         data[i, :len(v)] = v
     
-    # Remove subjects with all NaN
-    valid_mask = ~np.all(np.isnan(data), axis=1)
+    # ICC assumes balanced data; drop rows with any NaN
+    valid_mask = ~np.any(np.isnan(data), axis=1)
     data = data[valid_mask]
     
-    if data.shape[0] < 2:
+    n, k = data.shape if data.size else (0, 0)
+    if n < 2 or k < 2:
         return 0.0, 0.0
     
-    # Simple ICC estimate based on between-subject vs within-subject variance
-    subject_means = np.nanmean(data, axis=1)
-    grand_mean = np.nanmean(data)
+    def _icc_2_1(x: np.ndarray) -> float:
+        # Two-way random effects, absolute agreement
+        n_, k_ = x.shape
+        mean_rows = np.mean(x, axis=1)
+        mean_cols = np.mean(x, axis=0)
+        grand_mean = np.mean(x)
+        
+        msr = k_ * np.sum((mean_rows - grand_mean) ** 2) / (n_ - 1)
+        msc = n_ * np.sum((mean_cols - grand_mean) ** 2) / (k_ - 1)
+        mse = (
+            np.sum((x - mean_rows[:, None] - mean_cols[None, :] + grand_mean) ** 2)
+            / ((n_ - 1) * (k_ - 1))
+        )
+        
+        denom = msr + (k_ - 1) * mse + (k_ * (msc - mse) / n_)
+        if denom == 0:
+            return 0.0
+        return (msr - mse) / denom
     
-    between_var = np.nanvar(subject_means, ddof=1) if len(subject_means) > 1 else 0
-    within_var = np.nanmean(np.nanvar(data, axis=1, ddof=1))
+    def _icc_3_1(x: np.ndarray) -> float:
+        # Two-way mixed effects, consistency
+        n_, k_ = x.shape
+        mean_rows = np.mean(x, axis=1)
+        mean_cols = np.mean(x, axis=0)
+        grand_mean = np.mean(x)
+        
+        msr = k_ * np.sum((mean_rows - grand_mean) ** 2) / (n_ - 1)
+        mse = (
+            np.sum((x - mean_rows[:, None] - mean_cols[None, :] + grand_mean) ** 2)
+            / ((n_ - 1) * (k_ - 1))
+        )
+        
+        denom = msr + (k_ - 1) * mse
+        if denom == 0:
+            return 0.0
+        return (msr - mse) / denom
     
-    if between_var + within_var == 0:
-        return 0.0, 0.0
+    model_key = model.lower()
+    if model_key in {"icc3", "icc3_1", "two_way_mixed", "consistency"}:
+        icc_func = _icc_3_1
+    else:
+        icc_func = _icc_2_1
     
-    icc = between_var / (between_var + within_var)
+    icc_value = float(icc_func(data))
     
-    # Rough confidence interval estimate
-    ci = 1.96 * np.sqrt(2 / (data.shape[0] - 1)) if data.shape[0] > 1 else 0
+    # Bootstrap CI
+    if n_bootstrap <= 0 or n < 3:
+        return icc_value, 0.0
     
-    return float(icc), float(ci)
+    rng = np.random.default_rng(random_state)
+    boot = []
+    for _ in range(n_bootstrap):
+        idx = rng.integers(0, n, size=n)
+        sample = data[idx, :]
+        boot.append(icc_func(sample))
+    
+    boot = np.array(boot)
+    alpha = (1 - confidence) / 2
+    lower = np.percentile(boot, alpha * 100)
+    upper = np.percentile(boot, (1 - alpha) * 100)
+    
+    ci_half_width = float((upper - lower) / 2)
+    return icc_value, ci_half_width
 
 
 def paired_ttest(

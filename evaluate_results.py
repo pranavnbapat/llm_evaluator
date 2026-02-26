@@ -1,3 +1,5 @@
+# evaluate_results.py
+
 #!/usr/bin/env python3
 """
 Evaluate all responses from SQLite database using scientific metrics.
@@ -13,7 +15,6 @@ This will:
 import sqlite3
 import sys
 from pathlib import Path
-# from tqdm import tqdm  # Optional progress bar
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -66,7 +67,6 @@ def main():
     print("  Evaluating Responses with Scientific Metrics")
     print("="*60)
     
-    # Paths
     results_dir = Path("results")
     db_path = results_dir / "evaluation_results.db"
     scores_db_path = results_dir / "evaluation_scores.db"
@@ -75,18 +75,14 @@ def main():
         print(f"❌ Database not found: {db_path}")
         sys.exit(1)
     
-    # Initialize evaluator
     print("\n🔄 Loading evaluation models...")
     evaluator = ResponseEvaluator()
     
-    # Load questions
     all_questions = get_all_questions()
     
-    # Connect to databases
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
-    # Create scores database
     scores_conn = sqlite3.connect(scores_db_path)
     scores_cursor = scores_conn.cursor()
     
@@ -110,14 +106,12 @@ def main():
     """)
     scores_conn.commit()
     
-    # Get total count
     cursor.execute("SELECT COUNT(*) FROM evaluations")
     total = cursor.fetchone()[0]
     
     print(f"\n📊 Total responses to evaluate: {total}")
     print("="*60)
     
-    # Process each response
     cursor.execute("""
         SELECT id, model_name, language, question_id, response 
         FROM evaluations
@@ -129,13 +123,10 @@ def main():
             print(f"  Progress: {i+1}/{total} ({(i+1)/total*100:.1f}%)")
         eval_id, model_name, language, question_id, response = row
         
-        # Get question text
         question_text = all_questions.get(language, {}).get(question_id, "")
         
-        # Get reference data
         reference_data = get_reference_data(question_id)
         
-        # Evaluate
         try:
             scores = evaluator.evaluate_response(
                 question_id=question_id,
@@ -146,7 +137,6 @@ def main():
                 reference_data=reference_data,
             )
             
-            # Save scores
             scores_cursor.execute("""
                 INSERT INTO scores (
                     evaluation_id, model_name, language, question_id,

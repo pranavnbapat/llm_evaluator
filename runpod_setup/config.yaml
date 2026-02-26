@@ -44,29 +44,14 @@ models:
 #    max_model_len: 8192        # ↓ Reduced from 16384
 #    gpu_memory_util: 0.75
 
-  mixtral_8x7b:
-    name: "Mixtral-8x7B-Instruct"
-    repo: "mistralai/Mixtral-8x7B-Instruct-v0.1"
-    local_path: "/workspace/models/mixtral_8x7b"
-    quant: null
-    max_model_len: 8192
-    gpu_memory_util: 0.75
-
-#  mixtral_8x7b_awq:
-#    name: "Mixtral-8x7B-Instruct-AWQ"
-#    repo: "TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ"
-#    local_path: "/workspace/models/mixtral_8x7b_awq"
-#    quant: null
-#    max_model_len: 8192
-#    gpu_memory_util: 0.70      # ↓ Reduced from 0.90
-
-#  mistral_small_24b_awq:
-#    name: "Mistral-Small-24B-AWQ"
-#    repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
-#    local_path: "/workspace/models/mistral_small_24b_awq"
-#    quant: "awq_marlin"
-#    max_model_len: 8192
-#    gpu_memory_util: 0.80      # ↓ Reduced from 0.92
+  mistral_small_24b_awq:
+    name: "Mistral-Small-24B-AWQ"
+    repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
+    local_path: "/workspace/models/mistral_small_24b_awq"
+    quant: "awq"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85
 
 # ----------------------------------------------------------------------------
 # Evaluation Configuration

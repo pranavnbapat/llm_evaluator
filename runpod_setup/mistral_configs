@@ -1,0 +1,159 @@
+  ### Mistral-Small-24B (possible quant configs)
+
+  AWQ
+
+  mistral_small_24b_awq:
+    name: "Mistral-Small-24B-AWQ"
+    repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
+    local_path: "/workspace/models/mistral_small_24b_awq"
+    quant: "awq"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85
+
+  AWQ Marlin
+
+  mistral_small_24b_awq_marlin:
+    name: "Mistral-Small-24B-AWQ-Marlin"
+    repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
+    local_path: "/workspace/models/mistral_small_24b_awq_marlin"
+    quant: "awq_marlin"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85
+
+  GPTQ
+
+  mistral_small_24b_gptq:
+    name: "Mistral-Small-24B-GPTQ"
+    repo: "TheBloke/Mistral-Small-24B-Instruct-GPTQ"
+    local_path: "/workspace/models/mistral_small_24b_gptq"
+    quant: "gptq"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85
+
+  GPTQ Marlin
+
+  mistral_small_24b_gptq_marlin:
+    name: "Mistral-Small-24B-GPTQ-Marlin"
+    repo: "TheBloke/Mistral-Small-24B-Instruct-GPTQ"
+    local_path: "/workspace/models/mistral_small_24b_gptq_marlin"
+    quant: "gptq_marlin"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85
+
+  Compressed Tensors (if repo provides it)
+
+  mistral_small_24b_ct:
+    name: "Mistral-Small-24B-CT"
+    repo: "INSERT_COMPRESSED_TENSORS_REPO"
+    local_path: "/workspace/models/mistral_small_24b_ct"
+    quant: "compressed-tensors"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85
+
+  FP8 (requires FP8 weights repo)
+
+  mistral_small_24b_fp8:
+    name: "Mistral-Small-24B-FP8"
+    repo: "INSERT_FP8_REPO"
+    local_path: "/workspace/models/mistral_small_24b_fp8"
+    quant: "fp8"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85
+
+  Bitsandbytes (requires BnB support in repo + vLLM)
+
+  mistral_small_24b_bnb:
+    name: "Mistral-Small-24B-BnB"
+    repo: "INSERT_BNB_REPO"
+    local_path: "/workspace/models/mistral_small_24b_bnb"
+    quant: "bitsandbytes"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85
+
+  ———
+
+  ### Mixtral-8x7B (possible quant configs)
+
+  AWQ
+
+  mixtral_8x7b_awq:
+    name: "Mixtral-8x7B-AWQ"
+    repo: "TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ"
+    local_path: "/workspace/models/mixtral_8x7b_awq"
+    quant: "awq"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85
+
+  AWQ Marlin
+
+  mixtral_8x7b_awq_marlin:
+    name: "Mixtral-8x7B-AWQ-Marlin"
+    repo: "TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ"
+    local_path: "/workspace/models/mixtral_8x7b_awq_marlin"
+    quant: "awq_marlin"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85
+
+  GPTQ
+
+  mixtral_8x7b_gptq:
+    name: "Mixtral-8x7B-GPTQ"
+    repo: "TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ"
+    local_path: "/workspace/models/mixtral_8x7b_gptq"
+    quant: "gptq"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85
+
+  GPTQ Marlin
+
+  mixtral_8x7b_gptq_marlin:
+    name: "Mixtral-8x7B-GPTQ-Marlin"
+    repo: "TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ"
+    local_path: "/workspace/models/mixtral_8x7b_gptq_marlin"
+    quant: "gptq_marlin"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85
+
+  Compressed Tensors
+
+  mixtral_8x7b_ct:
+    name: "Mixtral-8x7B-CT"
+    repo: "INSERT_COMPRESSED_TENSORS_REPO"
+    local_path: "/workspace/models/mixtral_8x7b_ct"
+    quant: "compressed-tensors"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85
+
+  FP8
+
+  mixtral_8x7b_fp8:
+    name: "Mixtral-8x7B-FP8"
+    repo: "INSERT_FP8_REPO"
+    local_path: "/workspace/models/mixtral_8x7b_fp8"
+    quant: "fp8"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85
+
+  Bitsandbytes
+
+  mixtral_8x7b_bnb:
+    name: "Mixtral-8x7B-BnB"
+    repo: "INSERT_BNB_REPO"
+    local_path: "/workspace/models/mixtral_8x7b_bnb"
+    quant: "bitsandbytes"
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.85

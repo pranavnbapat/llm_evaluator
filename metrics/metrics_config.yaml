@@ -1,0 +1,106 @@
+profiles:
+  default:
+    normalize_weights: true
+    weights:
+      relevance: 0.25
+      factual_accuracy: 0.20
+      completeness: 0.15
+      fluency: 0.15
+      coherence: 0.10
+      prompt_alignment: 0.10
+      token_efficiency: 0.05
+    token_efficiency:
+      enabled: true
+      expected_length_default: [50, 500]
+      expected_length_by_question:
+        Q3_INSTRUCTION_FOLLOWING: [20, 200]
+        Q5_SUMMARIZATION_ACCURACY: [50, 200]
+    fluency:
+      mode: zero_shot
+      model_name: "joeddav/xlm-roberta-large-xnli"
+      model_type: "zero-shot-classification"
+      labels: ["fluent", "not fluent"]
+      positive_label: "fluent"
+      hypothesis_template: "This text is {}."
+      max_length: 512
+      batch_size: 8
+      aggregation: "mean"
+    coherence:
+      mode: zero_shot
+      model_name: "joeddav/xlm-roberta-large-xnli"
+      model_type: "zero-shot-classification"
+      labels: ["coherent", "incoherent"]
+      positive_label: "coherent"
+      hypothesis_template: "This text is {}."
+      max_length: 512
+      batch_size: 8
+      aggregation: "mean"
+    prompt_alignment:
+      mode: semantic
+      generic_refusal_score: 0.3
+    context:
+      use_coverage_for_completeness: true
+      utilization_aggregation: max
+      top_k: 3
+      coverage_threshold: 0.35
+      fallback_score: 0.0
+    nli:
+      model_name: "joeddav/xlm-roberta-large-xnli"
+      model_type: "text-classification"
+      max_length: 512
+      batch_size: 8
+      aggregation: "mean"
+      hypothesis_from_response: "sentences"
+      min_sentence_chars: 20
+
+  context:
+    normalize_weights: true
+    weights:
+      relevance: 0.30
+      factual_accuracy: 0.30
+      completeness: 0.20
+      fluency: 0.15
+      coherence: 0.05
+      prompt_alignment: 0.00
+      token_efficiency: 0.00
+    token_efficiency:
+      enabled: false
+      expected_length_default: [50, 500]
+      expected_length_by_question: {}
+    fluency:
+      mode: zero_shot
+      model_name: "joeddav/xlm-roberta-large-xnli"
+      model_type: "zero-shot-classification"
+      labels: ["fluent", "not fluent"]
+      positive_label: "fluent"
+      hypothesis_template: "This text is {}."
+      max_length: 512
+      batch_size: 8
+      aggregation: "mean"
+    coherence:
+      mode: zero_shot
+      model_name: "joeddav/xlm-roberta-large-xnli"
+      model_type: "zero-shot-classification"
+      labels: ["coherent", "incoherent"]
+      positive_label: "coherent"
+      hypothesis_template: "This text is {}."
+      max_length: 512
+      batch_size: 8
+      aggregation: "mean"
+    prompt_alignment:
+      mode: semantic
+      generic_refusal_score: 0.3
+    context:
+      use_coverage_for_completeness: true
+      utilization_aggregation: mean_top_k
+      top_k: 3
+      coverage_threshold: 0.30
+      fallback_score: 0.0
+    nli:
+      model_name: "joeddav/xlm-roberta-large-xnli"
+      model_type: "text-classification"
+      max_length: 512
+      batch_size: 8
+      aggregation: "mean"
+      hypothesis_from_response: "sentences"
+      min_sentence_chars: 20

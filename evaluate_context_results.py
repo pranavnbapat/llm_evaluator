@@ -1,3 +1,5 @@
+# evaluate_context_results.py
+
 #!/usr/bin/env python3
 """
 Evaluate context-based responses from SQLite database using scientific metrics.
@@ -52,7 +54,7 @@ def main():
     
     # Initialize evaluator
     print("\n🔄 Loading evaluation models...")
-    evaluator = ResponseEvaluator()
+    evaluator = ResponseEvaluator(metrics_profile="context")
     print("✅ Models loaded")
     
     # Connect to database
@@ -96,7 +98,7 @@ def main():
         )
     """)
     
-    # Clear existing scores for this database (optional - prevents duplicates)
+    # Clear existing scores to avoid duplicates
     scores_cursor.execute("DELETE FROM scores")
     scores_conn.commit()
     
@@ -121,12 +123,20 @@ def main():
         context_documents = []
         for ctx in context:
             if isinstance(ctx, dict):
-                # Combine title and description for full context
-                title = ctx.get('title', '')
-                description = ctx.get('description', '')
-                full_text = f"{title}. {description}".strip()
+                # Combine available fields for full context
+                title = ctx.get("title", "")
+                subtitle = ctx.get("subtitle", "")
+                description = ctx.get("description", "")
+                keywords = ctx.get("keywords", [])
+                ko_flat = ctx.get("ko_content_flat", [])
+                
+                keywords_text = ", ".join([k for k in keywords if isinstance(k, str)])
+                ko_text = " ".join([k for k in ko_flat if isinstance(k, str)])
+                
+                parts = [title, subtitle, description, keywords_text, ko_text]
+                full_text = ". ".join([p for p in parts if p]).strip()
                 if full_text:
-                    context_documents.append(full_text[:1000])  # First 1000 chars
+                    context_documents.append(full_text[:2000])  # First 2000 chars
         
         # Also extract reference facts as fallback
         reference_facts = context_documents.copy()
@@ -134,9 +144,7 @@ def main():
         # Build reference data
         ref_data = {
             "reference_facts": reference_facts,
-            "context_documents": context_documents,  # NEW: full context for semantic similarity
-            "expected_elements": ["practical advice", "specific methods", "evidence-based recommendations"],
-            "context_provided": len(context) > 0
+            "context_documents": context_documents,
         }
         
         # Evaluate response

@@ -158,7 +158,7 @@ async def evaluate(request: EvaluationRequest):
     if not pipeline:
         raise HTTPException(status_code=500, detail="Pipeline not initialized")
     
-    # Register/override model if needed
+    # Register/override model when a URL is provided
     if request.model_url:
         model_manager.register_model(
             request.model_name,

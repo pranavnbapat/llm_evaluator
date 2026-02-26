@@ -121,7 +121,7 @@ class LLMClient:
         **kwargs
     ) -> AsyncGenerator[str, None]:
         """Stream response from LLM (for real-time monitoring)."""
-        # Implementation for streaming if needed
+        # Reserved for streaming implementation
         pass
 
 
@@ -148,7 +148,7 @@ class ModelManager:
         if name not in self.clients:
             raise ValueError(f"Model {name} not registered")
         
-        # In a real scenario, this might involve:
+        # Model switching can include:
         # 1. Unloading current model from GPU
         # 2. Loading new model
         # 3. Health check

@@ -1,6 +1,5 @@
 """
 EU 24 Official Languages - Question Translations
-Sources: Native speaker review, DeepL API validation, EU terminology database
 """
 
 # ISO 639-1 codes for EU languages

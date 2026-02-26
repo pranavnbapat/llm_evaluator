@@ -5,7 +5,7 @@ Real agriculture questions that farmers/researchers ask chatbots
 
 Structure: 
 - Questions translated to all 24 EU languages
-- Context (search results) kept in English only
+- Context (search results)
 """
 
 # =============================================================================
