@@ -44,13 +44,13 @@ models:
 #    max_model_len: 8192        # ↓ Reduced from 16384
 #    gpu_memory_util: 0.75
 
-  mistral_small_24b_awq:
-    name: "Mistral-Small-24B-AWQ"
+  mistral_small_24b_awq_a100_8k:
+    name: "Mistral-Small-24B-AWQ-A100-8K"
     repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
-    local_path: "/workspace/models/mistral_small_24b_awq"
+    local_path: "/workspace/models/mistral_small_24b_awq_a100_8k"
     quant: "awq"
     dtype: "float16"
-    max_model_len: 4096
+    max_model_len: 8192
     gpu_memory_util: 0.85
 
 # ----------------------------------------------------------------------------
@@ -76,5 +76,5 @@ vllm:
 # ----------------------------------------------------------------------------
 paths:
   models_dir: "${MODELS_DIR:-/workspace/models}"
-  results_dir: "${RESULTS_DIR:-/workspace/evaluation_results}"
+  results_dir: "${RESULTS_DIR:-/workspace/llm_evaluator/results}"
   cache_dir: "${CACHE_DIR:-/workspace/.cache/huggingface}"

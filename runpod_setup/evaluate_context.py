@@ -594,8 +594,8 @@ def main():
     
     # Initialize managers
     vllm = VLlmManager(config)
-    results_dir = Path(config["paths"]["results_dir"])
-    gpu_monitor = GPUMonitor(results_dir / "gpu_metrics.csv")
+    logs_dir = Path(__file__).resolve().parent.parent / "logs"
+    gpu_monitor = GPUMonitor(logs_dir / "gpu_metrics.csv")
     
     # Get list of models to evaluate
     models = list(config["models"].values())

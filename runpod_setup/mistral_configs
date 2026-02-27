@@ -1,159 +1,174 @@
-  ### Mistral-Small-24B (possible quant configs)
+### Mistral-Small-24B and Mixtral-8x7B (concise test matrix)
+#
+# Purpose:
+# - Keep a minimal set of high-value configs for A40 (48 GB) and A100 (80 GB).
+# - Focus on AWQ (good compatibility) and Compressed Tensors (CT, w4a16).
+# - Use 4k/8k for A40 and 8k/16k for A100.
+#
+# Notes:
+# - Dtype stays float16 for AWQ/CT in vLLM.
+# - If a block OOMs, reduce max_model_len or gpu_memory_util.
+#
+# ----------------------------
+# Mistral-Small-24B (AWQ)
+# ----------------------------
 
-  AWQ
+mistral_small_24b_awq_a40_4k:
+  name: "Mistral-Small-24B-AWQ-A40-4K"
+  repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
+  local_path: "/workspace/models/mistral_small_24b_awq_a40_4k"
+  quant: "awq"
+  dtype: "float16"
+  max_model_len: 4096
+  gpu_memory_util: 0.80
 
-  mistral_small_24b_awq:
-    name: "Mistral-Small-24B-AWQ"
-    repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
-    local_path: "/workspace/models/mistral_small_24b_awq"
-    quant: "awq"
-    dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.85
+mistral_small_24b_awq_a40_8k:
+  name: "Mistral-Small-24B-AWQ-A40-8K"
+  repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
+  local_path: "/workspace/models/mistral_small_24b_awq_a40_8k"
+  quant: "awq"
+  dtype: "float16"
+  max_model_len: 8192
+  gpu_memory_util: 0.85
 
-  AWQ Marlin
+mistral_small_24b_awq_a100_8k:
+  name: "Mistral-Small-24B-AWQ-A100-8K"
+  repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
+  local_path: "/workspace/models/mistral_small_24b_awq_a100_8k"
+  quant: "awq"
+  dtype: "float16"
+  max_model_len: 8192
+  gpu_memory_util: 0.85
 
-  mistral_small_24b_awq_marlin:
-    name: "Mistral-Small-24B-AWQ-Marlin"
-    repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
-    local_path: "/workspace/models/mistral_small_24b_awq_marlin"
-    quant: "awq_marlin"
-    dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.85
+mistral_small_24b_awq_a100_16k:
+  name: "Mistral-Small-24B-AWQ-A100-16K"
+  repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
+  local_path: "/workspace/models/mistral_small_24b_awq_a100_16k"
+  quant: "awq"
+  dtype: "float16"
+  max_model_len: 16384
+  gpu_memory_util: 0.90
 
-  GPTQ
+# ----------------------------
+# Mistral-Small-24B (Compressed Tensors, w4a16)
+# ----------------------------
 
-  mistral_small_24b_gptq:
-    name: "Mistral-Small-24B-GPTQ"
-    repo: "TheBloke/Mistral-Small-24B-Instruct-GPTQ"
-    local_path: "/workspace/models/mistral_small_24b_gptq"
-    quant: "gptq"
-    dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.85
+mistral_small_24b_ct_a40_4k:
+  name: "Mistral-Small-24B-CT-A40-4K"
+  repo: "RedHatAI/Mistral-Small-3.1-24B-Instruct-2503-quantized.w4a16"
+  local_path: "/workspace/models/mistral_small_24b_ct_a40_4k"
+  quant: "compressed-tensors"
+  dtype: "float16"
+  max_model_len: 4096
+  gpu_memory_util: 0.80
 
-  GPTQ Marlin
+mistral_small_24b_ct_a40_8k:
+  name: "Mistral-Small-24B-CT-A40-8K"
+  repo: "RedHatAI/Mistral-Small-3.1-24B-Instruct-2503-quantized.w4a16"
+  local_path: "/workspace/models/mistral_small_24b_ct_a40_8k"
+  quant: "compressed-tensors"
+  dtype: "float16"
+  max_model_len: 8192
+  gpu_memory_util: 0.85
 
-  mistral_small_24b_gptq_marlin:
-    name: "Mistral-Small-24B-GPTQ-Marlin"
-    repo: "TheBloke/Mistral-Small-24B-Instruct-GPTQ"
-    local_path: "/workspace/models/mistral_small_24b_gptq_marlin"
-    quant: "gptq_marlin"
-    dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.85
+mistral_small_24b_ct_a100_8k:
+  name: "Mistral-Small-24B-CT-A100-8K"
+  repo: "RedHatAI/Mistral-Small-3.1-24B-Instruct-2503-quantized.w4a16"
+  local_path: "/workspace/models/mistral_small_24b_ct_a100_8k"
+  quant: "compressed-tensors"
+  dtype: "float16"
+  max_model_len: 8192
+  gpu_memory_util: 0.85
 
-  Compressed Tensors (if repo provides it)
+mistral_small_24b_ct_a100_16k:
+  name: "Mistral-Small-24B-CT-A100-16K"
+  repo: "RedHatAI/Mistral-Small-3.1-24B-Instruct-2503-quantized.w4a16"
+  local_path: "/workspace/models/mistral_small_24b_ct_a100_16k"
+  quant: "compressed-tensors"
+  dtype: "float16"
+  max_model_len: 16384
+  gpu_memory_util: 0.90
 
-  mistral_small_24b_ct:
-    name: "Mistral-Small-24B-CT"
-    repo: "INSERT_COMPRESSED_TENSORS_REPO"
-    local_path: "/workspace/models/mistral_small_24b_ct"
-    quant: "compressed-tensors"
-    dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.85
+-----
 
-  FP8 (requires FP8 weights repo)
+### Mixtral-8x7B (concise test matrix)
 
-  mistral_small_24b_fp8:
-    name: "Mistral-Small-24B-FP8"
-    repo: "INSERT_FP8_REPO"
-    local_path: "/workspace/models/mistral_small_24b_fp8"
-    quant: "fp8"
-    dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.85
+# ----------------------------
+# Mixtral-8x7B (AWQ)
+# ----------------------------
 
-  Bitsandbytes (requires BnB support in repo + vLLM)
+mixtral_8x7b_awq_a40_4k:
+  name: "Mixtral-8x7B-AWQ-A40-4K"
+  repo: "TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ"
+  local_path: "/workspace/models/mixtral_8x7b_awq_a40_4k"
+  quant: "awq"
+  dtype: "float16"
+  max_model_len: 4096
+  gpu_memory_util: 0.80
 
-  mistral_small_24b_bnb:
-    name: "Mistral-Small-24B-BnB"
-    repo: "INSERT_BNB_REPO"
-    local_path: "/workspace/models/mistral_small_24b_bnb"
-    quant: "bitsandbytes"
-    dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.85
+mixtral_8x7b_awq_a40_8k:
+  name: "Mixtral-8x7B-AWQ-A40-8K"
+  repo: "TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ"
+  local_path: "/workspace/models/mixtral_8x7b_awq_a40_8k"
+  quant: "awq"
+  dtype: "float16"
+  max_model_len: 8192
+  gpu_memory_util: 0.85
 
-  ———
+mixtral_8x7b_awq_a100_8k:
+  name: "Mixtral-8x7B-AWQ-A100-8K"
+  repo: "TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ"
+  local_path: "/workspace/models/mixtral_8x7b_awq_a100_8k"
+  quant: "awq"
+  dtype: "float16"
+  max_model_len: 8192
+  gpu_memory_util: 0.85
 
-  ### Mixtral-8x7B (possible quant configs)
+mixtral_8x7b_awq_a100_16k:
+  name: "Mixtral-8x7B-AWQ-A100-16K"
+  repo: "TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ"
+  local_path: "/workspace/models/mixtral_8x7b_awq_a100_16k"
+  quant: "awq"
+  dtype: "float16"
+  max_model_len: 16384
+  gpu_memory_util: 0.90
 
-  AWQ
+# ----------------------------
+# Mixtral-8x7B (Compressed Tensors, w4a16)
+# ----------------------------
 
-  mixtral_8x7b_awq:
-    name: "Mixtral-8x7B-AWQ"
-    repo: "TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ"
-    local_path: "/workspace/models/mixtral_8x7b_awq"
-    quant: "awq"
-    dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.85
+mixtral_8x7b_ct_a40_4k:
+  name: "Mixtral-8x7B-CT-A40-4K"
+  repo: "RedHatAI/Mixtral-8x7B-v0.1-quantized.w4a16"
+  local_path: "/workspace/models/mixtral_8x7b_ct_a40_4k"
+  quant: "compressed-tensors"
+  dtype: "float16"
+  max_model_len: 4096
+  gpu_memory_util: 0.80
 
-  AWQ Marlin
+mixtral_8x7b_ct_a40_8k:
+  name: "Mixtral-8x7B-CT-A40-8K"
+  repo: "RedHatAI/Mixtral-8x7B-v0.1-quantized.w4a16"
+  local_path: "/workspace/models/mixtral_8x7b_ct_a40_8k"
+  quant: "compressed-tensors"
+  dtype: "float16"
+  max_model_len: 8192
+  gpu_memory_util: 0.85
 
-  mixtral_8x7b_awq_marlin:
-    name: "Mixtral-8x7B-AWQ-Marlin"
-    repo: "TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ"
-    local_path: "/workspace/models/mixtral_8x7b_awq_marlin"
-    quant: "awq_marlin"
-    dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.85
+mixtral_8x7b_ct_a100_8k:
+  name: "Mixtral-8x7B-CT-A100-8K"
+  repo: "RedHatAI/Mixtral-8x7B-v0.1-quantized.w4a16"
+  local_path: "/workspace/models/mixtral_8x7b_ct_a100_8k"
+  quant: "compressed-tensors"
+  dtype: "float16"
+  max_model_len: 8192
+  gpu_memory_util: 0.85
 
-  GPTQ
-
-  mixtral_8x7b_gptq:
-    name: "Mixtral-8x7B-GPTQ"
-    repo: "TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ"
-    local_path: "/workspace/models/mixtral_8x7b_gptq"
-    quant: "gptq"
-    dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.85
-
-  GPTQ Marlin
-
-  mixtral_8x7b_gptq_marlin:
-    name: "Mixtral-8x7B-GPTQ-Marlin"
-    repo: "TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ"
-    local_path: "/workspace/models/mixtral_8x7b_gptq_marlin"
-    quant: "gptq_marlin"
-    dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.85
-
-  Compressed Tensors
-
-  mixtral_8x7b_ct:
-    name: "Mixtral-8x7B-CT"
-    repo: "INSERT_COMPRESSED_TENSORS_REPO"
-    local_path: "/workspace/models/mixtral_8x7b_ct"
-    quant: "compressed-tensors"
-    dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.85
-
-  FP8
-
-  mixtral_8x7b_fp8:
-    name: "Mixtral-8x7B-FP8"
-    repo: "INSERT_FP8_REPO"
-    local_path: "/workspace/models/mixtral_8x7b_fp8"
-    quant: "fp8"
-    dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.85
-
-  Bitsandbytes
-
-  mixtral_8x7b_bnb:
-    name: "Mixtral-8x7B-BnB"
-    repo: "INSERT_BNB_REPO"
-    local_path: "/workspace/models/mixtral_8x7b_bnb"
-    quant: "bitsandbytes"
-    dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.85
+mixtral_8x7b_ct_a100_16k:
+  name: "Mixtral-8x7B-CT-A100-16K"
+  repo: "RedHatAI/Mixtral-8x7B-v0.1-quantized.w4a16"
+  local_path: "/workspace/models/mixtral_8x7b_ct_a100_16k"
+  quant: "compressed-tensors"
+  dtype: "float16"
+  max_model_len: 16384
+  gpu_memory_util: 0.90
