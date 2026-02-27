@@ -42,8 +42,12 @@ echo ""
 # ----------------------------------------------------------------------------
 
 echo "📦 Installing system packages..."
-apt-get update -qq
-apt-get install -y -qq git git-lfs ca-certificates curl
+if command -v git >/dev/null 2>&1 && command -v git-lfs >/dev/null 2>&1 && command -v curl >/dev/null 2>&1; then
+    echo "✓ System packages already installed"
+else
+    apt-get update -qq
+    apt-get install -y -qq git git-lfs ca-certificates curl
+fi
 
 # Install git-lfs
 git lfs install
@@ -64,13 +68,32 @@ else
     echo "✓ Virtual environment already exists"
 fi
 
+# Activate venv for this script run
+# Note: to keep it active in your shell, run: source setup.sh
+source .venv/bin/activate
+
 # Install project dependencies
-echo "  Installing project dependencies..."
-.venv/bin/pip install -q -r requirements.txt
+if [[ ! -f ".venv/.deps_installed" ]]; then
+    echo "  Installing project dependencies..."
+    pip install -q -r requirements.txt
+    touch .venv/.deps_installed
+else
+    echo "✓ Project dependencies already installed"
+fi
 
 # Install vLLM in venv (avoids system conflicts)
-echo "  Installing vLLM (this may take a few minutes)..."
-.venv/bin/pip install -q vllm huggingface-hub hf_transfer pyyaml tqdm
+if [[ ! -f ".venv/.vllm_installed" ]]; then
+    echo "  Installing vLLM (this may take a few minutes)..."
+    if [[ -n "${VLLM_PIP_SPEC}" ]]; then
+        pip install -q ${VLLM_PIP_SPEC}
+    else
+        pip install -q vllm
+    fi
+    pip install -q huggingface-hub hf_transfer pyyaml tqdm
+    touch .venv/.vllm_installed
+else
+    echo "✓ vLLM already installed"
+fi
 
 echo "✓ All dependencies installed"
 echo ""
@@ -98,12 +121,16 @@ echo "========================================"
 echo ""
 echo "Next steps:"
 echo ""
-echo "1. Edit config.yaml with your tokens:"
-echo "   nano /workspace/llm_evaluator/runpod_setup/config.yaml"
+echo "1. Set your Hugging Face token:"
+echo "   echo \"HF_TOKEN=your_token\" > /workspace/llm_evaluator/runpod_setup/.env"
 echo ""
 echo "2. Download models:"
 echo "   python3 /workspace/llm_evaluator/runpod_setup/download_models.py"
 echo ""
 echo "3. Run evaluation:"
 echo "   python3 /workspace/llm_evaluator/runpod_setup/evaluate.py"
+echo ""
+echo "Note:"
+echo "  To keep the virtualenv active in your shell:"
+echo "  source /workspace/llm_evaluator/.venv/bin/activate"
 echo ""
