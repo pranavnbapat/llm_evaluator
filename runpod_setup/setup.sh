@@ -87,7 +87,7 @@ if [[ ! -f ".venv/.vllm_installed" ]]; then
     if [[ -n "${VLLM_PIP_SPEC}" ]]; then
         pip install -q ${VLLM_PIP_SPEC}
     else
-        pip install -q vllm
+        pip install -q vllm==0.15.1
     fi
     pip install -q huggingface-hub hf_transfer pyyaml tqdm
     touch .venv/.vllm_installed
