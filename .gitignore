@@ -139,3 +139,11 @@ nosetests.xml
 Thumbs.db
 desktop.ini
 *.db
+
+# Allow tracked artifacts under results/
+!results/**/*.db
+!results/**/*.sqlite
+!results/**/*.sqlite3
+!results/**/*.xlsx
+
+temp/

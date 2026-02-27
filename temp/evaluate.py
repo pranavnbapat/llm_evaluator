@@ -26,6 +26,8 @@ import time
 import signal
 import sqlite3
 import subprocess
+import threading
+import csv
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -232,6 +234,113 @@ class VLlmManager:
             return None
 
 
+class GPUMonitor:
+    """Logs GPU metrics once per second to a CSV file."""
+
+    def __init__(self, output_path: Path, interval_sec: float = 1.0):
+        self.output_path = output_path
+        self.interval_sec = interval_sec
+        self._stop_event = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+
+    def start(self) -> None:
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop_event.set()
+        if self._thread:
+            self._thread.join(timeout=5)
+
+    def _run(self) -> None:
+        header = [
+            "timestamp",
+            "gpu_index",
+            "util_gpu_pct",
+            "util_mem_pct",
+            "mem_total_mb",
+            "mem_used_mb",
+            "mem_free_mb",
+            "temp_c",
+            "power_w",
+            "cpu_util_pct",
+            "ram_total_mb",
+            "ram_used_mb",
+            "ram_free_mb",
+        ]
+        self.output_path.parent.mkdir(parents=True, exist_ok=True)
+        write_header = not self.output_path.exists()
+
+        with open(self.output_path, "a", newline="") as f:
+            writer = csv.writer(f)
+            if write_header:
+                writer.writerow(header)
+
+            prev_cpu_total = None
+            prev_cpu_idle = None
+            while not self._stop_event.is_set():
+                try:
+                    cpu_util = self._read_cpu_util(prev_cpu_total, prev_cpu_idle)
+                    prev_cpu_total, prev_cpu_idle, cpu_pct = cpu_util
+                    ram_total_mb, ram_used_mb, ram_free_mb = self._read_ram_mb()
+
+                    cmd = [
+                        "nvidia-smi",
+                        "--query-gpu=timestamp,index,utilization.gpu,utilization.memory,"
+                        "memory.total,memory.used,memory.free,temperature.gpu,power.draw",
+                        "--format=csv,noheader,nounits",
+                    ]
+                    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                    lines = [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
+                    for line in lines:
+                        row = [v.strip() for v in line.split(",")]
+                        row.extend([f"{cpu_pct:.2f}", ram_total_mb, ram_used_mb, ram_free_mb])
+                        writer.writerow(row)
+                    f.flush()
+                except FileNotFoundError:
+                    writer.writerow([time.strftime("%Y-%m-%d %H:%M:%S"), "NA", "nvidia-smi not found"])
+                    f.flush()
+                    return
+                except Exception as e:
+                    writer.writerow([time.strftime("%Y-%m-%d %H:%M:%S"), "NA", f"error: {type(e).__name__}"])
+                    f.flush()
+                time.sleep(self.interval_sec)
+
+    def _read_cpu_util(self, prev_total, prev_idle):
+        with open("/proc/stat", "r") as f:
+            line = f.readline()
+        parts = line.split()
+        if len(parts) < 5 or parts[0] != "cpu":
+            return prev_total, prev_idle, 0.0
+        vals = [int(v) for v in parts[1:]]
+        total = sum(vals)
+        idle = vals[3] + (vals[4] if len(vals) > 4 else 0)
+        if prev_total is None or prev_idle is None:
+            return total, idle, 0.0
+        total_delta = total - prev_total
+        idle_delta = idle - prev_idle
+        if total_delta <= 0:
+            return total, idle, 0.0
+        util = (1.0 - (idle_delta / total_delta)) * 100.0
+        return total, idle, max(0.0, min(100.0, util))
+
+    def _read_ram_mb(self):
+        mem_total_kb = 0
+        mem_available_kb = 0
+        with open("/proc/meminfo", "r") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    mem_total_kb = int(line.split()[1])
+                elif line.startswith("MemAvailable:"):
+                    mem_available_kb = int(line.split()[1])
+        mem_used_kb = max(0, mem_total_kb - mem_available_kb)
+        return (
+            int(mem_total_kb / 1024),
+            int(mem_used_kb / 1024),
+            int(mem_available_kb / 1024),
+        )
+
+
 class Evaluator:
     """Handles evaluation logic."""
     
@@ -350,10 +459,12 @@ def main():
     # Initialize components
     vllm = VLlmManager(config)
     evaluator = Evaluator(vllm, config)
+    gpu_monitor = GPUMonitor(evaluator.results_dir / "gpu_metrics.csv")
     
     # Handle Ctrl+C gracefully
     def signal_handler(sig, frame):
         print("\n\n⚠️  Interrupted! Cleaning up...")
+        gpu_monitor.stop()
         vllm.stop()
         sys.exit(1)
     
@@ -371,32 +482,36 @@ def main():
     print("")
     
     all_results = []
-    
-    for model_name, model_config in models.items():
-        # Check model exists
-        model_path = Path(model_config["local_path"])
-        if not model_path.exists():
-            print(f"\n❌ Model not found: {model_path}")
-            print(f"   Run download_models.py first")
-            continue
-        
-        # Start vLLM
-        if not vllm.start(model_config):
-            print(f"\n❌ Failed to start vLLM for {model_name}")
-            continue
-        
-        try:
-            # Run evaluation
-            results = evaluator.evaluate_model(model_name, model_config)
-            all_results.append(results)
-        except Exception as e:
-            print(f"\n❌ Error during evaluation: {e}")
-        finally:
-            # Always stop vLLM
-            vllm.stop()
-        
-        # Cool down between models
-        time.sleep(10)
+
+    gpu_monitor.start()
+    try:
+        for model_name, model_config in models.items():
+            # Check model exists
+            model_path = Path(model_config["local_path"])
+            if not model_path.exists():
+                print(f"\n❌ Model not found: {model_path}")
+                print(f"   Run download_models.py first")
+                continue
+            
+            # Start vLLM
+            if not vllm.start(model_config):
+                print(f"\n❌ Failed to start vLLM for {model_name}")
+                continue
+            
+            try:
+                # Run evaluation
+                results = evaluator.evaluate_model(model_name, model_config)
+                all_results.append(results)
+            except Exception as e:
+                print(f"\n❌ Error during evaluation: {e}")
+            finally:
+                # Always stop vLLM
+                vllm.stop()
+            
+            # Cool down between models
+            time.sleep(10)
+    finally:
+        gpu_monitor.stop()
     
     # Final summary
     print("\n" + "="*60)
