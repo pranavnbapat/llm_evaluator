@@ -20,95 +20,95 @@ vllm_api_key: "${VLLM_API_KEY:-sk-runpod-eval}"
 # Model Configuration
 # ----------------------------------------------------------------------------
 models:
-  qwen3_30b_a3b_instruct_2507_awq_fp16_b200:
-    name: "qwen3-30b-a3b-instruct-awq-b200"
-    repo: "stelterlab/Qwen3-30B-A3B-Instruct-2507-AWQ"
-    local_path: "/workspace/models/qwen3_30b_a3b_instruct_2507_awq_fp16_b200"
+#  qwen3_30b_a3b_instruct_2507_awq_fp16_b200:
+#    name: "qwen3-30b-a3b-instruct-awq-b200"
+#    repo: "stelterlab/Qwen3-30B-A3B-Instruct-2507-AWQ"
+#    local_path: "/workspace/models/qwen3_30b_a3b_instruct_2507_awq_fp16_b200"
+#    quant: null
+#    dtype: "float16"
+#    max_model_len: 16384
+#    gpu_memory_util: 0.90
+#
+#  deepseek_r1_distill_qwen_32b_fp16_b200:
+#    name: "deepseek-r1-distill-qwen-32b-b200"
+#    repo: "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+#    local_path: "/workspace/models/deepseek_r1_distill_qwen_32b_fp16_b200"
+#    quant: null
+#    dtype: "float16"
+#    max_model_len: 16384
+#    gpu_memory_util: 0.90
+#
+#  deepseek_r1_distill_qwen_14b_fp16_b200:
+#    name: "deepseek-r1-distill-qwen-14b-b200"
+#    repo: "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
+#    local_path: "/workspace/models/deepseek_r1_distill_qwen_14b_fp16_b200"
+#    quant: null
+#    dtype: "float16"
+#    max_model_len: 16384
+#    gpu_memory_util: 0.90
+#
+#  deepseek_r1_distill_qwen_7b_fp16_b200:
+#    name: "deepseek-r1-distill-qwen-7b"
+#    repo: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+#    local_path: "/workspace/models/deepseek_r1_distill_qwen_7b_fp16_b200"
+#    quant: null
+#    dtype: "float16"
+#    max_model_len: 16384
+#    gpu_memory_util: 0.90
+
+  eurollm_22b_instruct_2512_fp16_b200:
+    name: "EuroLLM-22B-Instruct-2512"
+    repo: "utter-project/EuroLLM-22B-Instruct-2512"
+    local_path: "/workspace/models/eurollm_22b_instruct_2512_fp16_b200"
     quant: null
     dtype: "float16"
     max_model_len: 16384
     gpu_memory_util: 0.90
 
-  deepseek_r1_distill_qwen_32b_fp16_b200:
-    name: "deepseek-r1-distill-qwen-32b-b200"
-    repo: "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
-    local_path: "/workspace/models/deepseek_r1_distill_qwen_32b_fp16_b200"
+  eurollm_9b_instruct_2512_fp16_b200:
+    name: "EuroLLM-9B-Instruct-2512"
+    repo: "utter-project/EuroLLM-9B-Instruct-2512"
+    local_path: "/workspace/models/eurollm_9b_instruct_2512_fp16_b200"
     quant: null
     dtype: "float16"
     max_model_len: 16384
     gpu_memory_util: 0.90
 
-  deepseek_r1_distill_qwen_14b_fp16_b200:
-    name: "deepseek-r1-distill-qwen-14b-b200"
-    repo: "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
-    local_path: "/workspace/models/deepseek_r1_distill_qwen_14b_fp16_b200"
+  teuken_7b_instruct_commercial_v0_4_fp16_b200:
+    name: "Teuken-7B-instruct-commercial-v0.4"
+    repo: "openGPT-X/Teuken-7B-instruct-commercial-v0.4"
+    local_path: "/workspace/models/teuken_7b_instruct_commercial_v0_4_fp16_b200"
     quant: null
     dtype: "float16"
     max_model_len: 16384
     gpu_memory_util: 0.90
 
-  deepseek_r1_distill_qwen_7b_fp16_b200:
-    name: "deepseek-r1-distill-qwen-7b"
-    repo: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
-    local_path: "/workspace/models/deepseek_r1_distill_qwen_7b_fp16_b200"
+  mistral_small_3_2_24b_instruct_2506_awq_sym_fp16_b200:
+    name: "mistral-small-3-2-24b-instruct-2506-awq-sym-b200"
+    repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
+    local_path: "/workspace/models/mistral_small_3_2_24b_instruct_2506_awq_sym_fp16_b200"
     quant: null
     dtype: "float16"
     max_model_len: 16384
     gpu_memory_util: 0.90
 
-#  eurollm_22b_instruct_2512_fp16_b200:
-#    name: "EuroLLM-22B-Instruct-2512"
-#    repo: "utter-project/EuroLLM-22B-Instruct-2512"
-#    local_path: "/workspace/models/eurollm_22b_instruct_2512_fp16_b200"
-#    quant: null
-#    dtype: "float16"
-#    max_model_len: 16384
-#    gpu_memory_util: 0.90
-#
-#  eurollm_9b_instruct_2512_fp16_b200:
-#    name: "EuroLLM-9B-Instruct-2512"
-#    repo: "utter-project/EuroLLM-9B-Instruct-2512"
-#    local_path: "/workspace/models/eurollm_9b_instruct_2512_fp16_b200"
-#    quant: null
-#    dtype: "float16"
-#    max_model_len: 16384
-#    gpu_memory_util: 0.90
-#
-#  teuken_7b_instruct_commercial_v0_4_fp16_b200:
-#    name: "Teuken-7B-instruct-commercial-v0.4"
-#    repo: "openGPT-X/Teuken-7B-instruct-commercial-v0.4"
-#    local_path: "/workspace/models/teuken_7b_instruct_commercial_v0_4_fp16_b200"
-#    quant: null
-#    dtype: "float16"
-#    max_model_len: 16384
-#    gpu_memory_util: 0.90
-#
-#  mistral_small_3_2_24b_instruct_2506_awq_sym_fp16_b200:
-#    name: "mistral-small-3-2-24b-instruct-2506-awq-sym-b200"
-#    repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
-#    local_path: "/workspace/models/mistral_small_3_2_24b_instruct_2506_awq_sym_fp16_b200"
-#    quant: null
-#    dtype: "float16"
-#    max_model_len: 16384
-#    gpu_memory_util: 0.90
-#
-#  mistral_nemo_instruct_2407_fp16_b200:
-#    name: "mistral-nemo-instruct-2407-b200"
-#    repo: "mistralai/Mistral-Nemo-Instruct-2407"
-#    local_path: "/workspace/models/mistral_nemo_instruct_2407_fp16_b200"
-#    quant: null
-#    dtype: "float16"
-#    max_model_len: 16384
-#    gpu_memory_util: 0.90
-#
-#  devstral_small_2_24b_instruct_2512_fp16_b200:
-#    name: "devstral-small-2-24b-instruct-2512-b200"
-#    repo: "mistralai/Devstral-Small-2-24B-Instruct-2512"
-#    local_path: "/workspace/models/devstral_small_2_24b_instruct_2512_fp16_b200"
-#    quant: null
-#    dtype: "float16"
-#    max_model_len: 16384
-#    gpu_memory_util: 0.90
+  mistral_nemo_instruct_2407_fp16_b200:
+    name: "mistral-nemo-instruct-2407-b200"
+    repo: "mistralai/Mistral-Nemo-Instruct-2407"
+    local_path: "/workspace/models/mistral_nemo_instruct_2407_fp16_b200"
+    quant: null
+    dtype: "float16"
+    max_model_len: 16384
+    gpu_memory_util: 0.90
+
+  devstral_small_2_24b_instruct_2512_fp16_b200:
+    name: "devstral-small-2-24b-instruct-2512-b200"
+    repo: "mistralai/Devstral-Small-2-24B-Instruct-2512"
+    local_path: "/workspace/models/devstral_small_2_24b_instruct_2512_fp16_b200"
+    quant: null
+    dtype: "float16"
+    max_model_len: 16384
+    gpu_memory_util: 0.90
 #
 #  mixtral_8x7b_instruct_v0_1_fp16_b200:
 #    name: "mixtral-8x7b-instruct-v0 1"
