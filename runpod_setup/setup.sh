@@ -37,6 +37,18 @@ echo "✓ GPU detected:"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader | head -1
 echo ""
 
+GPU_NAME="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1 | xargs)"
+GPU_ARCH_FAMILY="ampere_or_hopper"
+if [[ "$GPU_NAME" == *"B200"* || "$GPU_NAME" == *"GB200"* || "$GPU_NAME" == *"Blackwell"* ]]; then
+    GPU_ARCH_FAMILY="blackwell"
+elif [[ "$GPU_NAME" == *"H200"* || "$GPU_NAME" == *"H100"* || "$GPU_NAME" == *"H20"* ]]; then
+    GPU_ARCH_FAMILY="hopper"
+elif [[ "$GPU_NAME" == *"A100"* || "$GPU_NAME" == *"A40"* ]]; then
+    GPU_ARCH_FAMILY="ampere"
+fi
+echo "✓ GPU family detected: $GPU_ARCH_FAMILY"
+echo ""
+
 # ----------------------------------------------------------------------------
 # Install System Dependencies
 # ----------------------------------------------------------------------------
@@ -99,7 +111,10 @@ source .venv/bin/activate
 # Install project dependencies
 if [[ ! -f ".venv/.deps_installed" ]]; then
     echo "  Installing project dependencies..."
-    pip install -q -r requirements.txt
+    TMP_REQ_FILE="$(mktemp)"
+    grep -vE '^[[:space:]]*torch([<>=!~].*)?$' requirements.txt > "$TMP_REQ_FILE"
+    pip install -q -r "$TMP_REQ_FILE"
+    rm -f "$TMP_REQ_FILE"
     touch .venv/.deps_installed
 else
     echo "✓ Project dependencies already installed"
@@ -111,7 +126,14 @@ if [[ ! -f ".venv/.vllm_installed" ]]; then
     if [[ -n "${VLLM_PIP_SPEC}" ]]; then
         pip install -q ${VLLM_PIP_SPEC}
     else
-        pip install -q vllm==0.15.1
+        if [[ "$GPU_ARCH_FAMILY" == "blackwell" ]]; then
+            echo "  Detected Blackwell GPU. Installing CUDA 12.8 wheels for PyTorch + vLLM..."
+            pip install -q --upgrade torch --index-url https://download.pytorch.org/whl/cu128
+            pip install -q --upgrade vllm --extra-index-url https://download.pytorch.org/whl/cu128
+        else
+            pip install -q torch==2.9.1
+            pip install -q vllm==0.15.1
+        fi
     fi
     pip install -q huggingface-hub hf_transfer pyyaml tqdm
     touch .venv/.vllm_installed

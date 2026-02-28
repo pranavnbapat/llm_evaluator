@@ -15,6 +15,40 @@ from typing import Any, Dict, Optional, List
 
 import requests
 
+TARGET_GPU_VRAM_GB = {
+    "a40": 48,
+    "a100": 80,
+    "h200_sxm": 141,
+    "b200": 180,
+}
+
+
+def normalize_target_gpu(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    v = value.strip().lower().replace("-", "_")
+    aliases = {
+        "a40": "a40",
+        "a100": "a100",
+        "h200": "h200_sxm",
+        "h200_sxm": "h200_sxm",
+        "b200": "b200",
+    }
+    return aliases.get(v)
+
+
+def detect_target_from_name(name: str, fallback: str) -> str:
+    n = name.lower()
+    if "h200" in n:
+        return "h200_sxm"
+    if "b200" in n or "gb200" in n or "blackwell" in n:
+        return "b200"
+    if "a40" in n:
+        return "a40"
+    if "a100" in n:
+        return "a100"
+    return fallback
+
 
 def normalize_model_ref(value: str) -> str:
     if value.startswith("http://") or value.startswith("https://"):
@@ -153,14 +187,33 @@ def choose_gpu_mem_util(ratio: float) -> float:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Static vLLM model viability check")
     parser.add_argument("model", help="HF repo ID or HF URL")
+    parser.add_argument(
+        "target_gpu_pos",
+        nargs="?",
+        default=None,
+        help="Optional target GPU (a40|a100|h200_sxm|b200). "
+             "Allows: model_static_check.py <model> a100 --llm-optimize",
+    )
     parser.add_argument("--dtype-bytes", type=int, default=2, help="Bytes per element (fp16/bf16=2)")
     parser.add_argument("--seq-lens", default="4096,8192,16384", help="Comma-separated seq lengths to estimate")
     parser.add_argument("--emit-config", action="store_true", help="Print a YAML config stub")
-    parser.add_argument("--target-gpu", choices=["a40", "a100"], default=None, help="Tune config for target GPU")
+    parser.add_argument(
+        "--target-gpu",
+        choices=["a40", "a100", "h200_sxm", "b200"],
+        default=None,
+        help="Tune config for target GPU",
+    )
     parser.add_argument("--quant", default=None, help="Quantization mode for stub (e.g., compressed-tensors, awq)")
     parser.add_argument("--llm-optimize", action="store_true", help="Use LLM to suggest optimal settings")
     parser.add_argument("--llm-base-url", default=None, help="Override LLM base URL")
     args = parser.parse_args()
+    target_gpu = normalize_target_gpu(args.target_gpu or args.target_gpu_pos)
+    if args.target_gpu and args.target_gpu_pos and normalize_target_gpu(args.target_gpu) != normalize_target_gpu(args.target_gpu_pos):
+        print("Error: --target-gpu and positional target GPU disagree. Use only one or make them match.")
+        return 2
+    if (args.target_gpu or args.target_gpu_pos) and target_gpu is None:
+        print("Error: invalid target GPU. Use one of: a40, a100, h200_sxm, b200")
+        return 2
 
     repo_id = normalize_model_ref(args.model)
     env = load_env()
@@ -276,7 +329,12 @@ def main() -> int:
             total_mb = weights_mb + kv_mb
             a40 = classify_fit(total_mb, 48)
             a100 = classify_fit(total_mb, 80)
-            print(f"  seq_len {seq_len}: total ~{total_mb:,.1f} MB | A40: {a40} | A100: {a100}")
+            h200_sxm = classify_fit(total_mb, 141)
+            b200 = classify_fit(total_mb, 180)
+            print(
+                f"  seq_len {seq_len}: total ~{total_mb:,.1f} MB | "
+                f"A40: {a40} | A100: {a100} | H200-SXM: {h200_sxm} | B200: {b200}"
+            )
     else:
         print("\nHeuristic fit estimate: unavailable (insufficient config fields)")
 
@@ -317,8 +375,8 @@ def main() -> int:
         max_len = 4096
         gpu_mem = 0.85
         if weights_mb is not None and all([hidden_size, num_layers, num_kv_heads, head_dim]):
-            if args.target_gpu:
-                vram_gb = 48 if args.target_gpu == "a40" else 80
+            if target_gpu:
+                vram_gb = TARGET_GPU_VRAM_GB.get(target_gpu, 80)
                 seq_len, total_mb, ratio = choose_max_len(
                     seq_lens=seq_lens,
                     weights_mb=weights_mb,
@@ -332,10 +390,10 @@ def main() -> int:
                 max_len = seq_len
                 gpu_mem = choose_gpu_mem_util(ratio)
 
-        print(f"{model_key}_{suffix}_{args.target_gpu or 'default'}:")
+        print(f"{model_key}_{suffix}_{target_gpu or 'default'}:")
         print(f"  name: \"{repo_id}-{'FP16' if not quant else quant.upper()}\"")
         print(f"  repo: \"{repo_id}\"")
-        print(f"  local_path: \"/workspace/models/{model_key}_{suffix}_{args.target_gpu or 'default'}\"")
+        print(f"  local_path: \"/workspace/models/{model_key}_{suffix}_{target_gpu or 'default'}\"")
         print(f"  quant: {('null' if not quant else '\"' + quant + '\"')}")
         print(f"  dtype: \"float16\"")
         print(f"  max_model_len: {max_len}")
@@ -356,6 +414,7 @@ def main() -> int:
             weights_mb=weights_mb,
             seq_lens=seq_lens,
             dtype_bytes=args.dtype_bytes,
+            target_gpu=target_gpu,
         )
         response = call_llm(prompt, base_url=args.llm_base_url)
         normalized = normalize_llm_yaml(
@@ -367,6 +426,7 @@ def main() -> int:
             num_kv_heads=num_kv_heads,
             head_dim=head_dim,
             dtype_bytes=args.dtype_bytes,
+            target_gpu=target_gpu,
         )
         print("\nLLM recommendation (raw):")
         print(response)
@@ -406,6 +466,7 @@ def build_llm_prompt(
     weights_mb,
     seq_lens,
     dtype_bytes,
+    target_gpu: Optional[str] = None,
 ) -> str:
     kv_estimates = {}
     totals_by_seq = {}
@@ -425,6 +486,8 @@ def build_llm_prompt(
                     "total_mb": weights_mb + kv_mb,
                     "a40_ratio": (weights_mb + kv_mb) / (48 * 1024),
                     "a100_ratio": (weights_mb + kv_mb) / (80 * 1024),
+                    "h200_sxm_ratio": (weights_mb + kv_mb) / (141 * 1024),
+                    "b200_ratio": (weights_mb + kv_mb) / (180 * 1024),
                 }
 
     lines = [
@@ -432,7 +495,8 @@ def build_llm_prompt(
         "Given the following model metadata and memory estimates, recommend:",
         "1) max_model_len",
         "2) gpu_memory_util",
-        "3) Whether the model should run comfortably, tight, or unlikely on A40 (48GB) and A100 (80GB).",
+        "3) Whether the model should run comfortably, tight, or unlikely on A40 (48GB), "
+        "A100 (80GB), H200-SXM (141GB), and B200 (180GB).",
         "",
         "Use these heuristics:",
         "- KV cache grows with seq_len, layers, hidden_size, kv_heads, head_dim.",
@@ -463,12 +527,19 @@ def build_llm_prompt(
             if totals:
                 lines.append(
                     f"    total_mb={totals['total_mb']:.1f}, "
-                    f"a40_ratio={totals['a40_ratio']:.3f}, a100_ratio={totals['a100_ratio']:.3f}"
+                    f"a40_ratio={totals['a40_ratio']:.3f}, "
+                    f"a100_ratio={totals['a100_ratio']:.3f}, "
+                    f"h200_sxm_ratio={totals['h200_sxm_ratio']:.3f}, "
+                    f"b200_ratio={totals['b200_ratio']:.3f}"
                 )
         else:
             lines.append(f"  {seq_len}: unknown")
     lines.append("")
-    lines.append("Output two YAML blocks (A40 and A100) that can be pasted into runpod_setup/config.yaml.")
+    if target_gpu:
+        label = target_gpu.upper().replace("_SXM", "-SXM")
+        lines.append(f"Output one YAML block for {label} only.")
+    else:
+        lines.append("Output four YAML blocks (A40, A100, H200-SXM, B200) for runpod_setup/config.yaml.")
     lines.append("Formatting rules:")
     lines.append("- Use lower-case keys with two-space indentation.")
     lines.append("- Use quant: null for FP16 (not 'none').")
@@ -610,6 +681,7 @@ def normalize_llm_yaml(
     num_kv_heads: Optional[int] = None,
     head_dim: Optional[int] = None,
     dtype_bytes: int = 2,
+    target_gpu: Optional[str] = None,
 ) -> str:
     blocks = extract_yaml_blocks(text)
     if not blocks:
@@ -621,7 +693,9 @@ def normalize_llm_yaml(
         for data in parsed_blocks:
             idx += 1
             name = data.get("name", f"{repo_id}")
-            target = "a40" if "a40" in name.lower() else "a100" if "a100" in name.lower() else f"block{idx+1}"
+            target = detect_target_from_name(name, target_gpu or f"block{idx+1}")
+            if target_gpu and target != target_gpu:
+                continue
             model_key = repo_id.split("/")[-1].lower().replace("-", "_").replace(".", "_")
             suffix = "fp16"
             quant = data.get("quant", "null").lower()
@@ -640,7 +714,7 @@ def normalize_llm_yaml(
                 notes = "\n".join([f"- {line}" for line in notes.splitlines()])
 
             if (
-                target in {"a40", "a100"}
+                target in TARGET_GPU_VRAM_GB
                 and weights_mb is not None
                 and all([hidden_size, num_layers, num_kv_heads, head_dim])
             ):
@@ -652,7 +726,7 @@ def normalize_llm_yaml(
                     seq_len=max_model_len,
                     dtype_bytes=dtype_bytes,
                 )
-                vram_gb = 48 if target == "a40" else 80
+                vram_gb = TARGET_GPU_VRAM_GB[target]
                 ratio = (weights_mb + kv_mb) / (vram_gb * 1024)
                 gpu_memory_util = choose_gpu_mem_util(ratio)
 
