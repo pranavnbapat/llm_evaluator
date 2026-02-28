@@ -249,6 +249,22 @@ class GPUMonitor:
         self.interval_sec = interval_sec
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        self._ctx_lock = threading.Lock()
+        self._context = {
+            "phase": "idle",
+            "model_name": "",
+            "model_repo": "",
+            "model_dtype": "",
+            "model_quant": "",
+            "model_max_model_len": "",
+            "model_gpu_memory_util": "",
+            "eval_language": "",
+            "eval_question_id": "",
+            "eval_run_number": "",
+            "eval_context_items": "",
+            "eval_max_tokens": "",
+            "eval_temperature": "",
+        }
 
     def start(self) -> None:
         self._thread = threading.Thread(target=self._run, daemon=True)
@@ -258,6 +274,17 @@ class GPUMonitor:
         self._stop_event.set()
         if self._thread:
             self._thread.join(timeout=5)
+
+    def set_context(self, **kwargs) -> None:
+        """Update metadata attached to each GPU sample row."""
+        with self._ctx_lock:
+            for key, value in kwargs.items():
+                if key in self._context:
+                    self._context[key] = "" if value is None else str(value)
+
+    def _snapshot_context(self) -> dict:
+        with self._ctx_lock:
+            return dict(self._context)
 
     def _run(self) -> None:
         header = [
@@ -274,6 +301,19 @@ class GPUMonitor:
             "ram_total_mb",
             "ram_used_mb",
             "ram_free_mb",
+            "phase",
+            "model_name",
+            "model_repo",
+            "model_dtype",
+            "model_quant",
+            "model_max_model_len",
+            "model_gpu_memory_util",
+            "eval_language",
+            "eval_question_id",
+            "eval_run_number",
+            "eval_context_items",
+            "eval_max_tokens",
+            "eval_temperature",
         ]
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
         write_header = not self.output_path.exists()
@@ -299,9 +339,25 @@ class GPUMonitor:
                     ]
                     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
                     lines = [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
+                    ctx = self._snapshot_context()
                     for line in lines:
                         row = [v.strip() for v in line.split(",")]
                         row.extend([f"{cpu_pct:.2f}", ram_total_mb, ram_used_mb, ram_free_mb])
+                        row.extend([
+                            ctx["phase"],
+                            ctx["model_name"],
+                            ctx["model_repo"],
+                            ctx["model_dtype"],
+                            ctx["model_quant"],
+                            ctx["model_max_model_len"],
+                            ctx["model_gpu_memory_util"],
+                            ctx["eval_language"],
+                            ctx["eval_question_id"],
+                            ctx["eval_run_number"],
+                            ctx["eval_context_items"],
+                            ctx["eval_max_tokens"],
+                            ctx["eval_temperature"],
+                        ])
                         writer.writerow(row)
                     f.flush()
                 except FileNotFoundError:
@@ -351,9 +407,10 @@ class GPUMonitor:
 class Evaluator:
     """Handles context-based evaluation logic."""
     
-    def __init__(self, vllm: VLlmManager, config: dict):
+    def __init__(self, vllm: VLlmManager, config: dict, gpu_monitor: Optional[GPUMonitor] = None):
         self.vllm = vllm
         self.config = config
+        self.gpu_monitor = gpu_monitor
         self.results_dir = Path(config["paths"]["results_dir"])
         self.results_dir.mkdir(parents=True, exist_ok=True)
         
@@ -456,6 +513,14 @@ Your response:"""
             context = question_data.get('context', [])
             
             for run in range(1, self.num_runs + 1):
+                if self.gpu_monitor:
+                    self.gpu_monitor.set_context(
+                        phase="evaluating",
+                        eval_language=lang,
+                        eval_question_id=qid,
+                        eval_run_number=run,
+                        eval_context_items=len(context),
+                    )
                 start_time = time.time()
                 
                 # Build prompt with context
@@ -474,6 +539,14 @@ Your response:"""
                     self._save_result(model_name, lang, qid, run, question_text, context, response, latency)
                 
                 results["total_questions"] += 1
+
+        if self.gpu_monitor:
+            self.gpu_monitor.set_context(
+                eval_language="",
+                eval_question_id="",
+                eval_run_number="",
+                eval_context_items="",
+            )
         
         # Save JSON summary
         json_path = self.results_dir / f"{model_name}_context_{datetime.now():%Y%m%d_%H%M%S}.json"
@@ -653,21 +726,39 @@ def main():
         gpu_monitor.start()
         for model_config in models:
             model_name = model_config["name"].replace(" ", "_").lower()
+            gpu_monitor.set_context(
+                phase="loading_model",
+                model_name=model_config.get("name", model_name),
+                model_repo=model_config.get("repo", ""),
+                model_dtype=model_config.get("dtype", "auto"),
+                model_quant=model_config.get("quant", ""),
+                model_max_model_len=model_config.get("max_model_len", ""),
+                model_gpu_memory_util=model_config.get("gpu_memory_util", ""),
+                eval_max_tokens=config["evaluation"]["max_tokens"],
+                eval_temperature=config["evaluation"]["temperature"],
+                eval_language="",
+                eval_question_id="",
+                eval_run_number="",
+                eval_context_items="",
+            )
             
             # Start vLLM
             if not vllm.start(model_config):
                 print(f"❌ Failed to start vLLM for {model_config['name']}")
+                gpu_monitor.set_context(phase="model_start_failed")
                 continue
             
             try:
                 # Run evaluation
-                evaluator = Evaluator(vllm, config)
+                evaluator = Evaluator(vllm, config, gpu_monitor=gpu_monitor)
                 results = evaluator.evaluate_model(model_name, model_config)
                 all_results.append(results)
                 
             finally:
                 # Always stop vLLM
+                gpu_monitor.set_context(phase="stopping_model")
                 vllm.stop()
+                gpu_monitor.set_context(phase="idle")
         
         # Final summary
         print("\n" + "="*60)
