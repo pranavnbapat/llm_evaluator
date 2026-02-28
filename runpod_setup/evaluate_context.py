@@ -30,6 +30,7 @@ import sqlite3
 import subprocess
 import threading
 import csv
+import pandas as pd
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Any
@@ -582,6 +583,44 @@ def load_config() -> dict:
     return config
 
 
+def export_results_to_excel(db_path: Path) -> Optional[Path]:
+    """Export SQLite evaluations table to Excel."""
+    if not db_path.exists():
+        print(f"⚠️ DB not found, skipping Excel export: {db_path}")
+        return None
+
+    excel_path = db_path.with_suffix(".xlsx")
+    by_model_excel_path = db_path.with_name(f"{db_path.stem}_by_model.xlsx")
+    conn = sqlite3.connect(db_path)
+    try:
+        df = pd.read_sql_query("SELECT * FROM evaluations ORDER BY id", conn)
+        if df.empty:
+            print("⚠️ No evaluation rows found, skipping Excel export.")
+            return None
+        df.to_excel(excel_path, index=False)
+        if "model_name" in df.columns:
+            used_sheet_names = set()
+            with pd.ExcelWriter(by_model_excel_path, engine="xlsxwriter") as writer:
+                for model_name, model_df in df.groupby("model_name", sort=True):
+                    base = (str(model_name) if model_name else "unknown_model")
+                    # Excel sheet names: max 31 chars, no []:*?/\ characters
+                    safe = "".join("_" if ch in '[]:*?/\\' else ch for ch in base).strip() or "unknown_model"
+                    safe = safe[:31]
+                    sheet_name = safe
+                    n = 1
+                    while sheet_name in used_sheet_names:
+                        suffix = f"_{n}"
+                        sheet_name = f"{safe[:31-len(suffix)]}{suffix}"
+                        n += 1
+                    used_sheet_names.add(sheet_name)
+                    model_df.to_excel(writer, sheet_name=sheet_name, index=False)
+                # Also keep a full-data sheet for convenience in the by-model workbook.
+                df.to_excel(writer, sheet_name="all_results", index=False)
+        return excel_path
+    finally:
+        conn.close()
+
+
 def main():
     """Main entry point."""
     print("="*60)
@@ -639,9 +678,17 @@ def main():
             print(f"   {r['model_display_name']}: {r['successful_responses']}/{r['total_questions']}")
         
         print(f"\n💾 Results saved to: {config['paths']['results_dir']}/evaluation_results_euf_context.db")
+        db_path = Path(config["paths"]["results_dir"]) / "evaluation_results_euf_context.db"
+        excel_path = export_results_to_excel(db_path)
+        if excel_path:
+            print(f"📄 Excel exported to: {excel_path}")
+            print(f"📄 By-model Excel exported to: {db_path.with_name(f'{db_path.stem}_by_model.xlsx')}")
         print("\nNext steps:")
         print("   1. Run scoring: python evaluate_results.py")
         print("   2. Check results in results/evaluation_results_euf_context.db")
+        if excel_path:
+            print("   3. Review spreadsheet in results/evaluation_results_euf_context.xlsx")
+            print("   4. Review by-model workbook in results/evaluation_results_euf_context_by_model.xlsx")
         
     except KeyboardInterrupt:
         print("\n\n⚠️ Interrupted by user")
