@@ -91,6 +91,33 @@ models:
     max_model_len: 8192
     gpu_memory_util: 0.85
 
+  mistral_nemo_instruct_2407_fp16_a100:
+    name: "mistral-nemo-instruct-2407-a100"
+    repo: "mistralai/Mistral-Nemo-Instruct-2407"
+    local_path: "/workspace/models/mistral_nemo_instruct_2407_fp16_a100"
+    quant: null
+    dtype: "float16"
+    max_model_len: 16384
+    gpu_memory_util: 0.90
+
+  devstral_small_2_24b_instruct_2512_fp16_a40:
+    name: "devstral-small-2-24b-instruct-a40"
+    repo: "mistralai/Devstral-Small-2-24B-Instruct-2512"
+    local_path: "/workspace/models/devstral_small_2_24b_instruct_2512_fp16_a40"
+    quant: null
+    dtype: "float16"
+    max_model_len: 16384
+    gpu_memory_util: 0.80
+
+  mixtral_8x7b_instruct_v0_1_fp16_a40:
+    name: "mixtral-8x7b-instruct-a40"
+    repo: "mistralai/Mixtral-8x7B-Instruct-v0.1"
+    local_path: "/workspace/models/mixtral_8x7b_instruct_v0_1_fp16_a40"
+    quant: null
+    dtype: "float16"
+    max_model_len: 8192
+    gpu_memory_util: 0.90
+
   qwen3_5_27b_fp16_a100:
     name: "qwen3.5-27b-a100"
     repo: "Qwen/Qwen3.5-27B"
