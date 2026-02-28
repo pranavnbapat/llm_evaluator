@@ -1,0 +1,12 @@
+# Minimal dependencies for context scoring only.
+# Used by: evaluate_context_results.py + metrics/scientific_metrics.py
+
+numpy==2.2.0
+PyYAML==6.0.3
+tqdm==4.67.3
+
+# ML/NLP stack for relevance, fluency, coherence, and NLI metrics
+torch>=2.9.1
+transformers==4.56.2
+sentence-transformers==5.2.3
+scikit-learn==1.8.0

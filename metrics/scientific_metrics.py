@@ -3,6 +3,7 @@
 """Scientific evaluation metrics for LLM responses."""
 
 import json
+import os
 import re
 import yaml
 
@@ -28,6 +29,48 @@ try:
 except ImportError:
     TRANSFORMERS_AVAILABLE = False
 
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    torch = None
+    TORCH_AVAILABLE = False
+
+
+def resolve_metrics_device() -> str:
+    """
+    Resolve metrics device from env.
+    EVALUATOR_METRICS_DEVICE:
+      - auto (default): cuda if available, else cpu
+      - cuda: force GPU
+      - cpu: force CPU
+    """
+    pref = os.getenv("EVALUATOR_METRICS_DEVICE")
+    if pref is None:
+        # Fallback to repo-root .env when not exported in shell.
+        env_path = Path(__file__).resolve().parent.parent / ".env"
+        if env_path.exists():
+            for line in env_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                if k.strip() == "EVALUATOR_METRICS_DEVICE":
+                    pref = v.strip()
+                    break
+    pref = (pref or "auto").strip().lower()
+    if pref not in {"auto", "cpu", "cuda"}:
+        pref = "cpu"
+    if pref == "cpu":
+        return "cpu"
+    if pref == "cuda":
+        if TORCH_AVAILABLE and torch.cuda.is_available():
+            return "cuda"
+        return "cpu"
+    if TORCH_AVAILABLE and torch.cuda.is_available():
+        return "cuda"
+    return "cpu"
+
 
 @dataclass
 class QualityScores:
@@ -47,19 +90,22 @@ class EmbeddingModel:
     
     _instance = None
     
-    def __new__(cls, model_name: str = None):
+    def __new__(cls, model_name: str = None, device: str = "cpu"):
         if cls._instance is None and ML_AVAILABLE:
             cls._instance = super().__new__(cls)
             cls._instance.model = None
+        if cls._instance is not None:
+            # Keep singleton but allow reconfiguration in-process.
+            if getattr(cls._instance, "model_name", None) != model_name or getattr(cls._instance, "device", None) != device:
+                cls._instance.model = None
             cls._instance.model_name = model_name
+            cls._instance.device = device
         return cls._instance
     
     def load(self):
-        """Lazy load the embedding model on CPU to avoid GPU conflicts."""
+        """Lazy load the embedding model on configured device."""
         if self.model is None and ML_AVAILABLE and self.model_name:
-            import torch
-            # Force CPU to avoid GPU memory conflicts with vLLM
-            self.model = SentenceTransformer(self.model_name, device='cpu')
+            self.model = SentenceTransformer(self.model_name, device=self.device)
         return self.model
     
     def encode(self, texts: List[str]) -> np.ndarray:
@@ -79,7 +125,8 @@ class ResponseEvaluator:
         metrics_config_path: Optional[str] = None,
         metrics_profile: str = "default",
     ):
-        self.embedding_model = EmbeddingModel(embedding_model_name)
+        self.metrics_device = resolve_metrics_device()
+        self.embedding_model = EmbeddingModel(embedding_model_name, device=self.metrics_device)
         self._embeddings_cache = {}
         self.metrics_profile = metrics_profile
         self.metrics_config = self._load_metrics_config(metrics_config_path, metrics_profile)
@@ -93,6 +140,7 @@ class ResponseEvaluator:
         self._fluency_model = None
         self._coherence_model = None
         self._nli_model = None
+        self._pipeline_device = 0 if self.metrics_device == "cuda" else -1
     
     def _load_metrics_config(self, metrics_config_path: Optional[str], profile: str) -> Dict[str, Any]:
         """Load metrics configuration from YAML with profile selection."""
@@ -171,15 +219,15 @@ class ResponseEvaluator:
     
     def _load_text_classifier(self, model_name: str):
         self._ensure_transformers()
-        return pipeline("text-classification", model=model_name, device=-1)
+        return pipeline("text-classification", model=model_name, device=self._pipeline_device)
     
     def _load_zero_shot_classifier(self, model_name: str):
         self._ensure_transformers()
-        return pipeline("zero-shot-classification", model=model_name, device=-1)
+        return pipeline("zero-shot-classification", model=model_name, device=self._pipeline_device)
     
     def _load_nli_classifier(self, model_name: str):
         self._ensure_transformers()
-        return pipeline("text-classification", model=model_name, device=-1)
+        return pipeline("text-classification", model=model_name, device=self._pipeline_device)
     
     def _score_with_classifier(
         self,
