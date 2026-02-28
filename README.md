@@ -1,14 +1,14 @@
-# LLM Evaluator - RunPod Edition
+# LLM Evaluator
 
 Evaluate 5 Large Language Models across 24 EU languages using scientific metrics.
 
-## 🚀 Quick Start (RunPod)
+## 🚀 Quick Start
 
-The fastest way to run evaluations is on RunPod with A40 48GB GPU.
+The fastest way to run evaluations is with A40 48GB GPU.
 
 ```bash
-# 1. SSH into RunPod and clone
-ssh root@YOUR_RUNPOD_IP
+# 1. SSH and clone
+ssh root@YOUR_IP
 cd /workspace
 git clone https://github.com/YOUR_USERNAME/llm_evaluator.git
 cd llm_evaluator
@@ -29,7 +29,7 @@ export OPENAI_API_KEY="sk_your_key"
 .venv/bin/python runpod_setup/evaluate.py
 
 # 6. Download results to your laptop
-scp -r root@YOUR_RUNPOD_IP:/workspace/evaluation_results ./
+scp -r root@YOUR_IP:/workspace/evaluation_results ./
 ```
 
 See [runpod_setup/README.md](runpod_setup/README.md) for detailed instructions.
@@ -131,8 +131,7 @@ sqlite3 evaluation_results.db "SELECT model_name, AVG(latency_ms) FROM evaluatio
 
 ---
 
-## 💰 Costs (RunPod)
-
+## 💰 Costs
 - **A40 GPU**: ~$0.50-1.00/hour
 - **Storage**: ~$0.20/GB/month
 - **Full evaluation**: ~$3-6 (3-6 hours)
@@ -141,7 +140,7 @@ Models (~150GB) persist in `/workspace/` across pod restarts.
 
 ## 🔬 Evaluation Method
 
-All metrics are computed **locally** on your RunPod GPU - no external API calls needed:
+All metrics are computed **locally** on GPU - no external API calls needed:
 
 | Metric | Method |
 |--------|--------|
