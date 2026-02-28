@@ -44,6 +44,15 @@ models:
 #    max_model_len: 8192        # ↓ Reduced from 16384
 #    gpu_memory_util: 0.75
 
+  teuken-7b-instruct-a100:
+    name: teuken-7b-instruct-a100
+    repo: openGPT-X/Teuken-7B-instruct-commercial-v0.4
+    local_path: /workspace/models/teuken-7b-instruct-a100
+    quant: null
+    dtype: "float16"
+    max_model_len: 4096
+    gpu_memory_util: 0.72
+
   mistral_small_24b_awq_a100_8k:
     name: "Mistral-Small-24B-AWQ-A100-8K"
     repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"

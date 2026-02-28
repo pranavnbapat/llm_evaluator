@@ -358,7 +358,16 @@ def main() -> int:
             dtype_bytes=args.dtype_bytes,
         )
         response = call_llm(prompt, base_url=args.llm_base_url)
-        normalized = normalize_llm_yaml(response, repo_id=repo_id)
+        normalized = normalize_llm_yaml(
+            response,
+            repo_id=repo_id,
+            weights_mb=weights_mb,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            num_kv_heads=num_kv_heads,
+            head_dim=head_dim,
+            dtype_bytes=args.dtype_bytes,
+        )
         print("\nLLM recommendation (raw):")
         print(response)
         if normalized:
@@ -399,6 +408,7 @@ def build_llm_prompt(
     dtype_bytes,
 ) -> str:
     kv_estimates = {}
+    totals_by_seq = {}
     if all([hidden_size, num_layers, num_kv_heads, head_dim]):
         for seq_len in seq_lens:
             kv_mb = estimate_kv_cache_mb(
@@ -410,6 +420,12 @@ def build_llm_prompt(
                 dtype_bytes=dtype_bytes,
             )
             kv_estimates[seq_len] = kv_mb
+            if weights_mb is not None:
+                totals_by_seq[seq_len] = {
+                    "total_mb": weights_mb + kv_mb,
+                    "a40_ratio": (weights_mb + kv_mb) / (48 * 1024),
+                    "a100_ratio": (weights_mb + kv_mb) / (80 * 1024),
+                }
 
     lines = [
         "You are an expert in vLLM deployment and GPU memory sizing.",
@@ -443,6 +459,12 @@ def build_llm_prompt(
         kv = kv_estimates.get(seq_len)
         if kv is not None:
             lines.append(f"  {seq_len}: {kv:.1f}")
+            totals = totals_by_seq.get(seq_len)
+            if totals:
+                lines.append(
+                    f"    total_mb={totals['total_mb']:.1f}, "
+                    f"a40_ratio={totals['a40_ratio']:.3f}, a100_ratio={totals['a100_ratio']:.3f}"
+                )
         else:
             lines.append(f"  {seq_len}: unknown")
     lines.append("")
@@ -453,6 +475,12 @@ def build_llm_prompt(
     lines.append("- Use dtype: \"float16\" unless the model requires BF16.")
     lines.append("- local_path must be under /workspace/models/ and unique per block.")
     lines.append("- Use max_model_len and gpu_memory_util consistent with your own memory estimates.")
+    lines.append("- For each target GPU, compute usage_ratio = (weights + kv_at_max_model_len) / vram.")
+    lines.append("- Choose gpu_memory_util from usage_ratio using this mapping:")
+    lines.append("  usage_ratio <= 0.55 -> 0.90")
+    lines.append("  usage_ratio <= 0.70 -> 0.85")
+    lines.append("  usage_ratio <= 0.80 -> 0.80")
+    lines.append("  otherwise -> 0.75")
     lines.append("- Include a multi-line notes field using YAML block scalar (|).")
     lines.append("")
     lines.append("Each block must include:")
@@ -559,7 +587,30 @@ def parse_simple_yaml_block(block: str) -> List[Dict[str, Any]]:
     return blocks
 
 
-def normalize_llm_yaml(text: str, repo_id: str) -> str:
+def parse_int(value: Any, default: int) -> int:
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def parse_float(value: Any, default: float) -> float:
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def normalize_llm_yaml(
+    text: str,
+    repo_id: str,
+    weights_mb: Optional[float] = None,
+    hidden_size: Optional[int] = None,
+    num_layers: Optional[int] = None,
+    num_kv_heads: Optional[int] = None,
+    head_dim: Optional[int] = None,
+    dtype_bytes: int = 2,
+) -> str:
     blocks = extract_yaml_blocks(text)
     if not blocks:
         return ""
@@ -578,16 +629,34 @@ def normalize_llm_yaml(text: str, repo_id: str) -> str:
                 suffix = quant.replace("-", "_")
             top_key = f"{model_key}_{suffix}_{target}"
 
-        # Normalize fields
-        repo = data.get("repo", repo_id)
-        local_path = f"/workspace/models/{top_key}"
-        dtype = "float16"
-        max_model_len = data.get("max_model_len", "4096")
-        gpu_memory_util = data.get("gpu_memory_util", "0.8")
-        notes = data.get("notes", "").strip()
-        if notes and not notes.startswith("-"):
-            notes = "\n".join([f"- {line}" for line in notes.splitlines()])
+            # Normalize fields
+            repo = data.get("repo", repo_id)
+            local_path = f"/workspace/models/{top_key}"
+            dtype = "float16"
+            max_model_len = parse_int(data.get("max_model_len", "4096"), 4096)
+            gpu_memory_util = parse_float(data.get("gpu_memory_util", "0.8"), 0.8)
+            notes = data.get("notes", "").strip()
+            if notes and not notes.startswith("-"):
+                notes = "\n".join([f"- {line}" for line in notes.splitlines()])
 
+            if (
+                target in {"a40", "a100"}
+                and weights_mb is not None
+                and all([hidden_size, num_layers, num_kv_heads, head_dim])
+            ):
+                kv_mb = estimate_kv_cache_mb(
+                    hidden_size=hidden_size,
+                    num_layers=num_layers,
+                    num_kv_heads=num_kv_heads,
+                    head_dim=head_dim,
+                    seq_len=max_model_len,
+                    dtype_bytes=dtype_bytes,
+                )
+                vram_gb = 48 if target == "a40" else 80
+                ratio = (weights_mb + kv_mb) / (vram_gb * 1024)
+                gpu_memory_util = choose_gpu_mem_util(ratio)
+
+            gpu_memory_util = min(max(gpu_memory_util, 0.5), 0.95)
             out_lines.append(f"{top_key}:")
             out_lines.append(f"  name: \"{name}\"")
             out_lines.append(f"  repo: \"{repo}\"")
@@ -595,7 +664,7 @@ def normalize_llm_yaml(text: str, repo_id: str) -> str:
             out_lines.append(f"  quant: {('null' if quant in {'null','none'} else '\"' + quant + '\"')}")
             out_lines.append(f"  dtype: \"{dtype}\"")
             out_lines.append(f"  max_model_len: {max_model_len}")
-            out_lines.append(f"  gpu_memory_util: {gpu_memory_util}")
+            out_lines.append(f"  gpu_memory_util: {gpu_memory_util:.2f}")
             if notes:
                 out_lines.append("  notes: |")
                 for line in notes.splitlines():
