@@ -66,10 +66,10 @@ credentials/
 # Evaluation Results & Data (Generated)
 # =============================================================================
 # Ignore tabular/result artifacts everywhere by default
-*.db
-*.csv
-*.xls
-*.xlsx
+#*.db
+#*.csv
+#*.xls
+#*.xlsx
 *.sqlite
 *.sqlite3
 
