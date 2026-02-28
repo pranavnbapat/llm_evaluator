@@ -24,10 +24,11 @@ except ImportError:
     cosine_similarity = None
 
 try:
-    from transformers import pipeline
+    from transformers import AutoTokenizer, pipeline
     TRANSFORMERS_AVAILABLE = True
 except ImportError:
     TRANSFORMERS_AVAILABLE = False
+    AutoTokenizer = None
 
 try:
     import torch
@@ -216,18 +217,35 @@ class ResponseEvaluator:
     def _ensure_transformers(self):
         if not TRANSFORMERS_AVAILABLE:
             raise RuntimeError("Transformers is not available. Install 'transformers' to use model-based metrics.")
+
+    def _build_tokenizer_with_fallback(self, model_name: str):
+        """
+        Build tokenizer with robust fallback:
+        1) try fast tokenizer
+        2) fall back to slow tokenizer
+        """
+        self._ensure_transformers()
+        if AutoTokenizer is None:
+            return None
+        try:
+            return AutoTokenizer.from_pretrained(model_name, use_fast=True)
+        except Exception:
+            return AutoTokenizer.from_pretrained(model_name, use_fast=False)
     
     def _load_text_classifier(self, model_name: str):
         self._ensure_transformers()
-        return pipeline("text-classification", model=model_name, device=self._pipeline_device)
+        tokenizer = self._build_tokenizer_with_fallback(model_name)
+        return pipeline("text-classification", model=model_name, tokenizer=tokenizer, device=self._pipeline_device)
     
     def _load_zero_shot_classifier(self, model_name: str):
         self._ensure_transformers()
-        return pipeline("zero-shot-classification", model=model_name, device=self._pipeline_device)
+        tokenizer = self._build_tokenizer_with_fallback(model_name)
+        return pipeline("zero-shot-classification", model=model_name, tokenizer=tokenizer, device=self._pipeline_device)
     
     def _load_nli_classifier(self, model_name: str):
         self._ensure_transformers()
-        return pipeline("text-classification", model=model_name, device=self._pipeline_device)
+        tokenizer = self._build_tokenizer_with_fallback(model_name)
+        return pipeline("text-classification", model=model_name, tokenizer=tokenizer, device=self._pipeline_device)
     
     def _score_with_classifier(
         self,
