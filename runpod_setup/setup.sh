@@ -42,11 +42,35 @@ echo ""
 # ----------------------------------------------------------------------------
 
 echo "📦 Installing system packages..."
-if command -v git >/dev/null 2>&1 && command -v git-lfs >/dev/null 2>&1 && command -v curl >/dev/null 2>&1; then
+PACKAGES=(
+    git
+    git-lfs
+    ca-certificates
+    curl
+    nano
+    ripgrep
+    jq
+    htop
+    tmux
+    less
+    unzip
+    zip
+    tree
+)
+
+NEED_INSTALL=0
+for pkg in "${PACKAGES[@]}"; do
+    if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+        NEED_INSTALL=1
+        break
+    fi
+done
+
+if [[ $NEED_INSTALL -eq 0 ]]; then
     echo "✓ System packages already installed"
 else
     apt-get update -qq
-    apt-get install -y -qq git git-lfs ca-certificates curl
+    apt-get install -y -qq "${PACKAGES[@]}"
 fi
 
 # Install git-lfs
