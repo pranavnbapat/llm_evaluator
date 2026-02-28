@@ -65,12 +65,13 @@ credentials/
 # =============================================================================
 # Evaluation Results & Data (Generated)
 # =============================================================================
-# SQLite databases
-#*.db
+# Ignore tabular/result artifacts everywhere by default
+*.db
+*.csv
+*.xls
+*.xlsx
 *.sqlite
 *.sqlite3
-
-#*.xlsx
 
 # Results directory (contains generated evaluation data)
 #results/*.db
@@ -140,10 +141,18 @@ Thumbs.db
 desktop.ini
 #*.db
 
-# Allow tracked artifacts under results/
+# Allow tracked artifacts under results/ and logs/
 !results/**/*.db
+!results/**/*.csv
+!results/**/*.xls
+!results/**/*.xlsx
 !results/**/*.sqlite
 !results/**/*.sqlite3
-!results/**/*.xlsx
+!logs/**/*.db
+!logs/**/*.csv
+!logs/**/*.xls
+!logs/**/*.xlsx
+!logs/**/*.sqlite
+!logs/**/*.sqlite3
 
 temp/
