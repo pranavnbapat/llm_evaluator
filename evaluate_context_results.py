@@ -24,6 +24,26 @@ from metrics.scientific_metrics import ResponseEvaluator
 from translations.eu_24_languages_euf_context import get_all_questions_with_context
 
 
+def export_scores_to_excel(scores_db_path: Path, out_xlsx_path: Path) -> bool:
+    """Export scores table to Excel. Returns True on success."""
+    try:
+        import pandas as pd
+    except ImportError:
+        print("\n⚠️ Skipping Excel export: pandas/openpyxl not installed.")
+        print("   Install with: pip install pandas openpyxl")
+        return False
+
+    conn = sqlite3.connect(scores_db_path)
+    try:
+        df = pd.read_sql_query("SELECT * FROM scores", conn)
+    finally:
+        conn.close()
+
+    with pd.ExcelWriter(out_xlsx_path, engine="openpyxl") as writer:
+        df.to_excel(writer, sheet_name="scores", index=False)
+    return True
+
+
 def get_context_for_question(question_id: str) -> list:
     """Get context (search results) for a question."""
     questions = get_all_questions_with_context()
@@ -46,6 +66,7 @@ def main():
     results_dir = Path("results")
     db_path = results_dir / "evaluation_results_euf_context.db"
     scores_db_path = results_dir / "evaluation_scores_euf_context.db"
+    scores_xlsx_path = results_dir / "evaluation_scores_euf_context.xlsx"
     
     if not db_path.exists():
         print(f"❌ Database not found: {db_path}")
@@ -205,10 +226,14 @@ def main():
         print(f"   {row[0]}: {row[1]} responses, avg quality: {row[2]:.3f}")
     
     summary_conn.close()
+
+    # Export XLSX
+    exported = export_scores_to_excel(scores_db_path, scores_xlsx_path)
+    if exported:
+        print(f"📄 Excel exported to: {scores_xlsx_path}")
     
     print("\nNext steps:")
-    print("   1. Export to Excel: python sqlite_to_excel.py")
-    print("   2. Generate report: python generate_report.py")
+    print("   1. Generate report: python generate_report.py")
 
 
 if __name__ == "__main__":
