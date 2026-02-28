@@ -70,7 +70,7 @@ credentials/
 *.sqlite
 *.sqlite3
 
-*.xlsx
+#*.xlsx
 
 # Results directory (contains generated evaluation data)
 #results/*.db
@@ -138,7 +138,7 @@ nosetests.xml
 .DS_Store
 Thumbs.db
 desktop.ini
-*.db
+#*.db
 
 # Allow tracked artifacts under results/
 !results/**/*.db
