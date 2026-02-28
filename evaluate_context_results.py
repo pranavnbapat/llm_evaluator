@@ -14,6 +14,8 @@ This will:
 """
 import sqlite3
 import sys
+import os
+import json
 from pathlib import Path
 from tqdm import tqdm
 
@@ -123,84 +125,106 @@ def main():
     scores_cursor.execute("DELETE FROM scores")
     scores_conn.commit()
     
-    # Evaluate each response
+    # Evaluate each response (batched inference for heavy metrics)
     print("\n🔍 Evaluating responses...")
-    
-    for eval_data in tqdm(evaluations):
+    prepared = []
+    for eval_data in evaluations:
         (eval_id, model_name, language, question_id, run_number,
          question_text, context_json, response, latency_ms) = eval_data
-        
         if not response:
             continue
-        
-        # Parse context from JSON
-        import json
         try:
             context = json.loads(context_json) if context_json else []
-        except:
+        except Exception:
             context = []
-        
-        # Extract full context documents for semantic comparison
         context_documents = []
         for ctx in context:
             if isinstance(ctx, dict):
-                # Combine available fields for full context
                 title = ctx.get("title", "")
                 subtitle = ctx.get("subtitle", "")
                 description = ctx.get("description", "")
                 keywords = ctx.get("keywords", [])
                 ko_flat = ctx.get("ko_content_flat", [])
-                
                 keywords_text = ", ".join([k for k in keywords if isinstance(k, str)])
                 ko_text = " ".join([k for k in ko_flat if isinstance(k, str)])
-                
                 parts = [title, subtitle, description, keywords_text, ko_text]
                 full_text = ". ".join([p for p in parts if p]).strip()
                 if full_text:
-                    context_documents.append(full_text[:2000])  # First 2000 chars
-        
-        # Also extract reference facts as fallback
-        reference_facts = context_documents.copy()
-        
-        # Build reference data
+                    context_documents.append(full_text[:2000])
         ref_data = {
-            "reference_facts": reference_facts,
+            "reference_facts": context_documents.copy(),
             "context_documents": context_documents,
         }
+        prepared.append({
+            "eval_id": eval_id,
+            "model_name": model_name,
+            "language": language,
+            "question_id": question_id,
+            "question_text": question_text,
+            "response": response,
+            "ref_data": ref_data,
+        })
+    
+    batch_size = max(1, int(os.getenv("EVALUATOR_SCORE_BATCH_SIZE", "16")))
+    pbar = tqdm(total=len(prepared))
+    for start in range(0, len(prepared), batch_size):
+        batch = prepared[start:start + batch_size]
+        responses = [b["response"] for b in batch]
+        languages = [b["language"] for b in batch]
+        contexts_batch = [b["ref_data"].get("context_documents", []) for b in batch]
         
-        # Evaluate response
+        fluency_scores = None
+        coherence_scores = None
+        nli_scores = None
         try:
-            scores = evaluator.evaluate_response(
-                question_id=question_id,
-                question_text=question_text,
-                response_text=response,
-                language=language,
-                tokens_generated=len(response.split()),  # Approximate
-                reference_data=ref_data
-            )
-            
-            # Save scores
-            scores_cursor.execute("""
-                INSERT INTO scores 
-                (evaluation_id, model_name, language, question_id, relevance, 
-                 factual_accuracy, completeness, fluency, coherence, prompt_alignment,
-                 token_efficiency, overall_quality, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-            """, (
-                eval_id, model_name, language, question_id,
-                scores.relevance,
-                scores.factual_accuracy,
-                scores.completeness,
-                scores.fluency,
-                scores.coherence,
-                scores.prompt_alignment,
-                scores.token_efficiency,
-                scores.overall_quality
-            ))
-            
+            fluency_scores = evaluator.calculate_fluency_batch(responses, languages)
+            coherence_scores = evaluator.calculate_coherence_batch(responses)
+            nli_scores = evaluator.calculate_nli_entailment_batch(responses, contexts_batch)
         except Exception as e:
-            print(f"\n   ⚠️ Error evaluating {question_id} ({language}): {e}")
-            continue
+            print(f"\n   ⚠️ Batch precompute fallback at offset {start}: {e}")
+        
+        for idx, item in enumerate(batch):
+            try:
+                precomputed = {}
+                if fluency_scores is not None and idx < len(fluency_scores):
+                    precomputed["fluency"] = float(fluency_scores[idx])
+                if coherence_scores is not None and idx < len(coherence_scores):
+                    precomputed["coherence"] = float(coherence_scores[idx])
+                if nli_scores is not None and idx < len(nli_scores):
+                    precomputed["factual_accuracy"] = float(nli_scores[idx])
+                
+                scores = evaluator.evaluate_response(
+                    question_id=item["question_id"],
+                    question_text=item["question_text"],
+                    response_text=item["response"],
+                    language=item["language"],
+                    tokens_generated=len(item["response"].split()),
+                    reference_data=item["ref_data"],
+                    precomputed_scores=precomputed if precomputed else None,
+                )
+                
+                scores_cursor.execute("""
+                    INSERT INTO scores 
+                    (evaluation_id, model_name, language, question_id, relevance, 
+                     factual_accuracy, completeness, fluency, coherence, prompt_alignment,
+                     token_efficiency, overall_quality, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                """, (
+                    item["eval_id"], item["model_name"], item["language"], item["question_id"],
+                    scores.relevance,
+                    scores.factual_accuracy,
+                    scores.completeness,
+                    scores.fluency,
+                    scores.coherence,
+                    scores.prompt_alignment,
+                    scores.token_efficiency,
+                    scores.overall_quality
+                ))
+            except Exception as e:
+                print(f"\n   ⚠️ Error evaluating {item['question_id']} ({item['language']}): {e}")
+                continue
+        pbar.update(len(batch))
+    pbar.close()
     
     scores_conn.commit()
     scores_conn.close()

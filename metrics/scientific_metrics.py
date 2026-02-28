@@ -143,6 +143,15 @@ class ResponseEvaluator:
         self._nli_model = None
         self._pipeline_device = 0 if self.metrics_device == "cuda" else -1
     
+    def _get_text_embedding(self, text: str) -> np.ndarray:
+        """Return cached embedding for a text."""
+        key = text or ""
+        if key in self._embeddings_cache:
+            return self._embeddings_cache[key]
+        emb = self.embedding_model.encode([key])[0]
+        self._embeddings_cache[key] = emb
+        return emb
+    
     def _load_metrics_config(self, metrics_config_path: Optional[str], profile: str) -> Dict[str, Any]:
         """Load metrics configuration from YAML with profile selection."""
         default_cfg: Dict[str, Any] = {}
@@ -199,8 +208,9 @@ class ResponseEvaluator:
         
         if ML_AVAILABLE:
             try:
-                embeddings = self.embedding_model.encode([question, response])
-                similarity = cosine_similarity([embeddings[0]], [embeddings[1]])[0][0]
+                q_emb = self._get_text_embedding(question)
+                r_emb = self._get_text_embedding(response)
+                similarity = cosine_similarity([q_emb], [r_emb])[0][0]
                 return float(max(0.0, min(1.0, similarity)))
             except Exception as e:
                 # Fallback to lexical similarity
@@ -281,6 +291,26 @@ class ResponseEvaluator:
             return float(min(scores))
         return float(np.mean(scores))
     
+    def _score_with_classifier_per_text(
+        self,
+        clf,
+        texts: List[str],
+        max_length: int,
+        batch_size: int,
+    ) -> List[float]:
+        """Return one classifier score per input text."""
+        if not texts:
+            return []
+        results = clf(
+            texts,
+            truncation=True,
+            max_length=max_length,
+            batch_size=batch_size,
+        )
+        if isinstance(results, dict):
+            results = [results]
+        return [float(r.get("score", 0.0)) for r in results]
+    
     def _score_with_zero_shot(
         self,
         clf,
@@ -322,6 +352,40 @@ class ResponseEvaluator:
         if aggregation == "min":
             return float(min(scores))
         return float(np.mean(scores))
+    
+    def _score_with_zero_shot_per_text(
+        self,
+        clf,
+        texts: List[str],
+        labels: List[str],
+        positive_label: str,
+        hypothesis_template: str,
+        max_length: int,
+        batch_size: int,
+    ) -> List[float]:
+        """Return one zero-shot score per input text."""
+        if not texts or not labels:
+            return []
+        results = clf(
+            texts,
+            candidate_labels=labels,
+            hypothesis_template=hypothesis_template,
+            truncation=True,
+            max_length=max_length,
+            batch_size=batch_size,
+        )
+        if isinstance(results, dict):
+            results = [results]
+        out: List[float] = []
+        for r in results:
+            r_labels = r.get("labels", [])
+            r_scores = r.get("scores", [])
+            if positive_label in r_labels:
+                idx = r_labels.index(positive_label)
+                out.append(float(r_scores[idx]))
+            else:
+                out.append(0.0)
+        return out
     
     def calculate_completeness(
         self,
@@ -444,6 +508,77 @@ class ResponseEvaluator:
             return float(min(entail_scores))
         return float(np.mean(entail_scores))
     
+    def calculate_nli_entailment_batch(
+        self,
+        responses: List[str],
+        context_documents_batch: List[List[str]],
+    ) -> List[float]:
+        """Batch NLI entailment scoring with equivalent aggregation logic."""
+        if not responses:
+            return []
+        model_name = self.nli_cfg.get("model_name", "")
+        if not model_name:
+            raise RuntimeError("NLI model_name is not set in metrics_config.yaml")
+        if self._nli_model is None:
+            self._nli_model = self._load_nli_classifier(model_name)
+        
+        mode = self.nli_cfg.get("hypothesis_from_response", "sentences")
+        min_chars = int(self.nli_cfg.get("min_sentence_chars", 20))
+        max_length = int(self.nli_cfg.get("max_length", 512))
+        batch_size = int(self.nli_cfg.get("batch_size", 8))
+        aggregation = self.nli_cfg.get("aggregation", "mean")
+        
+        pairs: List[Dict[str, str]] = []
+        owners: List[int] = []
+        for i, response in enumerate(responses):
+            docs = context_documents_batch[i] if i < len(context_documents_batch) else []
+            if not response.strip() or not docs:
+                continue
+            if mode == "sentences":
+                candidates = [s.strip() for s in re.split(r"[.!?]+", response) if s.strip()]
+                hypotheses = [c for c in candidates if len(c) >= min_chars]
+                if not hypotheses:
+                    hypotheses = [response.strip()]
+            else:
+                hypotheses = [response.strip()]
+            for doc in docs:
+                if not doc or not doc.strip():
+                    continue
+                for hyp in hypotheses:
+                    pairs.append({"text": doc, "text_pair": hyp})
+                    owners.append(i)
+        
+        raw_by_item: List[List[float]] = [[] for _ in responses]
+        entail_by_item: List[List[float]] = [[] for _ in responses]
+        if pairs:
+            results = self._nli_model(
+                pairs,
+                truncation=True,
+                max_length=max_length,
+                batch_size=batch_size,
+            )
+            if isinstance(results, dict):
+                results = [results]
+            for owner, r in zip(owners, results):
+                score = float(r.get("score", 0.0))
+                label = str(r.get("label", "")).lower()
+                raw_by_item[owner].append(score)
+                if "entail" in label:
+                    entail_by_item[owner].append(score)
+        
+        out: List[float] = []
+        for i in range(len(responses)):
+            scores = entail_by_item[i] if entail_by_item[i] else raw_by_item[i]
+            if not scores:
+                out.append(0.0)
+            elif aggregation == "max":
+                out.append(float(max(scores)))
+            elif aggregation == "min":
+                out.append(float(min(scores)))
+            else:
+                out.append(float(np.mean(scores)))
+        return out
+    
     def calculate_context_utilization(
         self,
         response: str,
@@ -458,14 +593,14 @@ class ResponseEvaluator:
         
         try:
             # Encode response
-            response_embedding = self.embedding_model.encode([response])[0]
+            response_embedding = self._get_text_embedding(response)
             
             # Encode each context document and compute similarities
             similarities = []
             for doc in context_documents:
                 if not doc or not doc.strip():
                     continue
-                doc_embedding = self.embedding_model.encode([doc])[0]
+                doc_embedding = self._get_text_embedding(doc)
                 
                 # Calculate cosine similarity manually (avoid sklearn dependency issues)
                 import numpy as np
@@ -513,7 +648,7 @@ class ResponseEvaluator:
             return 0.0
         
         try:
-            response_embedding = self.embedding_model.encode([response])[0]
+            response_embedding = self._get_text_embedding(response)
             threshold = float(self.context_cfg.get("coverage_threshold", 0.35))
             
             covered = 0
@@ -521,7 +656,7 @@ class ResponseEvaluator:
             for doc in context_documents:
                 if not doc or not doc.strip():
                     continue
-                doc_embedding = self.embedding_model.encode([doc])[0]
+                doc_embedding = self._get_text_embedding(doc)
                 
                 import numpy as np
                 dot_product = np.dot(response_embedding, doc_embedding)
@@ -568,7 +703,7 @@ class ResponseEvaluator:
                 raise RuntimeError("Fluency zero-shot labels/positive_label not set in metrics_config.yaml")
             if self._fluency_model is None:
                 self._fluency_model = self._load_zero_shot_classifier(model_name)
-            return self._score_with_zero_shot(
+            return self._score_with_zero_shot_per_text(
                 self._fluency_model,
                 [response],
                 labels=labels,
@@ -576,18 +711,56 @@ class ResponseEvaluator:
                 hypothesis_template=hypothesis_template,
                 max_length=max_length,
                 batch_size=batch_size,
-                aggregation=aggregation,
-            )
+            )[0]
         
         if self._fluency_model is None:
             self._fluency_model = self._load_text_classifier(model_name)
         
-        return self._score_with_classifier(
+        return self._score_with_classifier_per_text(
             self._fluency_model,
             [response],
             max_length=max_length,
             batch_size=batch_size,
-            aggregation=aggregation,
+        )[0]
+    
+    def calculate_fluency_batch(
+        self,
+        responses: List[str],
+        expected_languages: Optional[List[str]] = None,
+    ) -> List[float]:
+        """Batch fluency scoring with identical logic to calculate_fluency."""
+        if not responses:
+            return []
+        mode = self.fluency_cfg.get("mode", "zero_shot")
+        model_name = self.fluency_cfg.get("model_name", "")
+        if not model_name:
+            raise RuntimeError("Fluency model_name is not set in metrics_config.yaml")
+        max_length = int(self.fluency_cfg.get("max_length", 512))
+        batch_size = int(self.fluency_cfg.get("batch_size", 8))
+        if mode == "zero_shot":
+            labels = self.fluency_cfg.get("labels", [])
+            positive_label = self.fluency_cfg.get("positive_label", "")
+            hypothesis_template = self.fluency_cfg.get("hypothesis_template", "This text is {}.")
+            if not labels or not positive_label:
+                raise RuntimeError("Fluency zero-shot labels/positive_label not set in metrics_config.yaml")
+            if self._fluency_model is None:
+                self._fluency_model = self._load_zero_shot_classifier(model_name)
+            return self._score_with_zero_shot_per_text(
+                self._fluency_model,
+                responses,
+                labels=labels,
+                positive_label=positive_label,
+                hypothesis_template=hypothesis_template,
+                max_length=max_length,
+                batch_size=batch_size,
+            )
+        if self._fluency_model is None:
+            self._fluency_model = self._load_text_classifier(model_name)
+        return self._score_with_classifier_per_text(
+            self._fluency_model,
+            responses,
+            max_length=max_length,
+            batch_size=batch_size,
         )
     
     def calculate_coherence(self, response: str) -> float:
@@ -614,7 +787,7 @@ class ResponseEvaluator:
                 raise RuntimeError("Coherence zero-shot labels/positive_label not set in metrics_config.yaml")
             if self._coherence_model is None:
                 self._coherence_model = self._load_zero_shot_classifier(model_name)
-            return self._score_with_zero_shot(
+            return self._score_with_zero_shot_per_text(
                 self._coherence_model,
                 [response],
                 labels=labels,
@@ -622,18 +795,52 @@ class ResponseEvaluator:
                 hypothesis_template=hypothesis_template,
                 max_length=max_length,
                 batch_size=batch_size,
-                aggregation=aggregation,
-            )
+            )[0]
         
         if self._coherence_model is None:
             self._coherence_model = self._load_text_classifier(model_name)
         
-        return self._score_with_classifier(
+        return self._score_with_classifier_per_text(
             self._coherence_model,
             [response],
             max_length=max_length,
             batch_size=batch_size,
-            aggregation=aggregation,
+        )[0]
+    
+    def calculate_coherence_batch(self, responses: List[str]) -> List[float]:
+        """Batch coherence scoring with identical logic to calculate_coherence."""
+        if not responses:
+            return []
+        mode = self.coherence_cfg.get("mode", "zero_shot")
+        model_name = self.coherence_cfg.get("model_name", "")
+        if not model_name:
+            raise RuntimeError("Coherence model_name is not set in metrics_config.yaml")
+        max_length = int(self.coherence_cfg.get("max_length", 512))
+        batch_size = int(self.coherence_cfg.get("batch_size", 8))
+        if mode == "zero_shot":
+            labels = self.coherence_cfg.get("labels", [])
+            positive_label = self.coherence_cfg.get("positive_label", "")
+            hypothesis_template = self.coherence_cfg.get("hypothesis_template", "This text is {}.")
+            if not labels or not positive_label:
+                raise RuntimeError("Coherence zero-shot labels/positive_label not set in metrics_config.yaml")
+            if self._coherence_model is None:
+                self._coherence_model = self._load_zero_shot_classifier(model_name)
+            return self._score_with_zero_shot_per_text(
+                self._coherence_model,
+                responses,
+                labels=labels,
+                positive_label=positive_label,
+                hypothesis_template=hypothesis_template,
+                max_length=max_length,
+                batch_size=batch_size,
+            )
+        if self._coherence_model is None:
+            self._coherence_model = self._load_text_classifier(model_name)
+        return self._score_with_classifier_per_text(
+            self._coherence_model,
+            responses,
+            max_length=max_length,
+            batch_size=batch_size,
         )
     
     def calculate_prompt_alignment(
@@ -749,6 +956,7 @@ class ResponseEvaluator:
         language: str,
         tokens_generated: int,
         reference_data: Optional[Dict[str, Any]] = None,
+        precomputed_scores: Optional[Dict[str, float]] = None,
     ) -> QualityScores:
         """
         Main evaluation method - compute all metrics.
@@ -768,14 +976,22 @@ class ResponseEvaluator:
         
         # Use NLI entailment when context documents are provided
         # Otherwise fall back to factual accuracy (string matching)
-        if context_documents:
+        if precomputed_scores and "factual_accuracy" in precomputed_scores:
+            factual_accuracy = float(precomputed_scores["factual_accuracy"])
+        elif context_documents:
             factual_accuracy = self.calculate_nli_entailment(response_text, context_documents)
         else:
             factual_accuracy = self.calculate_factual_accuracy(response_text, reference_facts)
         
-        fluency = self.calculate_fluency(response_text, language)
+        if precomputed_scores and "fluency" in precomputed_scores:
+            fluency = float(precomputed_scores["fluency"])
+        else:
+            fluency = self.calculate_fluency(response_text, language)
         
-        coherence = self.calculate_coherence(response_text)
+        if precomputed_scores and "coherence" in precomputed_scores:
+            coherence = float(precomputed_scores["coherence"])
+        else:
+            coherence = self.calculate_coherence(response_text)
         
         prompt_alignment = self.calculate_prompt_alignment(response_text, question_text)
         
