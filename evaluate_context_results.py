@@ -26,6 +26,31 @@ from metrics.scientific_metrics import ResponseEvaluator
 from translations.eu_24_languages_euf_context import get_all_questions_with_context
 
 
+def load_env_file(env_path: Path) -> dict:
+    """Lightweight .env parser (KEY=VALUE)."""
+    data = {}
+    if not env_path.exists():
+        return data
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        data[key.strip()] = value.strip()
+    return data
+
+
+def getenv_int(name: str, default: int, env_file_vals: dict) -> int:
+    """Read int from shell env first, then .env map, then default."""
+    raw = os.getenv(name)
+    if raw is None:
+        raw = env_file_vals.get(name)
+    try:
+        return int(str(raw).strip())
+    except Exception:
+        return default
+
+
 def export_scores_to_excel(scores_db_path: Path, out_xlsx_path: Path) -> bool:
     """Export scores table to Excel. Returns True on success."""
     try:
@@ -165,7 +190,10 @@ def main():
             "ref_data": ref_data,
         })
     
-    batch_size = max(1, int(os.getenv("EVALUATOR_SCORE_BATCH_SIZE", "16")))
+    env_file_vals = load_env_file(Path(".env"))
+    batch_size = max(1, getenv_int("EVALUATOR_SCORE_BATCH_SIZE", 16, env_file_vals))
+    commit_every = max(1, getenv_int("EVALUATOR_SCORE_COMMIT_EVERY", 100, env_file_vals))
+    inserted = 0
     pbar = tqdm(total=len(prepared))
     for start in range(0, len(prepared), batch_size):
         batch = prepared[start:start + batch_size]
@@ -220,6 +248,9 @@ def main():
                     scores.token_efficiency,
                     scores.overall_quality
                 ))
+                inserted += 1
+                if inserted % commit_every == 0:
+                    scores_conn.commit()
             except Exception as e:
                 print(f"\n   ⚠️ Error evaluating {item['question_id']} ({item['language']}): {e}")
                 continue
