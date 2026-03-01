@@ -30,8 +30,11 @@ def normalize_target_gpu(value: Optional[str]) -> Optional[str]:
     aliases = {
         "a40": "a40",
         "a100": "a100",
+        "a100_sxm": "a100",
+        "a100sxm": "a100",
         "h200": "h200_sxm",
         "h200_sxm": "h200_sxm",
+        "h200sxm": "h200_sxm",
         "b200": "b200",
     }
     return aliases.get(v)
@@ -199,9 +202,8 @@ def main() -> int:
     parser.add_argument("--emit-config", action="store_true", help="Print a YAML config stub")
     parser.add_argument(
         "--target-gpu",
-        choices=["a40", "a100", "h200_sxm", "b200"],
         default=None,
-        help="Tune config for target GPU",
+        help="Tune config for target GPU (a40|a100|a100sxm|h200|h200_sxm|b200)",
     )
     parser.add_argument("--quant", default=None, help="Quantization mode for stub (e.g., compressed-tensors, awq)")
     parser.add_argument("--llm-optimize", action="store_true", help="Use LLM to suggest optimal settings")

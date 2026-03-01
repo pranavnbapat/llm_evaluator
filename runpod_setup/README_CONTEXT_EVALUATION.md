@@ -134,6 +134,19 @@ llm_evaluator/
 | Prompt | Simple question | RAG-style with context |
 | Evaluation | General metrics | Context-aware metrics |
 
+## Evaluation Parameter Rationale
+
+- `temperature=0.0` is used for benchmark runs to maximize reproducibility.
+- With `0.0`, repeated runs are much more deterministic, so model-vs-model comparisons are cleaner.
+- `max_tokens=2048` is a practical safety/latency cap: long enough for detailed answers, but bounded to avoid runaway generation and excess context pressure.
+
+If changed to `temperature=0.2`:
+- Outputs become slightly more varied.
+- Repeated runs are less identical.
+- Wording/structure can be slightly more creative.
+- Score variance increases (wider spread), while mean quality usually changes less than variance.
+- Reproducibility decreases.
+
 ## Context Format
 
 Each question now includes context like this:
@@ -157,6 +170,27 @@ Each question now includes context like this:
 ```
 
 ## Troubleshooting
+
+### Generate `models:` automatically for one GPU
+
+```bash
+# From repo root
+python3 runpod_setup/generate_gpu_config.py a40 \
+  --repos-file runpod_setup/model_repos.txt \
+  --config-file runpod_setup/config.yaml
+```
+
+Default behavior includes only models with `comfortable` heuristic fit on the selected GPU.
+
+Useful variants:
+
+```bash
+# Preview only (no file write)
+python3 runpod_setup/generate_gpu_config.py a100 --dry-run
+
+# Include comfortable + tight fits
+python3 runpod_setup/generate_gpu_config.py h200sxm --allow-fits "comfortable,tight"
+```
 
 ### Run-folder controls (optional)
 
