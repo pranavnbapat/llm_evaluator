@@ -33,6 +33,7 @@ scp -r root@YOUR_IP:/workspace/evaluation_results ./
 ```
 
 See [runpod_setup/README.md](runpod_setup/README.md) for detailed instructions.
+For scoring-only setup/run, see [README_SCORING.md](README_SCORING.md).
 
 ---
 
