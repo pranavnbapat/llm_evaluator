@@ -8,7 +8,7 @@ Source of questions/context:
 
 Execution/scoring scripts:
 - `runpod_setup/evaluate_context.py`
-- `evaluate_context_results.py`
+- `runpod_setup/evaluate_context_results.py`
 
 ## Dataset Design
 

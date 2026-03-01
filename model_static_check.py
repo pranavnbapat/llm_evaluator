@@ -389,6 +389,13 @@ def main() -> int:
                 )
                 max_len = seq_len
                 gpu_mem = choose_gpu_mem_util(ratio)
+                if classify_fit(total_mb, vram_gb) == "unlikely":
+                    label = target_gpu.upper().replace("_SXM", "-SXM")
+                    print(
+                        f"\nYAML config stub: no safe config emitted for {label} "
+                        "(heuristic fit: unlikely)."
+                    )
+                    return 0
 
         print(f"{model_key}_{suffix}_{target_gpu or 'default'}:")
         print(f"  name: \"{repo_id}-{'FP16' if not quant else quant.upper()}\"")
@@ -433,6 +440,12 @@ def main() -> int:
         if normalized:
             print("\nLLM recommendation (normalized for config.yaml):")
             print(normalized)
+        elif target_gpu:
+            label = target_gpu.upper().replace("_SXM", "-SXM")
+            print(
+                "\nLLM recommendation (normalized for config.yaml): "
+                f"no safe config emitted for {label} (heuristic fit: unlikely)."
+            )
 
     return 0
 
@@ -727,6 +740,11 @@ def normalize_llm_yaml(
                     dtype_bytes=dtype_bytes,
                 )
                 vram_gb = TARGET_GPU_VRAM_GB[target]
+                fit_label = classify_fit(weights_mb + kv_mb, vram_gb)
+                if target_gpu and fit_label == "unlikely":
+                    # Explicit target requested but heuristic fit is unlikely:
+                    # do not emit a runnable config block.
+                    continue
                 ratio = (weights_mb + kv_mb) / (vram_gb * 1024)
                 gpu_memory_util = choose_gpu_mem_util(ratio)
 

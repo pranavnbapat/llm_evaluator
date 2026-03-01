@@ -59,6 +59,27 @@ if [[ ! -f "$EVAL_SCRIPT" ]]; then
   exit 1
 fi
 
+detect_gpu_bucket() {
+  if [[ -n "${EVAL_RUN_GPU:-}" ]]; then
+    echo "${EVAL_RUN_GPU,,}"
+    return
+  fi
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    local name
+    name="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -n1 | tr '[:upper:]' '[:lower:]')"
+    if [[ "$name" == *"b200"* || "$name" == *"gb200"* ]]; then echo "b200"; return; fi
+    if [[ "$name" == *"h200"* ]]; then echo "h200_sxm"; return; fi
+    if [[ "$name" == *"h100"* ]]; then echo "h100_sxm"; return; fi
+    if [[ "$name" == *"a100"* ]]; then echo "a100"; return; fi
+    if [[ "$name" == *"a40"* ]]; then echo "a40"; return; fi
+  fi
+  echo "unknown_gpu"
+}
+
+GPU_BUCKET="$(detect_gpu_bucket)"
+RUN_ID="${EVAL_RUN_ID:-$(date +%Y-%m-%d_%H%M%S)_context_eval}"
+RUN_DIR="${EVAL_RUN_DIR:-$REPO_DIR/results/runs/$GPU_BUCKET/$RUN_ID}"
+LOG_DIR="$RUN_DIR/logs"
 mkdir -p "$LOG_DIR"
 TS="$(date +%Y%m%d_%H%M%S)"
 LOG_FILE="$LOG_DIR/evaluate_context_${TS}.log"
@@ -79,21 +100,27 @@ if [[ "$MODE" == "tmux" ]]; then
     exit 1
   fi
 
-  CMD="cd '$SCRIPT_DIR' && '$PYTHON_BIN' '$EVAL_SCRIPT' 2>&1 | tee '$LOG_FILE'"
+  CMD="cd '$SCRIPT_DIR' && EVAL_RUN_GPU='$GPU_BUCKET' EVAL_RUN_ID='$RUN_ID' EVAL_RUN_DIR='$RUN_DIR' '$PYTHON_BIN' '$EVAL_SCRIPT' 2>&1 | tee '$LOG_FILE'"
   tmux new-session -d -s "$SESSION_NAME" "$CMD"
 
   echo "Started in tmux session: $SESSION_NAME"
+  echo "Run dir: $RUN_DIR"
+  echo "GPU bucket: $GPU_BUCKET"
+  echo "Run id: $RUN_ID"
   echo "Log file: $LOG_FILE"
   echo "Attach: tmux attach -t $SESSION_NAME"
   echo "Detach: Ctrl+b then d"
   exit 0
 fi
 
-nohup "$PYTHON_BIN" "$EVAL_SCRIPT" >"$LOG_FILE" 2>&1 &
+EVAL_RUN_GPU="$GPU_BUCKET" EVAL_RUN_ID="$RUN_ID" EVAL_RUN_DIR="$RUN_DIR" nohup "$PYTHON_BIN" "$EVAL_SCRIPT" >"$LOG_FILE" 2>&1 &
 PID=$!
 echo "$PID" > "$LOG_DIR/evaluate_context.pid"
 
 echo "Started with nohup (pid: $PID)"
+echo "Run dir: $RUN_DIR"
+echo "GPU bucket: $GPU_BUCKET"
+echo "Run id: $RUN_ID"
 echo "Log file: $LOG_FILE"
 echo "PID file: $LOG_DIR/evaluate_context.pid"
 echo "Tail logs: tail -f '$LOG_FILE'"

@@ -1,6 +1,6 @@
 # Scoring Run Guide (RunPod)
 
-This guide runs only the scoring step (`evaluate_context_results.py`) from an existing context-evaluation database.
+This guide runs only the scoring step (`runpod_setup/evaluate_context_results.py`) from an existing context-evaluation database.
 
 ## 1) Clone and Set Up Python Env
 
@@ -29,8 +29,14 @@ tmux -V
 ## 3) Run Scoring (Foreground)
 
 ```bash
-python evaluate_context_results.py
+python runpod_setup/evaluate_context_results.py
 ```
+
+By default, scoring resolves paths in this order:
+
+1. `EVAL_RUN_DIR` (if set)
+2. `results/latest/<detected_gpu_bucket>` (for example `results/latest/b200`)
+3. legacy `results/` (fallback)
 
 ## 4) Run Scoring Detached (tmux background)
 
@@ -53,11 +59,25 @@ Detach from tmux:
 
 ## 5) Outputs
 
-Created/updated in `results/`:
+Created/updated in the active run folder (recommended):
+
+- `results/runs/<gpu_bucket>/<run_id>/scores/evaluation_scores_euf_context.db`
+- `results/runs/<gpu_bucket>/<run_id>/scores/evaluation_scores_euf_context.xlsx`
+
+Legacy fallback (if no run folder is resolved):
 
 - `evaluation_scores_euf_context.db`
 - `evaluation_scores_euf_context.xlsx`
 
-Logs in `logs/`:
+Logs:
 
-- `evaluate_context_results_<timestamp>.log`
+- Background launcher writes to run logs when run folder is known:
+  - `results/runs/<gpu_bucket>/<run_id>/logs/evaluate_context_results_<timestamp>.log`
+- Otherwise fallback:
+  - `logs/evaluate_context_results_<timestamp>.log`
+
+Optional overrides:
+
+- `EVAL_RUN_GPU` (force GPU bucket, e.g. `a40`, `a100`, `b200`, `h200_sxm`)
+- `EVAL_RUN_ID` (select a specific run id under `results/runs/<gpu_bucket>/...`)
+- `EVAL_RUN_DIR` (absolute override for a specific run folder)

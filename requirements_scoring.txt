@@ -1,5 +1,5 @@
 # Minimal dependencies for context scoring only.
-# Used by: evaluate_context_results.py + metrics/scientific_metrics.py
+# Used by: runpod_setup/evaluate_context_results.py + metrics/scientific_metrics.py
 
 numpy==2.2.0
 PyYAML==6.0.3

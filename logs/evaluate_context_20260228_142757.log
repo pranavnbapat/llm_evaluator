@@ -1,506 +1,0 @@
-============================================================
-EU-FarmBook Context-Based Evaluation
-RAG Evaluation with Search Result Context
-============================================================
-
-📋 Models to evaluate: 4
-   - qwen3-30b-a3b-instruct-awq-b200
-   - deepseek-r1-distill-qwen-32b-b200
-   - deepseek-r1-distill-qwen-14b-b200
-   - deepseek-r1-distill-qwen-7b
-
-📝 Questions: 5 questions × 24 languages = 120 total
-🔄 Runs per question: 3
-💾 Database: evaluation_results_euf_context.db
-
-🚀 Starting vLLM with qwen3-30b-a3b-instruct-awq-b200...
-   Command: /workspace/llm_evaluator/.venv/bin/vllm serve /workspace/models/qwen3_30b_a3b_instruct_2507_awq_fp16_b200 --host 0.0.0.0 --port ... --max-model-len 16384 --gpu-memory-utilization 0.9 --api-key sk-runpod-eval
-   ⏳ Waiting for vLLM... (0s)
-   ⏳ Waiting for vLLM... (5s)
-   ⏳ Waiting for vLLM... (10s)
-   ⏳ Waiting for vLLM... (15s)
-   ⏳ Waiting for vLLM... (20s)
-   ⏳ Waiting for vLLM... (25s)
-   ⏳ Waiting for vLLM... (30s)
-   ⏳ Waiting for vLLM... (35s)
-   ⏳ Waiting for vLLM... (40s)
-   ⏳ Waiting for vLLM... (45s)
-   ⏳ Waiting for vLLM... (50s)
-   ⏳ Waiting for vLLM... (55s)
-   ⏳ Waiting for vLLM... (60s)
-   ⏳ Waiting for vLLM... (65s)
-   ⏳ Waiting for vLLM... (70s)
-   ⏳ Waiting for vLLM... (75s)
-   ⏳ Waiting for vLLM... (80s)
-   ⏳ Waiting for vLLM... (85s)
-   ⏳ Waiting for vLLM... (90s)
-   ⏳ Waiting for vLLM... (95s)
-   ⏳ Waiting for vLLM... (100s)
-   ⏳ Waiting for vLLM... (105s)
-   ⏳ Waiting for vLLM... (110s)
-   ⏳ Waiting for vLLM... (115s)
-   ⏳ Waiting for vLLM... (120s)
-   ⏳ Waiting for vLLM... (125s)
-   ⏳ Waiting for vLLM... (130s)
-   ⏳ Waiting for vLLM... (135s)
-   ⏳ Waiting for vLLM... (140s)
-   ⏳ Waiting for vLLM... (145s)
-   ⏳ Waiting for vLLM... (150s)
-   ⏳ Waiting for vLLM... (155s)
-   ⏳ Waiting for vLLM... (160s)
-   ⏳ Waiting for vLLM... (165s)
-   ⏳ Waiting for vLLM... (170s)
-   ⏳ Waiting for vLLM... (175s)
-   ⏳ Waiting for vLLM... (180s)
-   ⏳ Waiting for vLLM... (185s)
-   ⏳ Waiting for vLLM... (190s)
-   ⏳ Waiting for vLLM... (195s)
-   ⏳ Waiting for vLLM... (200s)
-   ⏳ Waiting for vLLM... (205s)
-   ⏳ Waiting for vLLM... (210s)
-   ⏳ Waiting for vLLM... (215s)
-   ⏳ Waiting for vLLM... (220s)
-   ⏳ Waiting for vLLM... (225s)
-   ⏳ Waiting for vLLM... (230s)
-   ⏳ Waiting for vLLM... (235s)
-   ⏳ Waiting for vLLM... (240s)
-   ⏳ Waiting for vLLM... (245s)
-   ⏳ Waiting for vLLM... (250s)
-   ⏳ Waiting for vLLM... (255s)
-   ⏳ Waiting for vLLM... (260s)
-   ⏳ Waiting for vLLM... (265s)
-   ⏳ Waiting for vLLM... (270s)
-   ⏳ Waiting for vLLM... (275s)
-   ⏳ Waiting for vLLM... (280s)
-   ⏳ Waiting for vLLM... (285s)
-   ⏳ Waiting for vLLM... (290s)
-   ⏳ Waiting for vLLM... (295s)
-   ⏳ Waiting for vLLM... (300s)
-   ⏳ Waiting for vLLM... (305s)
-   ⏳ Waiting for vLLM... (310s)
-   ⏳ Waiting for vLLM... (315s)
-   ⏳ Waiting for vLLM... (320s)
-   ⏳ Waiting for vLLM... (325s)
-   ⏳ Waiting for vLLM... (330s)
-   ⏳ Waiting for vLLM... (335s)
-   ⏳ Waiting for vLLM... (340s)
-   ⏳ Waiting for vLLM... (345s)
-   ⏳ Waiting for vLLM... (350s)
-   ⏳ Waiting for vLLM... (355s)
-   ⏳ Waiting for vLLM... (360s)
-   ⏳ Waiting for vLLM... (365s)
-   ⏳ Waiting for vLLM... (370s)
-   ⏳ Waiting for vLLM... (375s)
-   ⏳ Waiting for vLLM... (380s)
-   ⏳ Waiting for vLLM... (385s)
-   ⏳ Waiting for vLLM... (390s)
-   ⏳ Waiting for vLLM... (395s)
-   ⏳ Waiting for vLLM... (400s)
-   ⏳ Waiting for vLLM... (405s)
-   ⏳ Waiting for vLLM... (410s)
-   ⏳ Waiting for vLLM... (415s)
-   ⏳ Waiting for vLLM... (420s)
-   ⏳ Waiting for vLLM... (425s)
-   ⏳ Waiting for vLLM... (430s)
-   ⏳ Waiting for vLLM... (435s)
-   ⏳ Waiting for vLLM... (440s)
-   ⏳ Waiting for vLLM... (445s)
-   ⏳ Waiting for vLLM... (450s)
-   ⏳ Waiting for vLLM... (455s)
-   ⏳ Waiting for vLLM... (460s)
-   ⏳ Waiting for vLLM... (465s)
-   ⏳ Waiting for vLLM... (470s)
-   ⏳ Waiting for vLLM... (475s)
-   ⏳ Waiting for vLLM... (480s)
-   ⏳ Waiting for vLLM... (485s)
-   ⏳ Waiting for vLLM... (490s)
-   ⏳ Waiting for vLLM... (495s)
-   ⏳ Waiting for vLLM... (500s)
-   ⏳ Waiting for vLLM... (505s)
-   ⏳ Waiting for vLLM... (510s)
-   ⏳ Waiting for vLLM... (515s)
-   ⏳ Waiting for vLLM... (520s)
-   ⏳ Waiting for vLLM... (525s)
-   ⏳ Waiting for vLLM... (530s)
-   ⏳ Waiting for vLLM... (535s)
-   ⏳ Waiting for vLLM... (540s)
-   ⏳ Waiting for vLLM... (545s)
-   ⏳ Waiting for vLLM... (550s)
-   ⏳ Waiting for vLLM... (555s)
-   ⏳ Waiting for vLLM... (560s)
-   ⏳ Waiting for vLLM... (565s)
-   ⏳ Waiting for vLLM... (570s)
-   ⏳ Waiting for vLLM... (575s)
-   ⏳ Waiting for vLLM... (580s)
-   ⏳ Waiting for vLLM... (585s)
-   ⏳ Waiting for vLLM... (590s)
-   ⏳ Waiting for vLLM... (595s)
-   ⏳ Waiting for vLLM... (600s)
-   ⏳ Waiting for vLLM... (605s)
-   ⏳ Waiting for vLLM... (610s)
-   ⏳ Waiting for vLLM... (615s)
-   ⏳ Waiting for vLLM... (620s)
-   ⏳ Waiting for vLLM... (625s)
-   ⏳ Waiting for vLLM... (630s)
-   ⏳ Waiting for vLLM... (635s)
-   ⏳ Waiting for vLLM... (640s)
-   ⏳ Waiting for vLLM... (645s)
-   ⏳ Waiting for vLLM... (650s)
-   ⏳ Waiting for vLLM... (655s)
-   ⏳ Waiting for vLLM... (660s)
-   ⏳ Waiting for vLLM... (665s)
-   ⏳ Waiting for vLLM... (670s)
-   ✅ vLLM ready!
-   🔎 vLLM model id: /workspace/models/qwen3_30b_a3b_instruct_2507_awq_fp16_b200
-
-============================================================
-  Evaluating: qwen3-30b-a3b-instruct-awq-b200
-  Database: evaluation_results_euf_context.db
-============================================================
-Questions:   0%|          | 0/120 [00:00<?, ?it/s]Questions:   1%|          | 1/120 [00:11<23:09, 11.68s/it]Questions:   2%|▏         | 2/120 [00:22<21:26, 10.90s/it]Questions:   2%|▎         | 3/120 [00:31<19:51, 10.19s/it]Questions:   3%|▎         | 4/120 [00:40<19:02,  9.85s/it]Questions:   4%|▍         | 5/120 [00:48<17:24,  9.08s/it]Questions:   5%|▌         | 6/120 [00:57<17:19,  9.12s/it]Questions:   6%|▌         | 7/120 [01:06<17:02,  9.05s/it]Questions:   7%|▋         | 8/120 [01:15<16:49,  9.02s/it]Questions:   8%|▊         | 9/120 [01:24<16:33,  8.95s/it]Questions:   8%|▊         | 10/120 [01:32<16:04,  8.77s/it]Questions:   9%|▉         | 11/120 [01:43<17:20,  9.55s/it]Questions:  10%|█         | 12/120 [01:55<18:13, 10.13s/it]Questions:  11%|█         | 13/120 [02:06<18:24, 10.32s/it]Questions:  12%|█▏        | 14/120 [02:16<18:20, 10.38s/it]Questions:  12%|█▎        | 15/120 [02:25<17:22,  9.93s/it]Questions:  13%|█▎        | 16/120 [02:30<14:35,  8.42s/it]Questions:  14%|█▍        | 17/120 [02:35<12:30,  7.28s/it]Questions:  15%|█▌        | 18/120 [02:39<10:59,  6.47s/it]Questions:  16%|█▌        | 19/120 [02:47<11:21,  6.75s/it]Questions:  17%|█▋        | 20/120 [02:50<09:34,  5.75s/it]Questions:  18%|█▊        | 21/120 [02:59<11:03,  6.70s/it]Questions:  18%|█▊        | 22/120 [03:06<11:15,  6.89s/it]Questions:  19%|█▉        | 23/120 [03:15<11:51,  7.34s/it]Questions:  20%|██        | 24/120 [03:22<11:32,  7.21s/it]Questions:  21%|██        | 25/120 [03:30<11:52,  7.50s/it]Questions:  22%|██▏       | 26/120 [03:35<10:44,  6.85s/it]Questions:  22%|██▎       | 27/120 [03:40<09:36,  6.20s/it]Questions:  23%|██▎       | 28/120 [03:46<09:20,  6.09s/it]Questions:  24%|██▍       | 29/120 [03:51<08:44,  5.77s/it]Questions:  25%|██▌       | 30/120 [03:56<08:22,  5.58s/it]Questions:  26%|██▌       | 31/120 [04:06<10:20,  6.97s/it]Questions:  27%|██▋       | 32/120 [04:20<13:18,  9.07s/it]Questions:  28%|██▊       | 33/120 [04:46<20:31, 14.15s/it]Questions:  28%|██▊       | 34/120 [05:06<22:47, 15.90s/it]Questions:  29%|██▉       | 35/120 [05:19<21:25, 15.13s/it]Questions:  30%|███       | 36/120 [05:31<19:33, 13.97s/it]Questions:  31%|███       | 37/120 [05:41<17:46, 12.85s/it]Questions:  32%|███▏      | 38/120 [05:52<16:55, 12.38s/it]Questions:  32%|███▎      | 39/120 [06:01<15:22, 11.39s/it]Questions:  33%|███▎      | 40/120 [06:17<17:01, 12.77s/it]Questions:  34%|███▍      | 41/120 [06:23<14:09, 10.76s/it]Questions:  35%|███▌      | 42/120 [06:30<12:16,  9.44s/it]Questions:  36%|███▌      | 43/120 [06:36<10:52,  8.47s/it]Questions:  37%|███▋      | 44/120 [06:43<10:10,  8.03s/it]Questions:  38%|███▊      | 45/120 [06:49<09:23,  7.51s/it]Questions:  38%|███▊      | 46/120 [06:58<09:56,  8.06s/it]Questions:  39%|███▉      | 47/120 [07:06<09:31,  7.83s/it]Questions:  40%|████      | 48/120 [07:16<10:06,  8.42s/it]Questions:  41%|████      | 49/120 [07:24<09:56,  8.40s/it]Questions:  42%|████▏     | 50/120 [07:33<10:04,  8.63s/it]Questions:  42%|████▎     | 51/120 [07:55<14:29, 12.60s/it]Questions:  43%|████▎     | 52/120 [08:17<17:30, 15.46s/it]Questions:  44%|████▍     | 53/120 [08:37<18:40, 16.73s/it]Questions:  45%|████▌     | 54/120 [08:59<20:05, 18.26s/it]Questions:  46%|████▌     | 55/120 [09:22<21:28, 19.82s/it]Questions:  47%|████▋     | 56/120 [09:39<20:15, 18.99s/it]Questions:  48%|████▊     | 57/120 [09:50<17:26, 16.61s/it]Questions:  48%|████▊     | 58/120 [10:04<16:11, 15.67s/it]Questions:  49%|████▉     | 59/120 [10:15<14:38, 14.40s/it]Questions:  50%|█████     | 60/120 [10:25<12:55, 12.93s/it]Questions:  51%|█████     | 61/120 [10:51<16:34, 16.85s/it]Questions:  52%|█████▏    | 62/120 [11:17<18:56, 19.60s/it]Questions:  52%|█████▎    | 63/120 [11:43<20:26, 21.52s/it]Questions:  53%|█████▎    | 64/120 [12:08<21:19, 22.85s/it]Questions:  54%|█████▍    | 65/120 [12:34<21:48, 23.79s/it]Questions:  55%|█████▌    | 66/120 [12:42<17:09, 19.06s/it]Questions:  56%|█████▌    | 67/120 [12:50<13:41, 15.49s/it]Questions:  57%|█████▋    | 68/120 [12:59<11:52, 13.70s/it]Questions:  57%|█████▊    | 69/120 [13:08<10:19, 12.15s/it]Questions:  58%|█████▊    | 70/120 [13:15<08:52, 10.65s/it]Questions:  59%|█████▉    | 71/120 [13:41<12:27, 15.25s/it]Questions:  60%|██████    | 72/120 [13:49<10:35, 13.24s/it]Questions:  61%|██████    | 73/120 [14:01<10:00, 12.77s/it]Questions:  62%|██████▏   | 74/120 [14:12<09:23, 12.26s/it]Questions:  62%|██████▎   | 75/120 [14:32<10:56, 14.60s/it]Questions:  63%|██████▎   | 76/120 [14:44<10:10, 13.88s/it]Questions:  64%|██████▍   | 77/120 [14:55<09:17, 12.95s/it]Questions:  65%|██████▌   | 78/120 [15:06<08:37, 12.33s/it]Questions:  66%|██████▌   | 79/120 [15:16<07:52, 11.52s/it]Questions:  67%|██████▋   | 80/120 [15:26<07:30, 11.27s/it]Questions:  68%|██████▊   | 81/120 [15:51<09:53, 15.23s/it]Questions:  68%|██████▊   | 82/120 [15:59<08:15, 13.03s/it]Questions:  69%|██████▉   | 83/120 [16:23<10:08, 16.46s/it]Questions:  70%|███████   | 84/120 [16:48<11:19, 18.88s/it]Questions:  71%|███████   | 85/120 [17:12<11:59, 20.55s/it]Questions:  72%|███████▏  | 86/120 [17:21<09:41, 17.09s/it]Questions:  72%|███████▎  | 87/120 [17:30<07:58, 14.51s/it]Questions:  73%|███████▎  | 88/120 [17:37<06:36, 12.38s/it]Questions:  74%|███████▍  | 89/120 [17:46<05:48, 11.23s/it]Questions:  75%|███████▌  | 90/120 [17:55<05:19, 10.65s/it]Questions:  76%|███████▌  | 91/120 [18:02<04:37,  9.56s/it]Questions:  77%|███████▋  | 92/120 [18:10<04:12,  9.02s/it]Questions:  78%|███████▊  | 93/120 [18:16<03:44,  8.33s/it]Questions:  78%|███████▊  | 94/120 [18:22<03:18,  7.63s/it]Questions:  79%|███████▉  | 95/120 [18:30<03:08,  7.54s/it]Questions:  80%|████████  | 96/120 [18:37<03:01,  7.55s/it]Questions:  81%|████████  | 97/120 [18:44<02:50,  7.43s/it]Questions:  82%|████████▏ | 98/120 [18:53<02:53,  7.88s/it]Questions:  82%|████████▎ | 99/120 [19:01<02:43,  7.77s/it]Questions:  83%|████████▎ | 100/120 [19:08<02:32,  7.65s/it]Questions:  84%|████████▍ | 101/120 [19:18<02:38,  8.32s/it]Questions:  85%|████████▌ | 102/120 [19:30<02:47,  9.33s/it]Questions:  86%|████████▌ | 103/120 [19:39<02:38,  9.35s/it]Questions:  87%|████████▋ | 104/120 [19:49<02:31,  9.45s/it]Questions:  88%|████████▊ | 105/120 [19:59<02:23,  9.59s/it]Questions:  88%|████████▊ | 106/120 [20:07<02:09,  9.28s/it]Questions:  89%|████████▉ | 107/120 [20:16<01:56,  8.94s/it]Questions:  90%|█████████ | 108/120 [20:27<01:55,  9.59s/it]Questions:  91%|█████████ | 109/120 [20:35<01:42,  9.30s/it]Questions:  92%|█████████▏| 110/120 [20:45<01:33,  9.33s/it]Questions:  92%|█████████▎| 111/120 [20:52<01:18,  8.67s/it]Questions:  93%|█████████▎| 112/120 [20:58<01:03,  7.96s/it]Questions:  94%|█████████▍| 113/120 [21:05<00:54,  7.75s/it]Questions:  95%|█████████▌| 114/120 [21:12<00:45,  7.50s/it]Questions:  96%|█████████▌| 115/120 [21:18<00:35,  7.05s/it]Questions:  97%|█████████▋| 116/120 [21:27<00:30,  7.70s/it]Questions:  98%|█████████▊| 117/120 [21:36<00:24,  8.05s/it]Questions:  98%|█████████▊| 118/120 [21:44<00:16,  8.04s/it]Questions:  99%|█████████▉| 119/120 [21:51<00:07,  7.50s/it]Questions: 100%|██████████| 120/120 [21:58<00:00,  7.41s/it]Questions: 100%|██████████| 120/120 [21:58<00:00, 10.99s/it]
-
-📊 Results: 360/360 successful
-💾 Saved to: /workspace/llm_evaluator/results/evaluation_results_euf_context.db
-📄 JSON: /workspace/llm_evaluator/results/qwen3-30b-a3b-instruct-awq-b200_context_20260228_150118.json
-
-🛑 Stopping vLLM...
-   ✅ Stopped
-
-🚀 Starting vLLM with deepseek-r1-distill-qwen-32b-b200...
-   Command: /workspace/llm_evaluator/.venv/bin/vllm serve /workspace/models/deepseek_r1_distill_qwen_32b_fp16_b200 --host 0.0.0.0 --port ... --max-model-len 16384 --gpu-memory-utilization 0.9 --api-key sk-runpod-eval
-   ⏳ Waiting for vLLM... (0s)
-   ⏳ Waiting for vLLM... (5s)
-   ⏳ Waiting for vLLM... (10s)
-   ⏳ Waiting for vLLM... (15s)
-   ⏳ Waiting for vLLM... (20s)
-   ⏳ Waiting for vLLM... (25s)
-   ⏳ Waiting for vLLM... (30s)
-   ⏳ Waiting for vLLM... (35s)
-   ⏳ Waiting for vLLM... (40s)
-   ⏳ Waiting for vLLM... (45s)
-   ⏳ Waiting for vLLM... (50s)
-   ⏳ Waiting for vLLM... (55s)
-   ⏳ Waiting for vLLM... (60s)
-   ⏳ Waiting for vLLM... (65s)
-   ⏳ Waiting for vLLM... (70s)
-   ⏳ Waiting for vLLM... (75s)
-   ⏳ Waiting for vLLM... (80s)
-   ⏳ Waiting for vLLM... (85s)
-   ⏳ Waiting for vLLM... (90s)
-   ⏳ Waiting for vLLM... (95s)
-   ⏳ Waiting for vLLM... (100s)
-   ⏳ Waiting for vLLM... (105s)
-   ⏳ Waiting for vLLM... (110s)
-   ⏳ Waiting for vLLM... (115s)
-   ⏳ Waiting for vLLM... (120s)
-   ⏳ Waiting for vLLM... (125s)
-   ⏳ Waiting for vLLM... (130s)
-   ⏳ Waiting for vLLM... (135s)
-   ⏳ Waiting for vLLM... (140s)
-   ⏳ Waiting for vLLM... (145s)
-   ⏳ Waiting for vLLM... (150s)
-   ⏳ Waiting for vLLM... (155s)
-   ⏳ Waiting for vLLM... (160s)
-   ⏳ Waiting for vLLM... (165s)
-   ⏳ Waiting for vLLM... (170s)
-   ⏳ Waiting for vLLM... (175s)
-   ⏳ Waiting for vLLM... (180s)
-   ⏳ Waiting for vLLM... (185s)
-   ⏳ Waiting for vLLM... (190s)
-   ⏳ Waiting for vLLM... (195s)
-   ⏳ Waiting for vLLM... (200s)
-   ⏳ Waiting for vLLM... (205s)
-   ⏳ Waiting for vLLM... (210s)
-   ⏳ Waiting for vLLM... (215s)
-   ⏳ Waiting for vLLM... (220s)
-   ⏳ Waiting for vLLM... (225s)
-   ⏳ Waiting for vLLM... (230s)
-   ⏳ Waiting for vLLM... (235s)
-   ⏳ Waiting for vLLM... (240s)
-   ⏳ Waiting for vLLM... (245s)
-   ⏳ Waiting for vLLM... (250s)
-   ⏳ Waiting for vLLM... (255s)
-   ⏳ Waiting for vLLM... (260s)
-   ⏳ Waiting for vLLM... (265s)
-   ⏳ Waiting for vLLM... (270s)
-   ⏳ Waiting for vLLM... (275s)
-   ⏳ Waiting for vLLM... (280s)
-   ⏳ Waiting for vLLM... (285s)
-   ⏳ Waiting for vLLM... (290s)
-   ⏳ Waiting for vLLM... (295s)
-   ⏳ Waiting for vLLM... (300s)
-   ⏳ Waiting for vLLM... (305s)
-   ⏳ Waiting for vLLM... (310s)
-   ⏳ Waiting for vLLM... (315s)
-   ⏳ Waiting for vLLM... (320s)
-   ⏳ Waiting for vLLM... (325s)
-   ⏳ Waiting for vLLM... (330s)
-   ⏳ Waiting for vLLM... (335s)
-   ⏳ Waiting for vLLM... (340s)
-   ⏳ Waiting for vLLM... (345s)
-   ⏳ Waiting for vLLM... (350s)
-   ⏳ Waiting for vLLM... (355s)
-   ⏳ Waiting for vLLM... (360s)
-   ⏳ Waiting for vLLM... (365s)
-   ⏳ Waiting for vLLM... (370s)
-   ⏳ Waiting for vLLM... (375s)
-   ⏳ Waiting for vLLM... (380s)
-   ⏳ Waiting for vLLM... (385s)
-   ⏳ Waiting for vLLM... (390s)
-   ⏳ Waiting for vLLM... (395s)
-   ⏳ Waiting for vLLM... (400s)
-   ⏳ Waiting for vLLM... (405s)
-   ⏳ Waiting for vLLM... (410s)
-   ⏳ Waiting for vLLM... (415s)
-   ⏳ Waiting for vLLM... (420s)
-   ⏳ Waiting for vLLM... (425s)
-   ⏳ Waiting for vLLM... (430s)
-   ⏳ Waiting for vLLM... (435s)
-   ⏳ Waiting for vLLM... (440s)
-   ⏳ Waiting for vLLM... (445s)
-   ⏳ Waiting for vLLM... (450s)
-   ⏳ Waiting for vLLM... (455s)
-   ⏳ Waiting for vLLM... (460s)
-   ⏳ Waiting for vLLM... (465s)
-   ⏳ Waiting for vLLM... (470s)
-   ⏳ Waiting for vLLM... (475s)
-   ⏳ Waiting for vLLM... (480s)
-   ⏳ Waiting for vLLM... (485s)
-   ⏳ Waiting for vLLM... (490s)
-   ⏳ Waiting for vLLM... (495s)
-   ⏳ Waiting for vLLM... (500s)
-   ⏳ Waiting for vLLM... (505s)
-   ⏳ Waiting for vLLM... (510s)
-   ✅ vLLM ready!
-   🔎 vLLM model id: /workspace/models/deepseek_r1_distill_qwen_32b_fp16_b200
-
-============================================================
-  Evaluating: deepseek-r1-distill-qwen-32b-b200
-  Database: evaluation_results_euf_context.db
-============================================================
-Questions:   0%|          | 0/120 [00:00<?, ?it/s]Questions:   1%|          | 1/120 [00:50<1:41:08, 50.99s/it]Questions:   2%|▏         | 2/120 [01:54<1:54:14, 58.09s/it]Questions:   2%|▎         | 3/120 [02:38<1:40:53, 51.74s/it]Questions:   3%|▎         | 4/120 [03:29<1:39:56, 51.69s/it]Questions:   4%|▍         | 5/120 [04:27<1:42:54, 53.69s/it]Questions:   5%|▌         | 6/120 [05:07<1:33:42, 49.32s/it]Questions:   6%|▌         | 7/120 [05:47<1:26:54, 46.14s/it]Questions:   7%|▋         | 8/120 [06:35<1:27:08, 46.69s/it]Questions:   8%|▊         | 9/120 [07:20<1:25:23, 46.16s/it]Questions:   8%|▊         | 10/120 [07:56<1:19:05, 43.14s/it]Questions:   9%|▉         | 11/120 [08:38<1:17:51, 42.86s/it]Questions:  10%|█         | 12/120 [09:23<1:17:47, 43.21s/it]Questions:  11%|█         | 13/120 [10:12<1:20:41, 45.25s/it]Questions:  12%|█▏        | 14/120 [10:54<1:17:54, 44.10s/it]Questions:  12%|█▎        | 15/120 [11:36<1:16:05, 43.48s/it]Questions:  13%|█▎        | 16/120 [12:21<1:16:23, 44.07s/it]Questions:  14%|█▍        | 17/120 [13:00<1:13:04, 42.57s/it]Questions:  15%|█▌        | 18/120 [13:41<1:11:25, 42.01s/it]Questions:  16%|█▌        | 19/120 [14:32<1:15:14, 44.70s/it]Questions:  17%|█▋        | 20/120 [15:10<1:11:06, 42.66s/it]Questions:  18%|█▊        | 21/120 [15:45<1:06:37, 40.38s/it]Questions:  18%|█▊        | 22/120 [16:21<1:03:33, 38.91s/it]Questions:  19%|█▉        | 23/120 [17:07<1:06:38, 41.22s/it]Questions:  20%|██        | 24/120 [17:52<1:07:33, 42.23s/it]Questions:  21%|██        | 25/120 [18:28<1:03:48, 40.30s/it]Questions:  22%|██▏       | 26/120 [19:06<1:02:07, 39.65s/it]Questions:  22%|██▎       | 27/120 [19:41<59:18, 38.26s/it]  Questions:  23%|██▎       | 28/120 [20:14<56:28, 36.83s/it]Questions:  24%|██▍       | 29/120 [20:43<52:12, 34.42s/it]Questions:  25%|██▌       | 30/120 [21:15<50:40, 33.78s/it]Questions:  26%|██▌       | 31/120 [21:55<52:47, 35.59s/it]Questions:  27%|██▋       | 32/120 [22:39<55:56, 38.14s/it]Questions:  28%|██▊       | 33/120 [23:26<58:52, 40.61s/it]Questions:  28%|██▊       | 34/120 [24:03<56:46, 39.61s/it]Questions:  29%|██▉       | 35/120 [24:51<59:46, 42.20s/it]Questions:  30%|███       | 36/120 [25:21<54:01, 38.59s/it]Questions:  31%|███       | 37/120 [26:01<53:48, 38.90s/it]Questions:  32%|███▏      | 38/120 [26:44<54:42, 40.03s/it]Questions:  32%|███▎      | 39/120 [27:25<54:34, 40.43s/it]Questions:  33%|███▎      | 40/120 [28:05<53:40, 40.26s/it]Questions:  34%|███▍      | 41/120 [28:42<52:00, 39.50s/it]Questions:  35%|███▌      | 42/120 [29:11<46:59, 36.14s/it]Questions:  36%|███▌      | 43/120 [29:50<47:23, 36.93s/it]Questions:  37%|███▋      | 44/120 [30:28<47:28, 37.48s/it]Questions:  38%|███▊      | 45/120 [31:05<46:22, 37.10s/it]Questions:  38%|███▊      | 46/120 [31:40<45:15, 36.70s/it]Questions:  39%|███▉      | 47/120 [32:18<44:58, 36.97s/it]Questions:  40%|████      | 48/120 [32:59<45:58, 38.31s/it]Questions:  41%|████      | 49/120 [33:34<43:54, 37.10s/it]Questions:  42%|████▏     | 50/120 [34:15<44:46, 38.38s/it]Questions:  42%|████▎     | 51/120 [35:28<56:00, 48.70s/it]Questions:  43%|████▎     | 52/120 [36:47<1:05:43, 58.00s/it]Questions:  44%|████▍     | 53/120 [38:06<1:11:38, 64.15s/it]Questions:  45%|████▌     | 54/120 [38:59<1:06:53, 60.80s/it]Questions:  46%|████▌     | 55/120 [40:19<1:12:00, 66.47s/it]Questions:  47%|████▋     | 56/120 [40:57<1:01:55, 58.05s/it]Questions:  48%|████▊     | 57/120 [41:39<55:51, 53.19s/it]  Questions:  48%|████▊     | 58/120 [42:40<57:21, 55.51s/it]Questions:  49%|████▉     | 59/120 [43:26<53:30, 52.63s/it]Questions:  50%|█████     | 60/120 [44:05<48:30, 48.51s/it]Questions:  51%|█████     | 61/120 [44:42<44:30, 45.26s/it]Questions:  52%|█████▏    | 62/120 [46:00<53:13, 55.07s/it]Questions:  52%|█████▎    | 63/120 [47:04<54:44, 57.62s/it]Questions:  53%|█████▎    | 64/120 [48:22<59:28, 63.72s/it]Questions:  54%|█████▍    | 65/120 [49:13<54:52, 59.86s/it]Questions:  55%|█████▌    | 66/120 [49:42<45:40, 50.76s/it]Questions:  56%|█████▌    | 67/120 [50:19<41:03, 46.48s/it]Questions:  57%|█████▋    | 68/120 [51:04<40:00, 46.15s/it]Questions:  57%|█████▊    | 69/120 [51:41<37:00, 43.53s/it]Questions:  58%|█████▊    | 70/120 [52:16<34:01, 40.83s/it]Questions:  59%|█████▉    | 71/120 [53:15<37:40, 46.14s/it]Questions:  60%|██████    | 72/120 [54:33<44:33, 55.69s/it]Questions:  61%|██████    | 73/120 [55:14<40:21, 51.51s/it]Questions:  62%|██████▏   | 74/120 [56:02<38:41, 50.46s/it]Questions:  62%|██████▎   | 75/120 [56:48<36:45, 49.02s/it]Questions:  63%|██████▎   | 76/120 [57:28<34:03, 46.44s/it]Questions:  64%|██████▍   | 77/120 [58:13<32:53, 45.89s/it]Questions:  65%|██████▌   | 78/120 [59:13<35:08, 50.20s/it]Questions:  66%|██████▌   | 79/120 [1:00:00<33:33, 49.11s/it]Questions:  67%|██████▋   | 80/120 [1:00:52<33:16, 49.92s/it]Questions:  68%|██████▊   | 81/120 [1:01:34<31:00, 47.70s/it]Questions:  68%|██████▊   | 82/120 [1:02:07<27:20, 43.18s/it]Questions:  69%|██████▉   | 83/120 [1:02:51<26:50, 43.54s/it]Questions:  70%|███████   | 84/120 [1:03:22<23:51, 39.76s/it]Questions:  71%|███████   | 85/120 [1:03:56<22:07, 37.93s/it]Questions:  72%|███████▏  | 86/120 [1:04:33<21:18, 37.60s/it]Questions:  72%|███████▎  | 87/120 [1:05:24<23:01, 41.86s/it]Questions:  73%|███████▎  | 88/120 [1:06:07<22:28, 42.15s/it]Questions:  74%|███████▍  | 89/120 [1:06:59<23:15, 45.01s/it]Questions:  75%|███████▌  | 90/120 [1:07:41<22:08, 44.29s/it]Questions:  76%|███████▌  | 91/120 [1:08:16<19:57, 41.31s/it]Questions:  77%|███████▋  | 92/120 [1:08:43<17:18, 37.09s/it]Questions:  78%|███████▊  | 93/120 [1:09:22<16:58, 37.71s/it]Questions:  78%|███████▊  | 94/120 [1:10:00<16:21, 37.75s/it]Questions:  79%|███████▉  | 95/120 [1:10:35<15:19, 36.78s/it]Questions:  80%|████████  | 96/120 [1:11:10<14:32, 36.35s/it]Questions:  81%|████████  | 97/120 [1:11:44<13:37, 35.53s/it]Questions:  82%|████████▏ | 98/120 [1:12:27<13:56, 38.04s/it]Questions:  82%|████████▎ | 99/120 [1:13:14<14:10, 40.50s/it]Questions:  83%|████████▎ | 100/120 [1:13:45<12:32, 37.65s/it]Questions:  84%|████████▍ | 101/120 [1:14:29<12:35, 39.77s/it]Questions:  85%|████████▌ | 102/120 [1:15:09<11:55, 39.72s/it]Questions:  86%|████████▌ | 103/120 [1:15:52<11:32, 40.72s/it]Questions:  87%|████████▋ | 104/120 [1:16:40<11:28, 43.01s/it]Questions:  88%|████████▊ | 105/120 [1:17:24<10:47, 43.14s/it]Questions:  88%|████████▊ | 106/120 [1:18:06<09:58, 42.78s/it]Questions:  89%|████████▉ | 107/120 [1:18:43<08:55, 41.21s/it]Questions:  90%|█████████ | 108/120 [1:19:34<08:46, 43.90s/it]Questions:  91%|█████████ | 109/120 [1:20:14<07:49, 42.72s/it]Questions:  92%|█████████▏| 110/120 [1:20:47<06:40, 40.05s/it]Questions:  92%|█████████▎| 111/120 [1:21:17<05:33, 37.03s/it]Questions:  93%|█████████▎| 112/120 [1:21:52<04:51, 36.40s/it]Questions:  94%|█████████▍| 113/120 [1:22:38<04:34, 39.16s/it]Questions:  95%|█████████▌| 114/120 [1:23:13<03:47, 37.90s/it]Questions:  96%|█████████▌| 115/120 [1:23:47<03:03, 36.66s/it]Questions:  97%|█████████▋| 116/120 [1:24:19<02:21, 35.41s/it]Questions:  98%|█████████▊| 117/120 [1:24:53<01:45, 35.03s/it]Questions:  98%|█████████▊| 118/120 [1:25:36<01:14, 37.26s/it]Questions:  99%|█████████▉| 119/120 [1:26:10<00:36, 36.41s/it]Questions: 100%|██████████| 120/120 [1:26:46<00:00, 36.27s/it]Questions: 100%|██████████| 120/120 [1:26:46<00:00, 43.39s/it]
-
-📊 Results: 360/360 successful
-💾 Saved to: /workspace/llm_evaluator/results/evaluation_results_euf_context.db
-📄 JSON: /workspace/llm_evaluator/results/deepseek-r1-distill-qwen-32b-b200_context_20260228_163646.json
-
-🛑 Stopping vLLM...
-   ✅ Stopped
-
-🚀 Starting vLLM with deepseek-r1-distill-qwen-14b-b200...
-   Command: /workspace/llm_evaluator/.venv/bin/vllm serve /workspace/models/deepseek_r1_distill_qwen_14b_fp16_b200 --host 0.0.0.0 --port ... --max-model-len 16384 --gpu-memory-utilization 0.9 --api-key sk-runpod-eval
-   ⏳ Waiting for vLLM... (0s)
-   ⏳ Waiting for vLLM... (5s)
-   ⏳ Waiting for vLLM... (10s)
-   ⏳ Waiting for vLLM... (15s)
-   ⏳ Waiting for vLLM... (20s)
-   ⏳ Waiting for vLLM... (25s)
-   ⏳ Waiting for vLLM... (30s)
-   ⏳ Waiting for vLLM... (35s)
-   ⏳ Waiting for vLLM... (40s)
-   ⏳ Waiting for vLLM... (45s)
-   ⏳ Waiting for vLLM... (50s)
-   ⏳ Waiting for vLLM... (55s)
-   ⏳ Waiting for vLLM... (60s)
-   ⏳ Waiting for vLLM... (65s)
-   ⏳ Waiting for vLLM... (70s)
-   ⏳ Waiting for vLLM... (75s)
-   ⏳ Waiting for vLLM... (80s)
-   ⏳ Waiting for vLLM... (85s)
-   ⏳ Waiting for vLLM... (90s)
-   ⏳ Waiting for vLLM... (95s)
-   ⏳ Waiting for vLLM... (100s)
-   ⏳ Waiting for vLLM... (105s)
-   ⏳ Waiting for vLLM... (110s)
-   ⏳ Waiting for vLLM... (115s)
-   ⏳ Waiting for vLLM... (120s)
-   ⏳ Waiting for vLLM... (125s)
-   ⏳ Waiting for vLLM... (130s)
-   ⏳ Waiting for vLLM... (135s)
-   ⏳ Waiting for vLLM... (140s)
-   ⏳ Waiting for vLLM... (145s)
-   ⏳ Waiting for vLLM... (150s)
-   ⏳ Waiting for vLLM... (155s)
-   ⏳ Waiting for vLLM... (160s)
-   ⏳ Waiting for vLLM... (165s)
-   ⏳ Waiting for vLLM... (170s)
-   ⏳ Waiting for vLLM... (175s)
-   ⏳ Waiting for vLLM... (180s)
-   ⏳ Waiting for vLLM... (185s)
-   ⏳ Waiting for vLLM... (190s)
-   ⏳ Waiting for vLLM... (195s)
-   ⏳ Waiting for vLLM... (200s)
-   ⏳ Waiting for vLLM... (205s)
-   ⏳ Waiting for vLLM... (210s)
-   ⏳ Waiting for vLLM... (215s)
-   ⏳ Waiting for vLLM... (220s)
-   ⏳ Waiting for vLLM... (225s)
-   ⏳ Waiting for vLLM... (230s)
-   ⏳ Waiting for vLLM... (235s)
-   ⏳ Waiting for vLLM... (240s)
-   ⏳ Waiting for vLLM... (245s)
-   ⏳ Waiting for vLLM... (250s)
-   ⏳ Waiting for vLLM... (255s)
-   ⏳ Waiting for vLLM... (260s)
-   ⏳ Waiting for vLLM... (265s)
-   ⏳ Waiting for vLLM... (270s)
-   ⏳ Waiting for vLLM... (275s)
-   ⏳ Waiting for vLLM... (280s)
-   ⏳ Waiting for vLLM... (285s)
-   ⏳ Waiting for vLLM... (290s)
-   ⏳ Waiting for vLLM... (295s)
-   ⏳ Waiting for vLLM... (300s)
-   ⏳ Waiting for vLLM... (305s)
-   ⏳ Waiting for vLLM... (310s)
-   ⏳ Waiting for vLLM... (315s)
-   ⏳ Waiting for vLLM... (320s)
-   ⏳ Waiting for vLLM... (325s)
-   ⏳ Waiting for vLLM... (330s)
-   ⏳ Waiting for vLLM... (335s)
-   ⏳ Waiting for vLLM... (340s)
-   ⏳ Waiting for vLLM... (345s)
-   ⏳ Waiting for vLLM... (350s)
-   ⏳ Waiting for vLLM... (355s)
-   ⏳ Waiting for vLLM... (360s)
-   ⏳ Waiting for vLLM... (365s)
-   ⏳ Waiting for vLLM... (370s)
-   ⏳ Waiting for vLLM... (375s)
-   ⏳ Waiting for vLLM... (380s)
-   ⏳ Waiting for vLLM... (385s)
-   ⏳ Waiting for vLLM... (390s)
-   ⏳ Waiting for vLLM... (395s)
-   ⏳ Waiting for vLLM... (400s)
-   ⏳ Waiting for vLLM... (405s)
-   ⏳ Waiting for vLLM... (410s)
-   ⏳ Waiting for vLLM... (415s)
-   ⏳ Waiting for vLLM... (420s)
-   ⏳ Waiting for vLLM... (425s)
-   ⏳ Waiting for vLLM... (430s)
-   ⏳ Waiting for vLLM... (435s)
-   ⏳ Waiting for vLLM... (440s)
-   ⏳ Waiting for vLLM... (445s)
-   ⏳ Waiting for vLLM... (450s)
-   ⏳ Waiting for vLLM... (455s)
-   ⏳ Waiting for vLLM... (460s)
-   ⏳ Waiting for vLLM... (465s)
-   ⏳ Waiting for vLLM... (470s)
-   ⏳ Waiting for vLLM... (475s)
-   ⏳ Waiting for vLLM... (480s)
-   ✅ vLLM ready!
-   🔎 vLLM model id: /workspace/models/deepseek_r1_distill_qwen_14b_fp16_b200
-
-============================================================
-  Evaluating: deepseek-r1-distill-qwen-14b-b200
-  Database: evaluation_results_euf_context.db
-============================================================
-Questions:   0%|          | 0/120 [00:00<?, ?it/s]Questions:   1%|          | 1/120 [00:31<1:01:33, 31.04s/it]Questions:   2%|▏         | 2/120 [00:55<53:40, 27.30s/it]  Questions:   2%|▎         | 3/120 [01:24<54:41, 28.05s/it]Questions:   3%|▎         | 4/120 [01:45<48:32, 25.11s/it]Questions:   4%|▍         | 5/120 [02:08<46:49, 24.43s/it]Questions:   5%|▌         | 6/120 [02:27<42:52, 22.57s/it]Questions:   6%|▌         | 7/120 [02:50<42:35, 22.61s/it]Questions:   7%|▋         | 8/120 [03:20<46:47, 25.07s/it]Questions:   8%|▊         | 9/120 [03:36<41:05, 22.22s/it]Questions:   8%|▊         | 10/120 [04:02<42:44, 23.31s/it]Questions:   9%|▉         | 11/120 [04:22<40:50, 22.49s/it]Questions:  10%|█         | 12/120 [04:47<41:49, 23.24s/it]Questions:  11%|█         | 13/120 [05:15<43:38, 24.47s/it]Questions:  12%|█▏        | 14/120 [05:47<47:30, 26.89s/it]Questions:  12%|█▎        | 15/120 [06:11<45:38, 26.08s/it]Questions:  13%|█▎        | 16/120 [06:36<44:41, 25.78s/it]Questions:  14%|█▍        | 17/120 [06:56<40:53, 23.82s/it]Questions:  15%|█▌        | 18/120 [07:27<44:10, 25.99s/it]Questions:  16%|█▌        | 19/120 [07:51<43:07, 25.62s/it]Questions:  17%|█▋        | 20/120 [08:19<43:53, 26.34s/it]Questions:  18%|█▊        | 21/120 [08:41<41:11, 24.97s/it]Questions:  18%|█▊        | 22/120 [09:01<38:24, 23.51s/it]Questions:  19%|█▉        | 23/120 [09:21<36:04, 22.32s/it]Questions:  20%|██        | 24/120 [09:45<36:43, 22.95s/it]Questions:  21%|██        | 25/120 [10:04<34:30, 21.79s/it]Questions:  22%|██▏       | 26/120 [10:24<33:18, 21.26s/it]Questions:  22%|██▎       | 27/120 [10:41<30:36, 19.74s/it]Questions:  23%|██▎       | 28/120 [10:56<28:29, 18.58s/it]Questions:  24%|██▍       | 29/120 [11:12<26:57, 17.78s/it]Questions:  25%|██▌       | 30/120 [11:27<25:18, 16.87s/it]Questions:  26%|██▌       | 31/120 [11:58<31:23, 21.17s/it]Questions:  27%|██▋       | 32/120 [12:17<29:56, 20.42s/it]Questions:  28%|██▊       | 33/120 [12:40<30:41, 21.17s/it]Questions:  28%|██▊       | 34/120 [13:05<31:55, 22.28s/it]Questions:  29%|██▉       | 35/120 [13:31<33:14, 23.46s/it]Questions:  30%|███       | 36/120 [13:57<33:53, 24.21s/it]Questions:  31%|███       | 37/120 [14:23<34:07, 24.66s/it]Questions:  32%|███▏      | 38/120 [14:48<33:53, 24.80s/it]Questions:  32%|███▎      | 39/120 [15:11<32:41, 24.22s/it]Questions:  33%|███▎      | 40/120 [15:33<31:44, 23.80s/it]Questions:  34%|███▍      | 41/120 [15:56<30:50, 23.43s/it]Questions:  35%|███▌      | 42/120 [16:15<28:40, 22.06s/it]Questions:  36%|███▌      | 43/120 [16:39<29:00, 22.61s/it]Questions:  37%|███▋      | 44/120 [17:03<29:08, 23.01s/it]Questions:  38%|███▊      | 45/120 [17:23<27:41, 22.15s/it]Questions:  38%|███▊      | 46/120 [17:51<29:43, 24.10s/it]Questions:  39%|███▉      | 47/120 [18:13<28:25, 23.36s/it]Questions:  40%|████      | 48/120 [18:32<26:23, 21.99s/it]Questions:  41%|████      | 49/120 [18:50<24:28, 20.68s/it]Questions:  42%|████▏     | 50/120 [19:09<23:41, 20.31s/it]Questions:  42%|████▎     | 51/120 [19:46<29:14, 25.43s/it]Questions:  43%|████▎     | 52/120 [20:24<32:52, 29.01s/it]Questions:  44%|████▍     | 53/120 [21:01<35:12, 31.52s/it]Questions:  45%|████▌     | 54/120 [21:35<35:23, 32.17s/it]Questions:  46%|████▌     | 55/120 [22:12<36:32, 33.73s/it]Questions:  47%|████▋     | 56/120 [22:50<37:08, 34.83s/it]Questions:  48%|████▊     | 57/120 [23:17<34:21, 32.73s/it]Questions:  48%|████▊     | 58/120 [23:44<31:51, 30.84s/it]Questions:  49%|████▉     | 59/120 [24:20<32:51, 32.32s/it]Questions:  50%|█████     | 60/120 [24:40<28:43, 28.72s/it]Questions:  51%|█████     | 61/120 [25:17<30:47, 31.32s/it]Questions:  52%|█████▏    | 62/120 [25:45<29:16, 30.28s/it]Questions:  52%|█████▎    | 63/120 [26:22<30:46, 32.40s/it]Questions:  53%|█████▎    | 64/120 [27:00<31:37, 33.89s/it]Questions:  54%|█████▍    | 65/120 [27:23<28:06, 30.66s/it]Questions:  55%|█████▌    | 66/120 [27:43<24:48, 27.56s/it]Questions:  56%|█████▌    | 67/120 [28:01<21:39, 24.52s/it]Questions:  57%|█████▋    | 68/120 [28:19<19:35, 22.61s/it]Questions:  57%|█████▊    | 69/120 [28:40<18:57, 22.30s/it]Questions:  58%|█████▊    | 70/120 [29:00<17:55, 21.50s/it]Questions:  59%|█████▉    | 71/120 [29:26<18:33, 22.72s/it]Questions:  60%|██████    | 72/120 [29:48<18:02, 22.55s/it]Questions:  61%|██████    | 73/120 [30:16<18:53, 24.12s/it]Questions:  62%|██████▏   | 74/120 [30:47<20:12, 26.37s/it]Questions:  62%|██████▎   | 75/120 [31:08<18:25, 24.58s/it]Questions:  63%|██████▎   | 76/120 [31:45<20:49, 28.40s/it]Questions:  64%|██████▍   | 77/120 [32:13<20:12, 28.19s/it]Questions:  65%|██████▌   | 78/120 [32:29<17:14, 24.63s/it]Questions:  66%|██████▌   | 79/120 [33:02<18:31, 27.12s/it]Questions:  67%|██████▋   | 80/120 [33:26<17:29, 26.23s/it]Questions:  68%|██████▊   | 81/120 [33:47<15:55, 24.50s/it]Questions:  68%|██████▊   | 82/120 [34:04<14:11, 22.41s/it]Questions:  69%|██████▉   | 83/120 [34:41<16:35, 26.91s/it]Questions:  70%|███████   | 84/120 [35:19<18:02, 30.06s/it]Questions:  71%|███████   | 85/120 [35:56<18:49, 32.26s/it]Questions:  72%|███████▏  | 86/120 [36:19<16:38, 29.37s/it]Questions:  72%|███████▎  | 87/120 [36:45<15:39, 28.48s/it]Questions:  73%|███████▎  | 88/120 [37:07<14:01, 26.31s/it]Questions:  74%|███████▍  | 89/120 [37:31<13:17, 25.73s/it]Questions:  75%|███████▌  | 90/120 [37:50<11:53, 23.78s/it]Questions:  76%|███████▌  | 91/120 [38:11<11:08, 23.04s/it]Questions:  77%|███████▋  | 92/120 [38:30<10:03, 21.54s/it]Questions:  78%|███████▊  | 93/120 [38:48<09:20, 20.74s/it]Questions:  78%|███████▊  | 94/120 [39:09<08:57, 20.68s/it]Questions:  79%|███████▉  | 95/120 [39:26<08:12, 19.72s/it]Questions:  80%|████████  | 96/120 [39:51<08:27, 21.15s/it]Questions:  81%|████████  | 97/120 [40:11<08:01, 20.93s/it]Questions:  82%|████████▏ | 98/120 [40:36<08:04, 22.00s/it]Questions:  82%|████████▎ | 99/120 [40:50<06:53, 19.69s/it]Questions:  83%|████████▎ | 100/120 [41:09<06:29, 19.46s/it]Questions:  84%|████████▍ | 101/120 [41:32<06:31, 20.62s/it]Questions:  85%|████████▌ | 102/120 [41:52<06:07, 20.41s/it]Questions:  86%|████████▌ | 103/120 [42:17<06:06, 21.58s/it]Questions:  87%|████████▋ | 104/120 [42:46<06:21, 23.87s/it]Questions:  88%|████████▊ | 105/120 [43:12<06:07, 24.52s/it]Questions:  88%|████████▊ | 106/120 [43:34<05:34, 23.92s/it]Questions:  89%|████████▉ | 107/120 [44:12<06:03, 27.94s/it]Questions:  90%|█████████ | 108/120 [44:36<05:23, 26.94s/it]Questions:  91%|█████████ | 109/120 [44:54<04:24, 24.06s/it]Questions:  92%|█████████▏| 110/120 [45:17<03:59, 23.94s/it]Questions:  92%|█████████▎| 111/120 [45:39<03:28, 23.19s/it]Questions:  93%|█████████▎| 112/120 [45:58<02:56, 22.04s/it]Questions:  94%|█████████▍| 113/120 [46:25<02:45, 23.57s/it]Questions:  95%|█████████▌| 114/120 [46:46<02:16, 22.75s/it]Questions:  96%|█████████▌| 115/120 [47:03<01:44, 20.87s/it]Questions:  97%|█████████▋| 116/120 [47:23<01:23, 20.76s/it]Questions:  98%|█████████▊| 117/120 [47:45<01:03, 21.13s/it]Questions:  98%|█████████▊| 118/120 [48:06<00:41, 20.94s/it]Questions:  99%|█████████▉| 119/120 [48:36<00:23, 23.67s/it]Questions: 100%|██████████| 120/120 [49:03<00:00, 24.87s/it]Questions: 100%|██████████| 120/120 [49:03<00:00, 24.53s/it]
-
-📊 Results: 360/360 successful
-💾 Saved to: /workspace/llm_evaluator/results/evaluation_results_euf_context.db
-📄 JSON: /workspace/llm_evaluator/results/deepseek-r1-distill-qwen-14b-b200_context_20260228_173400.json
-
-🛑 Stopping vLLM...
-   ✅ Stopped
-
-🚀 Starting vLLM with deepseek-r1-distill-qwen-7b...
-   Command: /workspace/llm_evaluator/.venv/bin/vllm serve /workspace/models/deepseek_r1_distill_qwen_7b_fp16_b200 --host 0.0.0.0 --port ... --max-model-len 16384 --gpu-memory-utilization 0.9 --api-key sk-runpod-eval
-   ⏳ Waiting for vLLM... (0s)
-   ⏳ Waiting for vLLM... (5s)
-   ⏳ Waiting for vLLM... (10s)
-   ⏳ Waiting for vLLM... (15s)
-   ⏳ Waiting for vLLM... (20s)
-   ⏳ Waiting for vLLM... (25s)
-   ⏳ Waiting for vLLM... (30s)
-   ⏳ Waiting for vLLM... (35s)
-   ⏳ Waiting for vLLM... (40s)
-   ⏳ Waiting for vLLM... (45s)
-   ⏳ Waiting for vLLM... (50s)
-   ⏳ Waiting for vLLM... (55s)
-   ⏳ Waiting for vLLM... (60s)
-   ⏳ Waiting for vLLM... (65s)
-   ⏳ Waiting for vLLM... (70s)
-   ⏳ Waiting for vLLM... (75s)
-   ⏳ Waiting for vLLM... (80s)
-   ⏳ Waiting for vLLM... (85s)
-   ⏳ Waiting for vLLM... (90s)
-   ⏳ Waiting for vLLM... (95s)
-   ⏳ Waiting for vLLM... (100s)
-   ⏳ Waiting for vLLM... (105s)
-   ⏳ Waiting for vLLM... (110s)
-   ⏳ Waiting for vLLM... (115s)
-   ⏳ Waiting for vLLM... (120s)
-   ⏳ Waiting for vLLM... (125s)
-   ⏳ Waiting for vLLM... (130s)
-   ⏳ Waiting for vLLM... (135s)
-   ⏳ Waiting for vLLM... (140s)
-   ⏳ Waiting for vLLM... (145s)
-   ⏳ Waiting for vLLM... (150s)
-   ⏳ Waiting for vLLM... (155s)
-   ⏳ Waiting for vLLM... (160s)
-   ⏳ Waiting for vLLM... (165s)
-   ⏳ Waiting for vLLM... (170s)
-   ⏳ Waiting for vLLM... (175s)
-   ⏳ Waiting for vLLM... (180s)
-   ⏳ Waiting for vLLM... (185s)
-   ⏳ Waiting for vLLM... (190s)
-   ⏳ Waiting for vLLM... (195s)
-   ⏳ Waiting for vLLM... (200s)
-   ⏳ Waiting for vLLM... (205s)
-   ⏳ Waiting for vLLM... (210s)
-   ⏳ Waiting for vLLM... (215s)
-   ⏳ Waiting for vLLM... (220s)
-   ⏳ Waiting for vLLM... (225s)
-   ⏳ Waiting for vLLM... (230s)
-   ⏳ Waiting for vLLM... (235s)
-   ⏳ Waiting for vLLM... (240s)
-   ⏳ Waiting for vLLM... (245s)
-   ⏳ Waiting for vLLM... (250s)
-   ⏳ Waiting for vLLM... (255s)
-   ⏳ Waiting for vLLM... (260s)
-   ⏳ Waiting for vLLM... (265s)
-   ⏳ Waiting for vLLM... (270s)
-   ⏳ Waiting for vLLM... (275s)
-   ⏳ Waiting for vLLM... (280s)
-   ⏳ Waiting for vLLM... (285s)
-   ⏳ Waiting for vLLM... (290s)
-   ⏳ Waiting for vLLM... (295s)
-   ⏳ Waiting for vLLM... (300s)
-   ⏳ Waiting for vLLM... (305s)
-   ⏳ Waiting for vLLM... (310s)
-   ⏳ Waiting for vLLM... (315s)
-   ⏳ Waiting for vLLM... (320s)
-   ✅ vLLM ready!
-   🔎 vLLM model id: /workspace/models/deepseek_r1_distill_qwen_7b_fp16_b200
-
-============================================================
-  Evaluating: deepseek-r1-distill-qwen-7b
-  Database: evaluation_results_euf_context.db
-============================================================
-Questions:   0%|          | 0/120 [00:00<?, ?it/s]Questions:   1%|          | 1/120 [00:15<30:58, 15.62s/it]Questions:   2%|▏         | 2/120 [00:35<35:28, 18.04s/it]Questions:   2%|▎         | 3/120 [00:58<39:55, 20.47s/it]Questions:   3%|▎         | 4/120 [01:15<36:38, 18.95s/it]Questions:   4%|▍         | 5/120 [01:31<34:44, 18.12s/it]Questions:   5%|▌         | 6/120 [01:42<29:42, 15.63s/it]Questions:   6%|▌         | 7/120 [01:58<29:29, 15.66s/it]Questions:   7%|▋         | 8/120 [02:09<26:14, 14.06s/it]Questions:   8%|▊         | 9/120 [02:23<26:10, 14.15s/it]Questions:   8%|▊         | 10/120 [02:32<23:08, 12.63s/it]Questions:   9%|▉         | 11/120 [02:45<22:48, 12.56s/it]Questions:  10%|█         | 12/120 [03:01<24:57, 13.87s/it]Questions:  11%|█         | 13/120 [03:23<28:48, 16.15s/it]Questions:  12%|█▏        | 14/120 [03:36<26:53, 15.22s/it]Questions:  12%|█▎        | 15/120 [03:56<28:55, 16.53s/it]Questions:  13%|█▎        | 16/120 [04:04<24:17, 14.01s/it]Questions:  14%|█▍        | 17/120 [04:14<22:09, 12.91s/it]Questions:  15%|█▌        | 18/120 [04:31<24:00, 14.12s/it]Questions:  16%|█▌        | 19/120 [04:48<25:13, 14.99s/it]Questions:  17%|█▋        | 20/120 [04:58<22:35, 13.55s/it]Questions:  18%|█▊        | 21/120 [05:09<20:57, 12.71s/it]Questions:  18%|█▊        | 22/120 [05:19<19:35, 11.99s/it]Questions:  19%|█▉        | 23/120 [05:30<18:37, 11.52s/it]Questions:  20%|██        | 24/120 [05:40<18:04, 11.30s/it]Questions:  21%|██        | 25/120 [05:51<17:39, 11.15s/it]Questions:  22%|██▏       | 26/120 [05:59<15:58, 10.20s/it]Questions:  22%|██▎       | 27/120 [06:10<16:02, 10.35s/it]Questions:  23%|██▎       | 28/120 [06:22<16:27, 10.73s/it]Questions:  24%|██▍       | 29/120 [06:37<18:33, 12.24s/it]Questions:  25%|██▌       | 30/120 [06:48<17:44, 11.83s/it]Questions:  26%|██▌       | 31/120 [07:01<18:05, 12.20s/it]Questions:  27%|██▋       | 32/120 [07:17<19:21, 13.20s/it]Questions:  28%|██▊       | 33/120 [07:30<19:20, 13.34s/it]Questions:  28%|██▊       | 34/120 [07:43<18:37, 12.99s/it]Questions:  29%|██▉       | 35/120 [07:55<18:01, 12.73s/it]Questions:  30%|███       | 36/120 [08:17<21:54, 15.65s/it]Questions:  31%|███       | 37/120 [08:31<20:54, 15.11s/it]Questions:  32%|███▏      | 38/120 [08:54<23:47, 17.40s/it]Questions:  32%|███▎      | 39/120 [09:12<23:57, 17.74s/it]Questions:  33%|███▎      | 40/120 [09:24<21:06, 15.83s/it]Questions:  34%|███▍      | 41/120 [09:34<18:41, 14.20s/it]Questions:  35%|███▌      | 42/120 [09:46<17:38, 13.58s/it]Questions:  36%|███▌      | 43/120 [09:59<17:00, 13.25s/it]Questions:  37%|███▋      | 44/120 [10:07<14:44, 11.64s/it]Questions:  38%|███▊      | 45/120 [10:21<15:28, 12.38s/it]Questions:  38%|███▊      | 46/120 [10:38<16:53, 13.70s/it]Questions:  39%|███▉      | 47/120 [10:52<17:07, 14.07s/it]Questions:  40%|████      | 48/120 [11:05<16:15, 13.55s/it]Questions:  41%|████      | 49/120 [11:17<15:28, 13.08s/it]Questions:  42%|████▏     | 50/120 [11:25<13:36, 11.66s/it]Questions:  42%|████▎     | 51/120 [11:48<17:07, 14.90s/it]Questions:  43%|████▎     | 52/120 [12:10<19:19, 17.05s/it]Questions:  44%|████▍     | 53/120 [12:20<16:38, 14.91s/it]Questions:  45%|████▌     | 54/120 [12:42<18:52, 17.16s/it]Questions:  46%|████▌     | 55/120 [12:50<15:38, 14.44s/it]Questions:  47%|████▋     | 56/120 [13:04<15:15, 14.31s/it]Questions:  48%|████▊     | 57/120 [13:16<14:12, 13.53s/it]Questions:  48%|████▊     | 58/120 [13:31<14:31, 14.05s/it]Questions:  49%|████▉     | 59/120 [13:43<13:30, 13.28s/it]Questions:  50%|█████     | 60/120 [13:57<13:35, 13.58s/it]Questions:  51%|█████     | 61/120 [14:19<15:54, 16.18s/it]Questions:  52%|█████▏    | 62/120 [14:41<17:25, 18.03s/it]Questions:  52%|█████▎    | 63/120 [15:04<18:21, 19.32s/it]Questions:  53%|█████▎    | 64/120 [15:26<18:53, 20.24s/it]Questions:  54%|█████▍    | 65/120 [15:48<19:02, 20.78s/it]Questions:  55%|█████▌    | 66/120 [16:01<16:29, 18.33s/it]Questions:  56%|█████▌    | 67/120 [16:12<14:16, 16.17s/it]Questions:  57%|█████▋    | 68/120 [16:23<12:37, 14.58s/it]Questions:  57%|█████▊    | 69/120 [16:36<11:56, 14.05s/it]Questions:  58%|█████▊    | 70/120 [16:48<11:16, 13.53s/it]Questions:  59%|█████▉    | 71/120 [17:00<10:44, 13.16s/it]Questions:  60%|██████    | 72/120 [17:16<11:06, 13.89s/it]Questions:  61%|██████    | 73/120 [17:34<11:50, 15.12s/it]Questions:  62%|██████▏   | 74/120 [17:45<10:44, 14.00s/it]Questions:  62%|██████▎   | 75/120 [18:07<12:20, 16.47s/it]Questions:  63%|██████▎   | 76/120 [18:26<12:29, 17.03s/it]Questions:  64%|██████▍   | 77/120 [18:39<11:19, 15.80s/it]Questions:  65%|██████▌   | 78/120 [18:49<09:51, 14.08s/it]Questions:  66%|██████▌   | 79/120 [19:03<09:38, 14.12s/it]Questions:  67%|██████▋   | 80/120 [19:24<10:53, 16.34s/it]Questions:  68%|██████▊   | 81/120 [19:45<11:29, 17.69s/it]Questions:  68%|██████▊   | 82/120 [20:00<10:39, 16.84s/it]Questions:  69%|██████▉   | 83/120 [20:18<10:30, 17.05s/it]Questions:  70%|███████   | 84/120 [20:31<09:31, 15.88s/it]Questions:  71%|███████   | 85/120 [20:53<10:22, 17.80s/it]Questions:  72%|███████▏  | 86/120 [21:03<08:48, 15.55s/it]Questions:  72%|███████▎  | 87/120 [21:19<08:29, 15.45s/it]Questions:  73%|███████▎  | 88/120 [21:28<07:14, 13.59s/it]Questions:  74%|███████▍  | 89/120 [21:36<06:13, 12.06s/it]Questions:  75%|███████▌  | 90/120 [21:49<06:06, 12.21s/it]Questions:  76%|███████▌  | 91/120 [22:00<05:43, 11.83s/it]Questions:  77%|███████▋  | 92/120 [22:10<05:15, 11.26s/it]Questions:  78%|███████▊  | 93/120 [22:23<05:21, 11.89s/it]Questions:  78%|███████▊  | 94/120 [22:33<04:50, 11.18s/it]Questions:  79%|███████▉  | 95/120 [22:45<04:49, 11.56s/it]Questions:  80%|████████  | 96/120 [22:55<04:25, 11.07s/it]Questions:  81%|████████  | 97/120 [23:05<04:10, 10.87s/it]Questions:  82%|████████▏ | 98/120 [23:17<04:00, 10.95s/it]Questions:  82%|████████▎ | 99/120 [23:27<03:43, 10.65s/it]Questions:  83%|████████▎ | 100/120 [23:39<03:44, 11.23s/it]Questions:  84%|████████▍ | 101/120 [23:49<03:26, 10.85s/it]Questions:  85%|████████▌ | 102/120 [24:04<03:35, 11.98s/it]Questions:  86%|████████▌ | 103/120 [24:27<04:19, 15.28s/it]Questions:  87%|████████▋ | 104/120 [24:41<03:58, 14.92s/it]Questions:  88%|████████▊ | 105/120 [24:55<03:39, 14.65s/it]Questions:  88%|████████▊ | 106/120 [25:16<03:54, 16.72s/it]Questions:  89%|████████▉ | 107/120 [25:23<02:59, 13.83s/it]Questions:  90%|█████████ | 108/120 [25:44<03:09, 15.78s/it]Questions:  91%|█████████ | 109/120 [26:06<03:13, 17.60s/it]Questions:  92%|█████████▏| 110/120 [26:21<02:49, 16.98s/it]Questions:  92%|█████████▎| 111/120 [26:43<02:46, 18.50s/it]Questions:  93%|█████████▎| 112/120 [26:55<02:13, 16.65s/it]Questions:  94%|█████████▍| 113/120 [27:15<02:02, 17.49s/it]Questions:  95%|█████████▌| 114/120 [27:26<01:33, 15.54s/it]Questions:  96%|█████████▌| 115/120 [27:37<01:11, 14.22s/it]Questions:  97%|█████████▋| 116/120 [27:50<00:55, 13.78s/it]Questions:  98%|█████████▊| 117/120 [28:11<00:47, 15.99s/it]Questions:  98%|█████████▊| 118/120 [28:23<00:29, 14.79s/it]Questions:  99%|█████████▉| 119/120 [28:33<00:13, 13.30s/it]Questions: 100%|██████████| 120/120 [28:43<00:00, 12.28s/it]Questions: 100%|██████████| 120/120 [28:43<00:00, 14.36s/it]
-
-📊 Results: 360/360 successful
-💾 Saved to: /workspace/llm_evaluator/results/evaluation_results_euf_context.db
-📄 JSON: /workspace/llm_evaluator/results/deepseek-r1-distill-qwen-7b_context_20260228_180818.json
-
-🛑 Stopping vLLM...
-   ✅ Stopped
-
-============================================================
-EVALUATION COMPLETE
-============================================================
-
-📊 Summary:
-   qwen3-30b-a3b-instruct-awq-b200: 360/360
-   deepseek-r1-distill-qwen-32b-b200: 360/360
-   deepseek-r1-distill-qwen-14b-b200: 360/360
-   deepseek-r1-distill-qwen-7b: 360/360
-
-💾 Results saved to: /workspace/llm_evaluator/results/evaluation_results_euf_context.db
-📄 Excel exported to: /workspace/llm_evaluator/results/evaluation_results_euf_context.xlsx
-📄 By-model Excel exported to: /workspace/llm_evaluator/results/evaluation_results_euf_context_by_model.xlsx
-
-Next steps:
-   1. Run scoring: python evaluate_results.py
-   2. Check results in results/evaluation_results_euf_context.db
-   3. Review spreadsheet in results/evaluation_results_euf_context.xlsx
-   4. Review by-model workbook in results/evaluation_results_euf_context_by_model.xlsx

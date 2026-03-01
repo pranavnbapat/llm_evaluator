@@ -11,11 +11,11 @@ This guide explains how to deploy the new RAG (Retrieval-Augmented Generation) e
 
 2. **New evaluation script**: `runpod_setup/evaluate_context.py`
    - Evaluates models with context-enhanced prompts
-   - Saves to: `evaluation_results_euf_context.db`
+   - Saves to run-based folder under `results/runs/<gpu_bucket>/<run_id>/raw/`
 
-3. **New scoring script**: `evaluate_context_results.py`
+3. **New scoring script**: `runpod_setup/evaluate_context_results.py`
    - Scores context-based responses
-   - Saves to: `evaluation_scores_euf_context.db`
+   - Saves to run-based folder under `results/runs/<gpu_bucket>/<run_id>/scores/`
 
 ## Deployment Steps
 
@@ -25,7 +25,7 @@ This guide explains how to deploy the new RAG (Retrieval-Augmented Generation) e
 # From project root
 git add translations/eu_24_languages_euf_context.py
 git add runpod_setup/evaluate_context.py
-git add evaluate_context_results.py
+git add runpod_setup/evaluate_context_results.py
 git add runpod_setup/README_CONTEXT_EVALUATION.md
 git commit -m "Add context-based RAG evaluation framework"
 git push
@@ -71,7 +71,8 @@ python evaluate_context.py
 This will:
 - Start each model in vLLM
 - Send questions WITH context to the model
-- Save responses to `../results/evaluation_results_euf_context.db`
+- Auto-detect GPU bucket (or use `EVAL_RUN_GPU` override)
+- Save responses to `../results/runs/<gpu_bucket>/<run_id>/raw/evaluation_results_euf_context.db`
 - Save JSON summaries
 
 ### 5. Score Responses
@@ -81,13 +82,13 @@ This will:
 cd /workspace/llm_evaluator
 
 # Run scoring
-python evaluate_context_results.py
+python runpod_setup/evaluate_context_results.py
 ```
 
 This will:
 - Read from `evaluation_results_euf_context.db`
 - Compute 7 quality metrics for each response
-- Save to `evaluation_scores_euf_context.db`
+- Save to `evaluation_scores_euf_context.db` in the same run folder (`scores/`)
 
 ### 6. Export Results
 
@@ -105,15 +106,21 @@ llm_evaluator/
 │   └── eu_24_languages.py                   # OLD: Original questions
 ├── runpod_setup/
 │   ├── evaluate_context.py                  # NEW: Context evaluation
+│   ├── evaluate_context_results.py          # NEW: Context scoring
 │   ├── evaluate.py                          # OLD: Original evaluation
 │   └── README_CONTEXT_EVALUATION.md         # This file
-├── evaluate_context_results.py              # NEW: Context scoring
 ├── evaluate_results.py                      # OLD: Original scoring
 └── results/
-    ├── evaluation_results_euf_context.db    # NEW: Context results
-    ├── evaluation_scores_euf_context.db     # NEW: Context scores
-    ├── evaluation_results.db                # OLD: Original results
-    └── evaluation_scores.db                 # OLD: Original scores
+    ├── runs/
+    │   └── <gpu_bucket>/
+    │       └── <run_id>/
+    │           ├── raw/                     # results DB/XLSX + model JSON summaries
+    │           ├── scores/                  # scores DB/XLSX
+    │           ├── logs/                    # evaluate + scoring logs + gpu_metrics.csv
+    │           ├── insights/                # generated reports/charts/data
+    │           └── metadata/                # run metadata
+    └── latest/
+        └── <gpu_bucket> -> ../runs/<gpu_bucket>/<run_id>
 ```
 
 ## Key Differences from Original Evaluation
@@ -151,13 +158,26 @@ Each question now includes context like this:
 
 ## Troubleshooting
 
+### Run-folder controls (optional)
+
+```bash
+# force GPU bucket mapping
+export EVAL_RUN_GPU=a40
+
+# explicit run id
+export EVAL_RUN_ID=2026-03-01_220000_context_eval
+
+# explicit run directory (highest priority)
+export EVAL_RUN_DIR=/workspace/llm_evaluator/results/runs/a40/2026-03-01_220000_context_eval
+```
+
 ### Database locked error
 ```bash
 # Check if another process is using the database
-lsof results/evaluation_results_euf_context.db
+lsof results/runs/<gpu_bucket>/<run_id>/raw/evaluation_results_euf_context.db
 
 # If stuck, restart the evaluation
-rm results/evaluation_results_euf_context.db
+rm results/runs/<gpu_bucket>/<run_id>/raw/evaluation_results_euf_context.db
 python runpod_setup/evaluate_context.py
 ```
 
@@ -188,4 +208,4 @@ With 5 models × 120 questions × 3 runs = 1,800 responses:
 
 - Check logs in `results/` directory
 - Review `evaluate_context.py` for evaluation logic
-- Review `evaluate_context_results.py` for scoring logic
+- Review `runpod_setup/evaluate_context_results.py` for scoring logic

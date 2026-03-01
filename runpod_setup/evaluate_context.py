@@ -43,6 +43,98 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from translations.eu_24_languages_euf_context import get_all_questions_with_context
 
 
+def detect_gpu_bucket() -> tuple[str, str]:
+    """
+    Detect GPU family bucket from nvidia-smi.
+    Returns: (bucket_name, source)
+    """
+    override = os.getenv("EVAL_RUN_GPU", "").strip().lower()
+    if override:
+        safe = re.sub(r"[^a-z0-9_\\-]+", "_", override).strip("_")
+        return safe or "unknown_gpu", "env:EVAL_RUN_GPU"
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=10,
+        )
+        names = [ln.strip().lower() for ln in result.stdout.splitlines() if ln.strip()]
+        name = names[0] if names else ""
+        if "b200" in name or "gb200" in name:
+            return "b200", f"nvidia-smi:{name}"
+        if "h200" in name:
+            return "h200_sxm", f"nvidia-smi:{name}"
+        if "h100" in name:
+            return "h100_sxm", f"nvidia-smi:{name}"
+        if "a100" in name:
+            return "a100", f"nvidia-smi:{name}"
+        if "a40" in name:
+            return "a40", f"nvidia-smi:{name}"
+        safe = re.sub(r"[^a-z0-9]+", "_", name).strip("_")
+        return (safe or "unknown_gpu"), f"nvidia-smi:{name or 'unknown'}"
+    except Exception:
+        return "unknown_gpu", "fallback:unknown"
+
+
+def resolve_run_paths(base_results_dir: Path) -> dict:
+    """
+    Resolve run directories.
+    Priority:
+      1) EVAL_RUN_DIR
+      2) results/runs/<gpu_bucket>/<run_id>
+    """
+    run_dir_override = os.getenv("EVAL_RUN_DIR", "").strip()
+    gpu_bucket, gpu_source = detect_gpu_bucket()
+    run_id = os.getenv("EVAL_RUN_ID", "").strip()
+    if not run_id:
+        run_id = f"{datetime.now():%Y-%m-%d_%H%M%S}_context_eval"
+    if run_dir_override:
+        run_dir = Path(run_dir_override).expanduser().resolve()
+        run_id = run_dir.name
+        gpu_bucket = run_dir.parent.name if run_dir.parent.name else gpu_bucket
+        run_source = "env:EVAL_RUN_DIR"
+    else:
+        run_dir = (base_results_dir / "runs" / gpu_bucket / run_id).resolve()
+        run_source = "auto"
+
+    raw_dir = run_dir / "raw"
+    scores_dir = run_dir / "scores"
+    logs_dir = run_dir / "logs"
+    insights_dir = run_dir / "insights"
+    metadata_dir = run_dir / "metadata"
+    for p in [raw_dir, scores_dir, logs_dir, insights_dir, metadata_dir]:
+        p.mkdir(parents=True, exist_ok=True)
+
+    # Maintain latest symlink per GPU bucket
+    latest_root = (base_results_dir / "latest").resolve()
+    latest_root.mkdir(parents=True, exist_ok=True)
+    latest_link = latest_root / gpu_bucket
+    try:
+        if latest_link.exists() or latest_link.is_symlink():
+            latest_link.unlink()
+        rel_target = os.path.relpath(run_dir, latest_root)
+        latest_link.symlink_to(rel_target)
+    except Exception:
+        # Non-fatal; continue without symlink.
+        pass
+
+    return {
+        "base_results_dir": base_results_dir.resolve(),
+        "run_dir": run_dir,
+        "raw_dir": raw_dir,
+        "scores_dir": scores_dir,
+        "logs_dir": logs_dir,
+        "insights_dir": insights_dir,
+        "metadata_dir": metadata_dir,
+        "run_id": run_id,
+        "gpu_bucket": gpu_bucket,
+        "gpu_source": gpu_source,
+        "run_source": run_source,
+    }
+
+
 class VLlmManager:
     """Manages vLLM server lifecycle."""
     
@@ -703,11 +795,34 @@ def main():
     
     # Load config
     config = load_config()
+    base_results_dir = Path(config["paths"]["results_dir"]).resolve()
+    try:
+        run_paths = resolve_run_paths(base_results_dir)
+    except Exception as e:
+        fallback_base = (Path(__file__).resolve().parent.parent / "results").resolve()
+        print(f"⚠️ Could not create run path under configured results dir '{base_results_dir}': {e}")
+        print(f"   Falling back to local results dir: {fallback_base}")
+        run_paths = resolve_run_paths(fallback_base)
+    # Point evaluation outputs to this run's raw directory
+    config["paths"]["results_dir"] = str(run_paths["raw_dir"])
+
+    run_meta = {
+        "created_at": datetime.now().isoformat(),
+        "run_id": run_paths["run_id"],
+        "run_dir": str(run_paths["run_dir"]),
+        "raw_dir": str(run_paths["raw_dir"]),
+        "scores_dir": str(run_paths["scores_dir"]),
+        "logs_dir": str(run_paths["logs_dir"]),
+        "gpu_bucket": run_paths["gpu_bucket"],
+        "gpu_detected_from": run_paths["gpu_source"],
+        "run_path_source": run_paths["run_source"],
+    }
+    with open(run_paths["metadata_dir"] / "run_info.json", "w", encoding="utf-8") as f:
+        json.dump(run_meta, f, indent=2)
     
     # Initialize managers
     vllm = VLlmManager(config)
-    logs_dir = Path(__file__).resolve().parent.parent / "logs"
-    gpu_monitor = GPUMonitor(logs_dir / "gpu_metrics.csv")
+    gpu_monitor = GPUMonitor(run_paths["logs_dir"] / "gpu_metrics.csv")
     
     # Get list of models to evaluate
     models = list(config["models"].values())
@@ -718,7 +833,10 @@ def main():
     
     print(f"\n📝 Questions: 5 questions × 24 languages = 120 total")
     print(f"🔄 Runs per question: {config['evaluation']['num_runs']}")
-    print(f"💾 Database: evaluation_results_euf_context.db")
+    print(f"🧭 Run ID: {run_paths['run_id']}")
+    print(f"🖥️  GPU bucket: {run_paths['gpu_bucket']} ({run_paths['gpu_source']})")
+    print(f"📁 Run dir: {run_paths['run_dir']}")
+    print(f"💾 Database: {run_paths['raw_dir'] / 'evaluation_results_euf_context.db'}")
     
     all_results = []
     
@@ -768,18 +886,18 @@ def main():
         for r in all_results:
             print(f"   {r['model_display_name']}: {r['successful_responses']}/{r['total_questions']}")
         
-        print(f"\n💾 Results saved to: {config['paths']['results_dir']}/evaluation_results_euf_context.db")
+        print(f"\n💾 Results saved to: {Path(config['paths']['results_dir']) / 'evaluation_results_euf_context.db'}")
         db_path = Path(config["paths"]["results_dir"]) / "evaluation_results_euf_context.db"
         excel_path = export_results_to_excel(db_path)
         if excel_path:
             print(f"📄 Excel exported to: {excel_path}")
             print(f"📄 By-model Excel exported to: {db_path.with_name(f'{db_path.stem}_by_model.xlsx')}")
         print("\nNext steps:")
-        print("   1. Run scoring: python evaluate_results.py")
-        print("   2. Check results in results/evaluation_results_euf_context.db")
+        print("   1. Run scoring: python runpod_setup/evaluate_context_results.py")
+        print(f"   2. Check results in {db_path}")
         if excel_path:
-            print("   3. Review spreadsheet in results/evaluation_results_euf_context.xlsx")
-            print("   4. Review by-model workbook in results/evaluation_results_euf_context_by_model.xlsx")
+            print(f"   3. Review spreadsheet in {excel_path}")
+            print(f"   4. Review by-model workbook in {db_path.with_name(f'{db_path.stem}_by_model.xlsx')}")
         
     except KeyboardInterrupt:
         print("\n\n⚠️ Interrupted by user")

@@ -1,11 +1,11 @@
-# evaluate_context_results.py
+# runpod_setup/evaluate_context_results.py
 
 #!/usr/bin/env python3
 """
 Evaluate context-based responses from SQLite database using scientific metrics.
 
 Usage:
-    python evaluate_context_results.py
+    python runpod_setup/evaluate_context_results.py
 
 This will:
     1. Read all responses from results/evaluation_results_euf_context.db
@@ -16,14 +16,115 @@ import sqlite3
 import sys
 import os
 import json
+import re
+import subprocess
+from datetime import datetime
 from pathlib import Path
 from tqdm import tqdm
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from metrics.scientific_metrics import ResponseEvaluator
 from translations.eu_24_languages_euf_context import get_all_questions_with_context
+
+
+def detect_gpu_bucket() -> tuple[str, str]:
+    """Detect GPU bucket with optional env override."""
+    override = os.getenv("EVAL_RUN_GPU", "").strip().lower()
+    if override:
+        safe = re.sub(r"[^a-z0-9_\\-]+", "_", override).strip("_")
+        return safe or "unknown_gpu", "env:EVAL_RUN_GPU"
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=10,
+        )
+        name = ""
+        for ln in result.stdout.splitlines():
+            if ln.strip():
+                name = ln.strip().lower()
+                break
+        if "b200" in name or "gb200" in name:
+            return "b200", f"nvidia-smi:{name}"
+        if "h200" in name:
+            return "h200_sxm", f"nvidia-smi:{name}"
+        if "h100" in name:
+            return "h100_sxm", f"nvidia-smi:{name}"
+        if "a100" in name:
+            return "a100", f"nvidia-smi:{name}"
+        if "a40" in name:
+            return "a40", f"nvidia-smi:{name}"
+        safe = re.sub(r"[^a-z0-9]+", "_", name).strip("_")
+        return safe or "unknown_gpu", f"nvidia-smi:{name or 'unknown'}"
+    except Exception:
+        return "unknown_gpu", "fallback:unknown"
+
+
+def resolve_scoring_paths(base_results_dir: Path) -> dict:
+    """
+    Resolve where to read evaluation DB and write scoring outputs.
+    Priority:
+      1) EVAL_RUN_DIR
+      2) EVAL_RUN_GPU + EVAL_RUN_ID
+      3) results/latest/<gpu_bucket>
+      4) legacy results/ directory
+    """
+    run_dir_env = os.getenv("EVAL_RUN_DIR", "").strip()
+    run_id_env = os.getenv("EVAL_RUN_ID", "").strip()
+    gpu_bucket, gpu_source = detect_gpu_bucket()
+
+    run_dir = None
+    source = "legacy"
+    if run_dir_env:
+        run_dir = Path(run_dir_env).expanduser().resolve()
+        source = "env:EVAL_RUN_DIR"
+    elif run_id_env:
+        run_dir = (base_results_dir / "runs" / gpu_bucket / run_id_env).resolve()
+        source = "env:EVAL_RUN_ID"
+    else:
+        latest_link = (base_results_dir / "latest" / gpu_bucket)
+        if latest_link.exists() or latest_link.is_symlink():
+            try:
+                run_dir = latest_link.resolve()
+                source = f"latest:{gpu_bucket}"
+            except Exception:
+                run_dir = None
+
+    if run_dir:
+        raw_dir = run_dir / "raw"
+        scores_dir = run_dir / "scores"
+        metadata_dir = run_dir / "metadata"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        scores_dir.mkdir(parents=True, exist_ok=True)
+        metadata_dir.mkdir(parents=True, exist_ok=True)
+        db_path = raw_dir / "evaluation_results_euf_context.db"
+        scores_db_path = scores_dir / "evaluation_scores_euf_context.db"
+        scores_xlsx_path = scores_dir / "evaluation_scores_euf_context.xlsx"
+    else:
+        db_path = base_results_dir / "evaluation_results_euf_context.db"
+        scores_db_path = base_results_dir / "evaluation_scores_euf_context.db"
+        scores_xlsx_path = base_results_dir / "evaluation_scores_euf_context.xlsx"
+        raw_dir = base_results_dir
+        scores_dir = base_results_dir
+        metadata_dir = base_results_dir
+
+    return {
+        "run_dir": run_dir,
+        "raw_dir": raw_dir,
+        "scores_dir": scores_dir,
+        "metadata_dir": metadata_dir,
+        "db_path": db_path,
+        "scores_db_path": scores_db_path,
+        "scores_xlsx_path": scores_xlsx_path,
+        "gpu_bucket": gpu_bucket,
+        "gpu_source": gpu_source,
+        "source": source,
+    }
 
 
 def load_env_file(env_path: Path) -> dict:
@@ -84,16 +185,21 @@ def get_context_for_question(question_id: str) -> list:
 
 def main():
     """Main evaluation function."""
+    base_results_dir = (PROJECT_ROOT / "results").resolve()
+    resolved = resolve_scoring_paths(base_results_dir)
+    db_path = resolved["db_path"]
+    scores_db_path = resolved["scores_db_path"]
+    scores_xlsx_path = resolved["scores_xlsx_path"]
+
     print("="*60)
     print("  Evaluating Context-Based Responses")
-    print("  Database: evaluation_results_euf_context.db")
+    print(f"  Database: {db_path}")
     print("="*60)
-    
-    # Paths
-    results_dir = Path("results")
-    db_path = results_dir / "evaluation_results_euf_context.db"
-    scores_db_path = results_dir / "evaluation_scores_euf_context.db"
-    scores_xlsx_path = results_dir / "evaluation_scores_euf_context.xlsx"
+
+    print(f"  Path mode: {resolved['source']}")
+    print(f"  GPU bucket: {resolved['gpu_bucket']} ({resolved['gpu_source']})")
+    if resolved["run_dir"]:
+        print(f"  Run dir: {resolved['run_dir']}")
     
     if not db_path.exists():
         print(f"❌ Database not found: {db_path}")
@@ -190,7 +296,7 @@ def main():
             "ref_data": ref_data,
         })
     
-    env_file_vals = load_env_file(Path(".env"))
+    env_file_vals = load_env_file(PROJECT_ROOT / ".env")
     batch_size = max(1, getenv_int("EVALUATOR_SCORE_BATCH_SIZE", 16, env_file_vals))
     commit_every = max(1, getenv_int("EVALUATOR_SCORE_COMMIT_EVERY", 100, env_file_vals))
     inserted = 0
@@ -259,6 +365,19 @@ def main():
     
     scores_conn.commit()
     scores_conn.close()
+
+    if resolved["run_dir"]:
+        meta = {
+            "updated_at": datetime.now().isoformat(),
+            "scoring_db": str(scores_db_path),
+            "scoring_xlsx": str(scores_xlsx_path),
+            "source_results_db": str(db_path),
+            "gpu_bucket": resolved["gpu_bucket"],
+            "gpu_detected_from": resolved["gpu_source"],
+            "path_mode": resolved["source"],
+        }
+        with open(resolved["metadata_dir"] / "scoring_info.json", "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2)
     
     # Summary
     print("\n" + "="*60)
