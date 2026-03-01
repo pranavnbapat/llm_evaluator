@@ -1,120 +1,89 @@
-# LLM Evaluation Framework - Scientific & Statistical Design
+# LLM Evaluation Framework - Current Context Pipeline
 
-## Overview
-This framework provides **measurable, reproducible, and statistically valid** criteria for evaluating LLM responses across 24 EU languages.
+## Scope
+This document describes the **active** evaluation and scoring framework used by the context pipeline.
 
----
+Source of questions/context:
+- `translations/eu_24_languages_euf_context.py`
 
-## 1. Evaluation Dimensions & Metrics
+Execution/scoring scripts:
+- `runpod_setup/evaluate_context.py`
+- `evaluate_context_results.py`
 
-### A. Response Quality Metrics (Semantic)
+## Dataset Design
 
-| Metric | Description | Measurement Method | Statistical Basis |
-|--------|-------------|-------------------|-------------------|
-| **Relevance Score (RS)** | How well the response addresses the question | Semantic similarity (cosine similarity using embeddings) | Range [0, 1], mean ± SD per language |
-| **Completeness Score (CS)** | Coverage of all aspects in the question | Checklist-based binary scoring / LLM-as-judge | Percentage, confidence intervals |
-| **Factual Accuracy (FA)** | Correctness of factual claims | NLI (Natural Language Inference) + Reference comparison | Accuracy %, precision/recall |
-| **Coherence Score (CO)** | Logical flow and structure | Discourse coherence metrics (entity/grid coherence) | Cumulative score, variance analysis |
+- Languages: 24 EU languages (`BG, HR, CS, DA, NL, EN, ET, FI, FR, DE, EL, HU, GA, IT, LV, LT, MT, PL, PT, RO, SK, SL, ES, SV`)
+- Question families: 5 (`Q1..Q5`)
+- Context per question: 5 English context entries
+- Runs per question-language pair: 3
 
-### B. Linguistic Quality Metrics
+Per model response count:
+- `24 languages x 5 questions x 3 runs = 360 responses`
 
-| Metric | Description | Measurement Method | Statistical Basis |
-|--------|-------------|-------------------|-------------------|
-| **Fluency Score (FL)** | Grammatical correctness, naturalness | Perplexity (lower = better), grammar checkers | Perplexity mean, outlier detection |
-| **Readability Index (RI)** | Text complexity appropriateness | Flesch-Kincaid, Flesch Reading Ease per language | Standardized scores |
-| **Lexical Diversity (LD)** | Vocabulary richness | Type-Token Ratio (TTR), MTLD (Measure of Textual Lexical Diversity) | TTR ∈ [0,1], MTLD stability |
+## Active Scoring Metrics (Context Profile)
 
-### C. Cross-Language Consistency Metrics
+Metric outputs written to the scores DB:
 
-| Metric | Description | Measurement Method | Statistical Basis |
-|--------|-------------|-------------------|-------------------|
-| **Semantic Consistency (SC)** | Same answer meaning across languages | Cross-lingual embedding similarity | Pairwise similarity matrix |
-| **Length Consistency (LC)** | Response length variation across languages | Coefficient of Variation (CV) | CV = σ/μ, target < 0.3 |
-| **Structure Consistency (STC)** | Similar organizational patterns | Structural similarity (section count, list usage) | Jaccard similarity |
+- `relevance`
+- `factual_accuracy`
+- `completeness`
+- `fluency`
+- `coherence`
+- `prompt_alignment`
+- `token_efficiency`
+- `overall_quality`
 
-### D. Performance Efficiency Metrics
+### Composite score weights
+Using `metrics/metrics_config.yaml` profile `context`:
 
-| Metric | Description | Measurement Method | Statistical Basis |
-|--------|-------------|-------------------|-------------------|
-| **Latency (L)** | Time to first token + total generation | Timestamp logging | Mean, P50, P95, P99 percentiles |
-| **Throughput (T)** | Tokens per second | Token count / generation time | Rate with confidence intervals |
-| **Token Efficiency (TE)** | Information density per token | Metrics score / token count | Efficiency ratio |
+- relevance: `0.30`
+- factual_accuracy: `0.30`
+- completeness: `0.20`
+- fluency: `0.15`
+- coherence: `0.05`
+- prompt_alignment: `0.00` (disabled in this profile)
+- token_efficiency: `0.00` (disabled in this profile)
 
-### E. Instruction Following Metrics
+Composite formula:
 
-| Metric | Description | Measurement Method | Statistical Basis |
-|--------|-------------|-------------------|-------------------|
-| **Format Adherence (FA)** | Follows requested format (JSON, bullet, etc.) | Regex/template matching | Binary pass/fail % |
-| **Constraint Satisfaction (CS)** | Meets length constraints (if specified) | Token count comparison | Compliance rate |
-| **Prompt Alignment (PA)** | Stays on topic, no hallucination | Topic modeling, hallucination detection | Alignment score |
+`overall_quality = 0.30*relevance + 0.30*factual_accuracy + 0.20*completeness + 0.15*fluency + 0.05*coherence`
 
----
+## Storage Schema (Current)
 
-## 2. Composite Scoring
+### Results DB (`evaluation_results_euf_context.db`)
+Table: `evaluations`
 
-### Overall Quality Score (OQS)
-```
-OQS = 0.25×RS + 0.20×FA + 0.15×CS + 0.15×FL + 0.10×CO + 0.10×PA + 0.05×TE
-```
+- `id` (INTEGER PK)
+- `model_name` (TEXT)
+- `language` (TEXT)
+- `question_id` (TEXT, e.g. `Q3_DE`)
+- `run_number` (INTEGER)
+- `question_text` (TEXT)
+- `context` (TEXT, JSON serialized)
+- `response` (TEXT)
+- `timestamp` (TEXT)
+- `latency_ms` (REAL)
 
-### Cross-Language Robustness Score (CLRS)
-```
-CLRS = mean(OQS_all_languages) - 2×std(OQS_all_languages)
-```
-(Uses mean - 2σ to penalize high variance across languages)
+### Scores DB (`evaluation_scores_euf_context.db`)
+Table: `scores`
 
----
+- `id` (INTEGER PK)
+- `evaluation_id` (INTEGER)
+- `model_name` (TEXT)
+- `language` (TEXT)
+- `question_id` (TEXT)
+- `relevance` (REAL)
+- `factual_accuracy` (REAL)
+- `completeness` (REAL)
+- `fluency` (REAL)
+- `coherence` (REAL)
+- `prompt_alignment` (REAL)
+- `token_efficiency` (REAL)
+- `overall_quality` (REAL)
+- `timestamp` (TEXT)
 
-## 3. Statistical Validation Methods
+## Important Notes
 
-### A. Reproducibility
-- **Inter-run Consistency**: Run same question 3x, calculate Intra-Class Correlation (ICC)
-- **Temperature Sensitivity**: Test at T=0, T=0.3, T=0.7, measure variance
-
-### B. Significance Testing
-- **Paired t-test**: Compare models on same questions
-- **ANOVA**: Compare across language families
-- **Effect Size**: Cohen's d for practical significance
-
-### C. Confidence Intervals
-- 95% CI for all mean metrics
-- Bootstrap resampling (n=1000) for non-parametric metrics
-
----
-
-## 4. Data Structure (Excel/CSV Schema)
-
-### Main Results Table
-```
-| run_id | timestamp | model_name | model_config | question_id | language | 
-| response_text | raw_metrics (JSON) | computed_scores (JSON) | 
-| latency_ms | tokens_generated | tokens_per_second |
-```
-
-### Aggregated Statistics Table
-```
-| model_name | metric_name | language | mean | std | min | max | 
-| ci_lower_95 | ci_upper_95 | n_samples |
-```
-
-### Cross-Language Consistency Table
-```
-| model_name | question_id | language_pair | semantic_similarity | length_ratio |
-```
-
----
-
-## 5. Baseline & Benchmarking
-
-- **Reference Model**: Use one high-quality model (e.g., GPT-4) as reference for relative scoring
-- **Human Baseline**: Optional human annotations on subset for calibration
-- **Random Baseline**: Expected scores for random responses
-
----
-
-## 6. Implementation Notes
-
-1. **Embeddings**: Use multilingual model (e.g., LaBSE, E5-multilingual, or BGE-m3)
-2. **NLI Model**: Use multilingual NLI (e.g., XLM-RoBERTa-NLI)
-3. **Statistical Library**: scipy, statsmodels for significance testing
-4. **Reproducibility**: Fix seeds, log all hyperparameters
+- `prompt_alignment` and `token_efficiency` are still stored in outputs for schema consistency.
+- In the active context profile, both currently contribute `0.00` to `overall_quality`.
+- The legacy `data/evaluation_questions.json` format from older generic tasks is deprecated in favor of the multilingual context source module.

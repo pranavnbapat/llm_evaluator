@@ -67,27 +67,6 @@ BG, HR, CS, DA, NL, EN, ET, FI, FR, DE, EL, HU, GA, IT, LV, LT, MT, PL, PT, RO, 
 
 ---
 
-## 📁 Repository Structure
-
-```
-llm_evaluator/
-├── runpod_setup/           # ⭐ RunPod evaluation scripts
-│   ├── config.yaml         # Edit this with your tokens
-│   ├── setup.sh            # One-time setup
-│   ├── download_models.py  # Download all 5 models
-│   ├── evaluate.py         # Main evaluation script
-│   └── README.md           # Detailed instructions
-│
-├── app/                    # FastAPI service (legacy)
-├── metrics/                # Scientific evaluation metrics
-├── translations/           # EU 24 language questions
-├── data/                   # Evaluation questions
-├── requirements.txt
-└── README.md               # This file
-```
-
----
-
 ## 🔬 Scientific Framework
 
 ### Evaluation Pipeline
@@ -132,13 +111,6 @@ sqlite3 evaluation_results.db "SELECT model_name, AVG(latency_ms) FROM evaluatio
 
 ---
 
-## 💰 Costs
-- **A40 GPU**: ~$0.50-1.00/hour
-- **Storage**: ~$0.20/GB/month
-- **Full evaluation**: ~$3-6 (3-6 hours)
-
-Models (~150GB) persist in `/workspace/` across pod restarts.
-
 ## 🔬 Evaluation Method
 
 All metrics are computed **locally** on GPU - no external API calls needed:
@@ -153,7 +125,3 @@ All metrics are computed **locally** on GPU - no external API calls needed:
 | Prompt Alignment | Pattern matching |
 
 ---
-
-## 📄 License
-
-MIT License

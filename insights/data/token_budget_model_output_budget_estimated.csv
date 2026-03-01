@@ -1,0 +1,7 @@
+model_name	max_model_len	remaining_output_tokens_est_min	remaining_output_tokens_est_avg	remaining_output_tokens_est_max	effective_output_cap_min	effective_output_cap_max
+EuroLLM-22B-Instruct-2512	16384	15729	15747.4	15762	2048	2048
+EuroLLM-9B-Instruct-2512	16384	15729	15747.4	15762	2048	2048
+Teuken-7B-instruct-commercial-v0.4	16384	15729	15747.4	15762	2048	2048
+devstral-small-2-24b-instruct-2512-b200	16384	15729	15747.4	15762	2048	2048
+mistral-nemo-instruct-2407-b200	16384	15729	15747.4	15762	2048	2048
+mistral-small-3-2-24b-instruct-2506-awq-sym-b200	16384	15729	15747.4	15762	2048	2048

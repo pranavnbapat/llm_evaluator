@@ -1,87 +1,74 @@
-# Excel Export Structure
+# Excel Export Structure (Current Context Evaluation)
 
-## Sheet 1: Raw Results
+This file documents the **actual** Excel outputs currently produced in `results/`.
+
+## 1) `evaluation_results_euf_context.xlsx`
+
+Single sheet: `Sheet1`
 
 | Column | Type | Description |
-|--------|------|-------------|
-| run_id | string | Unique identifier |
-| timestamp | datetime | UTC timestamp |
+| --- | --- | --- |
+| id | integer | Row id from results DB |
 | model_name | string | Model identifier |
-| model_url | string | Endpoint URL |
-| question_id | string | Q1-Q5 identifier |
-| question_category | string | Category name |
-| language | string | ISO 639-1 code |
-| question_text | text | Full question |
-| response_text | text | Model response |
-| latency_ms | float | Response time |
-| time_to_first_token_ms | float | TTFT |
-| tokens_generated | int | Output tokens |
-| tokens_prompt | int | Input tokens |
-| tokens_per_second | float | Throughput |
-| score_relevance | float [0-1] | Semantic relevance |
-| score_factual_accuracy | float [0-1] | Factual correctness |
-| score_completeness | float [0-1] | Coverage |
-| score_fluency | float [0-1] | Linguistic quality |
-| score_coherence | float [0-1] | Logical flow |
-| score_prompt_alignment | float [0-1] | Instruction following |
-| score_token_efficiency | float [0-1] | Info density |
-| score_overall | float [0-1] | Weighted composite |
-| error | text | Error message |
+| language | string | Language code (24 EU languages) |
+| question_id | string | Per-language question id (e.g., `Q2_FR`) |
+| run_number | integer | Repeat index (typically 1..3) |
+| question_text | text | Prompt question in target language |
+| context | text | JSON-serialized context entries |
+| response | text | Model response text |
+| timestamp | datetime/text | Generation timestamp |
+| latency_ms | float | End-to-end response latency |
 
-## Sheet 2: Aggregate Statistics
+## 2) `evaluation_scores_euf_context.xlsx`
 
-| Column | Description |
-|--------|-------------|
-| model_name | Model identifier |
-| metric_name | Name of metric |
-| language | Language code (or ALL) |
-| question_id | Question (or ALL) |
-| n_samples | Number of samples |
-| mean | Mean value |
-| std | Standard deviation |
-| min | Minimum |
-| max | Maximum |
-| median | Median |
-| p95 | 95th percentile |
-| ci_lower_95 | Lower 95% CI |
-| ci_upper_95 | Upper 95% CI |
-| sem | Standard error |
+Single sheet: `scores`
 
-## Sheet 3: Cross-Language Consistency
+| Column | Type | Description |
+| --- | --- | --- |
+| id | integer | Row id from scores DB |
+| evaluation_id | integer | Foreign key to `evaluations.id` |
+| model_name | string | Model identifier |
+| language | string | Language code |
+| question_id | string | Per-language question id |
+| relevance | float [0,1] | Semantic relevance score |
+| factual_accuracy | float [0,1] | NLI/context factual score |
+| completeness | float [0,1] | Context coverage/completeness |
+| fluency | float [0,1] | Fluency score |
+| coherence | float [0,1] | Coherence score |
+| prompt_alignment | float [0,1] | Prompt alignment (stored for schema consistency) |
+| token_efficiency | float [0,1] | Token efficiency (stored for schema consistency) |
+| overall_quality | float [0,1] | Weighted composite score |
+| timestamp | datetime/text | Scoring timestamp |
 
-| Column | Description |
-|--------|-------------|
-| model_name | Model identifier |
-| question_id | Question identifier |
-| mean_score | Mean across languages |
-| std_score | Standard deviation |
-| coefficient_of_variation | CV = std/mean |
-| cross_language_robustness | mean - 2*std |
-| [Language columns] | Score per language |
+## 3) `evaluation_results_euf_context_by_model.xlsx`
 
-## Sheet 4: Model Comparison
+Multiple sheets:
+- One sheet per model (sheet names may be truncated by Excel limits)
+- `all_results` (full combined dataset)
 
-| Column | Description |
-|--------|-------------|
-| model_a | First model |
-| model_b | Second model |
-| mean_a | Mean score A |
-| mean_b | Mean score B |
-| difference | Mean difference |
-| t_statistic | Paired t-test stat |
-| p_value | Significance |
-| cohens_d | Effect size |
-| significant | p < 0.05 |
+Per-sheet columns match `evaluation_results_euf_context.xlsx`:
 
-## Sheet 5: Configuration
+- `id`
+- `model_name`
+- `language`
+- `question_id`
+- `run_number`
+- `question_text`
+- `context`
+- `response`
+- `timestamp`
+- `latency_ms`
 
-| Parameter | Value |
-|-----------|-------|
-| Evaluation Date | timestamp |
-| Total Models | N |
-| Total Languages | 24 |
-| Total Questions | 5 |
-| Runs per Question | N |
-| Temperature | 0.0 |
-| Embedding Model | model name |
-| Composite Weights | JSON |
+## Deprecated/Legacy Fields
+
+The following legacy fields are **not** part of current context exports:
+- `run_id`
+- `model_url`
+- `question_category`
+- `time_to_first_token_ms`
+- `tokens_generated`
+- `tokens_prompt`
+- `tokens_per_second`
+- `error`
+
+If these are needed again, export logic must be extended in evaluation and scoring scripts.

@@ -1,0 +1,5 @@
+phase,samples,pct
+evaluating,16799,80.26
+loading_model,4073,19.46
+stopping_model,55,0.26
+idle,4,0.02

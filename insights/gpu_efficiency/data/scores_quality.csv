@@ -1,0 +1,10 @@
+model_name,n,avg_overall_quality,model_name_norm
+deepseek-r1-distill-qwen-14b-b200,360,0.7742796518935852,deepseek-r1-distill-qwen-14b-b200
+deepseek-r1-distill-qwen-32b-b200,360,0.7835759322039977,deepseek-r1-distill-qwen-32b-b200
+deepseek-r1-distill-qwen-7b,360,0.7748912356095891,deepseek-r1-distill-qwen-7b
+devstral-small-2-24b-instruct-2512-b200,360,0.8163490715868259,devstral-small-2-24b-instruct-2512-b200
+eurollm-22b-instruct-2512,360,0.8110322734021943,eurollm-22b-instruct-2512
+eurollm-9b-instruct-2512,360,0.8123627600588111,eurollm-9b-instruct-2512
+mistral-nemo-instruct-2407-b200,360,0.8063488654138897,mistral-nemo-instruct-2407-b200
+mistral-small-3-2-24b-instruct-2506-awq-sym-b200,360,0.8100147736845941,mistral-small-3-2-24b-instruct-2506-awq-sym-b200
+qwen3-30b-a3b-instruct-awq-b200,360,0.80042281490137,qwen3-30b-a3b-instruct-awq-b200
