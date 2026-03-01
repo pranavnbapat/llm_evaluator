@@ -1,0 +1,25 @@
+============================================================
+  Evaluating Context-Based Responses
+  Database: evaluation_results_euf_context.db
+============================================================
+
+🔄 Loading evaluation models...
+✅ Models loaded
+
+📂 Reading responses from: results/evaluation_results_euf_context.db
+📊 Found 3240 responses to evaluate
+
+🔍 Evaluating responses...
+  0%|          | 0/3240 [00:00<?, ?it/s]Some weights of the model checkpoint at joeddav/xlm-roberta-large-xnli were not used when initializing XLMRobertaForSequenceClassification: ['roberta.pooler.dense.bias', 'roberta.pooler.dense.weight']
+- This IS expected if you are initializing XLMRobertaForSequenceClassification from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing XLMRobertaForSequenceClassification from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Device set to use cuda:0
+Some weights of the model checkpoint at joeddav/xlm-roberta-large-xnli were not used when initializing XLMRobertaForSequenceClassification: ['roberta.pooler.dense.bias', 'roberta.pooler.dense.weight']
+- This IS expected if you are initializing XLMRobertaForSequenceClassification from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing XLMRobertaForSequenceClassification from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Device set to use cuda:0
+Some weights of the model checkpoint at joeddav/xlm-roberta-large-xnli were not used when initializing XLMRobertaForSequenceClassification: ['roberta.pooler.dense.bias', 'roberta.pooler.dense.weight']
+- This IS expected if you are initializing XLMRobertaForSequenceClassification from the checkpoint of a model trained on another task or with another architecture (e.g. initializing a BertForSequenceClassification model from a BertForPreTraining model).
+- This IS NOT expected if you are initializing XLMRobertaForSequenceClassification from the checkpoint of a model that you expect to be exactly identical (initializing a BertForSequenceClassification model from a BertForSequenceClassification model).
+Device set to use cuda:0
+  0%|          | 16/3240 [01:21<4:35:01,  5.12s/it]  1%|          | 32/3240 [02:35<4:17:51,  4.82s/it]  1%|▏         | 48/3240 [03:59<4:26:38,  5.01s/it]  2%|▏         | 64/3240 [05:05<4:06:41,  4.66s/it]  2%|▏         | 80/3240 [06:11<3:55:31,  4.47s/it]  3%|▎         | 96/3240 [07:13<3:43:18,  4.26s/it]  3%|▎         | 112/3240 [08:17<3:38:20,  4.19s/it]
