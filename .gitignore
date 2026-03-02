@@ -142,17 +142,17 @@ desktop.ini
 #*.db
 
 # Allow tracked artifacts under results/ and logs/
-!results/**/*.db
-!results/**/*.csv
-!results/**/*.xls
-!results/**/*.xlsx
-!results/**/*.sqlite
-!results/**/*.sqlite3
-!logs/**/*.db
-!logs/**/*.csv
-!logs/**/*.xls
-!logs/**/*.xlsx
-!logs/**/*.sqlite
-!logs/**/*.sqlite3
+#!results/**/*.db
+#!results/**/*.csv
+#!results/**/*.xls
+#!results/**/*.xlsx
+#!results/**/*.sqlite
+#!results/**/*.sqlite3
+#!logs/**/*.db
+#!logs/**/*.csv
+#!logs/**/*.xls
+#!logs/**/*.xlsx
+#!logs/**/*.sqlite
+#!logs/**/*.sqlite3
 
 temp/
