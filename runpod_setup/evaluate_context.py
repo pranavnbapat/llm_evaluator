@@ -508,6 +508,7 @@ class Evaluator:
         
         # Setup SQLite with context-specific name
         self.db_path = self.results_dir / "evaluation_results_euf_context.db"
+        self._conn = self._open_db_connection()
         self._init_db()
         
         # Load questions WITH CONTEXT
@@ -516,8 +517,7 @@ class Evaluator:
     
     def _init_db(self):
         """Initialize SQLite database."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        cursor = self._conn.cursor()
         
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS evaluations (
@@ -534,8 +534,30 @@ class Evaluator:
             )
         """)
         
-        conn.commit()
-        conn.close()
+        self._conn.commit()
+
+    def _open_db_connection(self) -> sqlite3.Connection:
+        """Open SQLite connection with safe defaults for long-running writes."""
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(self.db_path, timeout=30)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        return conn
+
+    def _reconnect_db(self) -> None:
+        try:
+            if self._conn:
+                self._conn.close()
+        except Exception:
+            pass
+        self._conn = self._open_db_connection()
+
+    def close(self) -> None:
+        try:
+            if self._conn:
+                self._conn.close()
+        except Exception:
+            pass
     
     def _format_context(self, context: list) -> str:
         """Format context entries into a string for the prompt."""
@@ -655,30 +677,40 @@ Your response:"""
                      run_number: int, question_text: str, context: list, 
                      response: str, latency_ms: float):
         """Save result to SQLite."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
         # Convert context to JSON string for storage
         context_json = json.dumps(context) if context else ""
-        
-        cursor.execute("""
-            INSERT INTO evaluations 
-            (model_name, language, question_id, run_number, question_text, context, response, timestamp, latency_ms)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            model_name,
-            language,
-            question_id,
-            run_number,
-            question_text,
-            context_json,
-            response,
-            datetime.now().isoformat(),
-            latency_ms
-        ))
-        
-        conn.commit()
-        conn.close()
+
+        for attempt in range(3):
+            try:
+                self.db_path.parent.mkdir(parents=True, exist_ok=True)
+                self._conn.execute("""
+                    INSERT INTO evaluations 
+                    (model_name, language, question_id, run_number, question_text, context, response, timestamp, latency_ms)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    model_name,
+                    language,
+                    question_id,
+                    run_number,
+                    question_text,
+                    context_json,
+                    response,
+                    datetime.now().isoformat(),
+                    latency_ms
+                ))
+                self._conn.commit()
+                return
+            except sqlite3.OperationalError as e:
+                # Handle transient path/filesystem hiccups on long runs.
+                if "unable to open database file" in str(e).lower() and attempt < 2:
+                    print(
+                        f"⚠️ SQLite open failure ({self.db_path}), retrying "
+                        f"{attempt + 1}/2..."
+                    )
+                    time.sleep(1.0)
+                    self._reconnect_db()
+                    continue
+                raise
 
 
 def load_env_file(env_path: Path) -> None:
@@ -866,6 +898,7 @@ def main():
                 gpu_monitor.set_context(phase="model_start_failed")
                 continue
             
+            evaluator: Optional[Evaluator] = None
             try:
                 # Run evaluation
                 evaluator = Evaluator(vllm, config, gpu_monitor=gpu_monitor)
@@ -873,6 +906,8 @@ def main():
                 all_results.append(results)
                 
             finally:
+                if evaluator:
+                    evaluator.close()
                 # Always stop vLLM
                 gpu_monitor.set_context(phase="stopping_model")
                 vllm.stop()
