@@ -2,23 +2,21 @@
 """
 Generate GPU efficiency report for context evaluation.
 
-Inputs:
-  - logs/gpu_metrics.csv
-  - results/evaluation_results_euf_context.db
-  - results/evaluation_scores_euf_context.db
+Single-run mode:
+  python insights/gpu_efficiency/generate_gpu_efficiency_report.py --run-dir <run_dir>
 
-Outputs:
-  - insights/gpu_efficiency/GPU_EFFICIENCY_REPORT.md
-  - insights/gpu_efficiency/charts/*.png
-  - insights/gpu_efficiency/data/*.csv
+Bulk mode (default):
+  python insights/gpu_efficiency/generate_gpu_efficiency_report.py
+This scans results/runs/*/* and generates only missing GPU-efficiency artifacts.
 """
 
 from __future__ import annotations
 
+import argparse
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Iterable
 
 import numpy as np
 import pandas as pd
@@ -29,14 +27,6 @@ import matplotlib.pyplot as plt
 
 
 ROOT = Path(__file__).resolve().parents[2]
-LOG_PATH = ROOT / "logs" / "gpu_metrics.csv"
-RESULTS_DB = ROOT / "results" / "evaluation_results_euf_context.db"
-SCORES_DB = ROOT / "results" / "evaluation_scores_euf_context.db"
-
-OUT_DIR = ROOT / "insights" / "gpu_efficiency"
-CHARTS_DIR = OUT_DIR / "charts"
-DATA_DIR = OUT_DIR / "data"
-OUT_MD = OUT_DIR / "GPU_EFFICIENCY_REPORT.md"
 
 
 def _read_sql(db: Path, q: str) -> pd.DataFrame:
@@ -68,10 +58,10 @@ def _md_table(df: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
-def load_gpu_metrics() -> pd.DataFrame:
-    if not LOG_PATH.exists():
-        raise FileNotFoundError(f"Missing {LOG_PATH}")
-    df = pd.read_csv(LOG_PATH)
+def load_gpu_metrics(log_path: Path) -> pd.DataFrame:
+    if not log_path.exists():
+        raise FileNotFoundError(f"Missing {log_path}")
+    df = pd.read_csv(log_path)
     df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
     if "timestamp" in df.columns:
         df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
@@ -93,7 +83,7 @@ def load_gpu_metrics() -> pd.DataFrame:
     return df
 
 
-def build_tables(gpu: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+def build_tables(gpu: pd.DataFrame, results_db: Path, scores_db: Path) -> Dict[str, pd.DataFrame]:
     phase_counts = gpu["phase"].value_counts(dropna=False).rename_axis("phase").reset_index(name="samples")
     phase_counts["pct"] = (phase_counts["samples"] / phase_counts["samples"].sum() * 100).round(2)
 
@@ -118,7 +108,7 @@ def build_tables(gpu: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     model_gpu = model_gpu.sort_values("duration_min", ascending=False)
 
     results = _read_sql(
-        RESULTS_DB,
+        results_db,
         """
         SELECT model_name, COUNT(*) AS n, AVG(latency_ms) AS avg_latency_ms,
                MAX(latency_ms) AS max_latency_ms
@@ -130,7 +120,7 @@ def build_tables(gpu: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     results["model_name_norm"] = results["model_name"].map(_norm_model_name)
 
     scores = _read_sql(
-        SCORES_DB,
+        scores_db,
         """
         SELECT model_name, COUNT(*) AS n, AVG(overall_quality) AS avg_overall_quality
         FROM scores
@@ -153,15 +143,15 @@ def build_tables(gpu: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     }
 
 
-def make_charts(t: Dict[str, pd.DataFrame]) -> None:
-    CHARTS_DIR.mkdir(parents=True, exist_ok=True)
+def make_charts(t: Dict[str, pd.DataFrame], charts_dir: Path) -> None:
+    charts_dir.mkdir(parents=True, exist_ok=True)
 
     # 1) Phase share
     p = t["phase_counts"]
     fig, ax = plt.subplots(figsize=(6.2, 6.2))
     ax.pie(p["samples"], labels=p["phase"], autopct="%1.1f%%", startangle=90)
     ax.set_title("GPU Metrics Phase Share")
-    _save_fig(CHARTS_DIR / "01_phase_share_pie.png")
+    _save_fig(charts_dir / "01_phase_share_pie.png")
 
     # 2) Mean GPU util by model
     m = t["model_efficiency"].sort_values("gpu_util_mean", ascending=False).head(12)
@@ -171,7 +161,7 @@ def make_charts(t: Dict[str, pd.DataFrame]) -> None:
     ax.set_ylabel("GPU Util (%)")
     ax.set_ylim(0, 100)
     ax.tick_params(axis="x", rotation=35, labelsize=8)
-    _save_fig(CHARTS_DIR / "02_gpu_util_mean_by_model.png")
+    _save_fig(charts_dir / "02_gpu_util_mean_by_model.png")
 
     # 3) Max GPU memory used by model
     mm = t["model_efficiency"].sort_values("mem_used_max_mb", ascending=False).head(12)
@@ -180,7 +170,7 @@ def make_charts(t: Dict[str, pd.DataFrame]) -> None:
     ax.set_title("Max GPU Memory Used by Model")
     ax.set_ylabel("Memory (GB)")
     ax.tick_params(axis="x", rotation=35, labelsize=8)
-    _save_fig(CHARTS_DIR / "03_gpu_mem_max_by_model.png")
+    _save_fig(charts_dir / "03_gpu_mem_max_by_model.png")
 
     # 4) Avg latency by model
     l = t["model_efficiency"].dropna(subset=["avg_latency_ms"]).sort_values("avg_latency_ms", ascending=True).head(12)
@@ -189,7 +179,7 @@ def make_charts(t: Dict[str, pd.DataFrame]) -> None:
     ax.set_title("Average Response Latency by Model")
     ax.set_ylabel("Latency (ms)")
     ax.tick_params(axis="x", rotation=35, labelsize=8)
-    _save_fig(CHARTS_DIR / "04_latency_by_model.png")
+    _save_fig(charts_dir / "04_latency_by_model.png")
 
     # 5) Latency vs overall quality
     s = t["model_efficiency"].dropna(subset=["avg_latency_ms", "avg_overall_quality"]).copy()
@@ -201,14 +191,20 @@ def make_charts(t: Dict[str, pd.DataFrame]) -> None:
     ax.set_xlabel("Average latency (ms)")
     ax.set_ylabel("Average overall quality")
     ax.set_ylim(0, 1)
-    _save_fig(CHARTS_DIR / "05_latency_vs_quality_scatter.png")
+    _save_fig(charts_dir / "05_latency_vs_quality_scatter.png")
 
 
-def write_outputs(gpu: pd.DataFrame, t: Dict[str, pd.DataFrame]) -> None:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+def write_outputs(
+    gpu: pd.DataFrame,
+    t: Dict[str, pd.DataFrame],
+    out_md: Path,
+    data_dir: Path,
+    source_log_label: str,
+) -> None:
+    data_dir.mkdir(parents=True, exist_ok=True)
 
     for k, df in t.items():
-        df.to_csv(DATA_DIR / f"{k}.csv", index=False)
+        df.to_csv(data_dir / f"{k}.csv", index=False)
 
     start = gpu["timestamp"].min()
     end = gpu["timestamp"].max()
@@ -238,7 +234,7 @@ def write_outputs(gpu: pd.DataFrame, t: Dict[str, pd.DataFrame]) -> None:
     lines.append("")
     lines.append("## Overview")
     lines.append("")
-    lines.append(f"- Source log: `logs/gpu_metrics.csv`")
+    lines.append(f"- Source log: `{source_log_label}`")
     lines.append(f"- Samples: **{len(gpu)}**")
     lines.append(f"- Time range: **{start} → {end}**")
     lines.append(f"- Duration: **{duration_h:.2f} hours**")
@@ -353,22 +349,132 @@ def write_outputs(gpu: pd.DataFrame, t: Dict[str, pd.DataFrame]) -> None:
     lines.append("- This report: `insights/gpu_efficiency/GPU_EFFICIENCY_REPORT.md`")
     lines.append("")
 
-    OUT_MD.write_text("\n".join(lines), encoding="utf-8")
+    out_md.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _required_outputs(out_dir: Path) -> list[Path]:
+    charts_dir = out_dir / "charts"
+    data_dir = out_dir / "data"
+    return [
+        out_dir / "GPU_EFFICIENCY_REPORT.md",
+        charts_dir / "01_phase_share_pie.png",
+        charts_dir / "02_gpu_util_mean_by_model.png",
+        charts_dir / "03_gpu_mem_max_by_model.png",
+        charts_dir / "04_latency_by_model.png",
+        charts_dir / "05_latency_vs_quality_scatter.png",
+        data_dir / "phase_counts.csv",
+        data_dir / "model_gpu.csv",
+        data_dir / "model_efficiency.csv",
+        data_dir / "results_latency.csv",
+        data_dir / "scores_quality.csv",
+    ]
+
+
+def _is_complete(out_dir: Path) -> bool:
+    return all(p.exists() for p in _required_outputs(out_dir))
+
+
+def _discover_run_dirs(repo_root: Path) -> Iterable[Path]:
+    runs_root = repo_root / "results" / "runs"
+    if not runs_root.exists():
+        return []
+    return sorted([p for p in runs_root.glob("*/*") if p.is_dir()])
+
+
+def _run_paths(run_dir: Path) -> dict:
+    out_dir = run_dir / "insights" / "gpu_efficiency"
+    return {
+        "run_dir": run_dir,
+        "log_path": run_dir / "logs" / "gpu_metrics.csv",
+        "results_db": run_dir / "raw" / "evaluation_results_euf_context.db",
+        "scores_db": run_dir / "scores" / "evaluation_scores_euf_context.db",
+        "out_dir": out_dir,
+        "charts_dir": out_dir / "charts",
+        "data_dir": out_dir / "data",
+        "out_md": out_dir / "GPU_EFFICIENCY_REPORT.md",
+    }
+
+
+def _process_run(run_dir: Path, force: bool = False) -> tuple[bool, str]:
+    rp = _run_paths(run_dir)
+    out_dir = rp["out_dir"]
+    if not force and _is_complete(out_dir):
+        return False, f"skip (already complete): {run_dir}"
+
+    missing_inputs = [p for p in [rp["log_path"], rp["results_db"], rp["scores_db"]] if not p.exists()]
+    if missing_inputs:
+        missing_text = ", ".join(str(p) for p in missing_inputs)
+        return False, f"skip (missing input): {run_dir} :: {missing_text}"
+
+    rp["out_dir"].mkdir(parents=True, exist_ok=True)
+    rp["charts_dir"].mkdir(parents=True, exist_ok=True)
+    rp["data_dir"].mkdir(parents=True, exist_ok=True)
+
+    gpu = load_gpu_metrics(rp["log_path"])
+    tables = build_tables(gpu, rp["results_db"], rp["scores_db"])
+    make_charts(tables, rp["charts_dir"])
+    write_outputs(
+        gpu,
+        tables,
+        rp["out_md"],
+        rp["data_dir"],
+        "logs/gpu_metrics.csv",
+    )
+    return True, f"generated: {run_dir}"
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate GPU-efficiency artifacts for one run or all runs."
+    )
+    parser.add_argument(
+        "--run-dir",
+        type=Path,
+        help="Specific run directory (e.g., results/runs/a40/<run_id>).",
+    )
+    parser.add_argument(
+        "--all-runs",
+        action="store_true",
+        help="Process all runs under results/runs/*/* (default when --run-dir is omitted).",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Regenerate even when output artifacts already exist.",
+    )
+    return parser.parse_args()
 
 
 def main() -> None:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    CHARTS_DIR.mkdir(parents=True, exist_ok=True)
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    args = _parse_args()
 
-    gpu = load_gpu_metrics()
-    tables = build_tables(gpu)
-    make_charts(tables)
-    write_outputs(gpu, tables)
+    if args.run_dir:
+        run_dir = args.run_dir.expanduser().resolve()
+        changed, msg = _process_run(run_dir, force=args.force)
+        print(msg)
+        if changed:
+            rp = _run_paths(run_dir)
+            print(f"Wrote report: {rp['out_md']}")
+            print(f"Wrote charts: {rp['charts_dir']}")
+            print(f"Wrote data: {rp['data_dir']}")
+        return
 
-    print(f"Wrote report: {OUT_MD}")
-    print(f"Wrote charts: {CHARTS_DIR}")
-    print(f"Wrote data: {DATA_DIR}")
+    run_dirs = list(_discover_run_dirs(ROOT))
+    if not run_dirs:
+        print("No run directories found under results/runs")
+        return
+
+    generated = 0
+    skipped = 0
+    for run_dir in run_dirs:
+        changed, msg = _process_run(run_dir, force=args.force)
+        print(msg)
+        if changed:
+            generated += 1
+        else:
+            skipped += 1
+
+    print(f"Summary: generated={generated}, skipped={skipped}, total={len(run_dirs)}")
 
 
 if __name__ == "__main__":

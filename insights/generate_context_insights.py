@@ -2,40 +2,28 @@
 """
 Generate context-evaluation insights report from DB/XLSX artifacts.
 
-Inputs:
-  - results/evaluation_scores_euf_context.db
-  - results/evaluation_results_euf_context.db
-  - results/evaluation_scores_euf_context.xlsx
-  - results/evaluation_results_euf_context.xlsx
-  - results/evaluation_results_euf_context_by_model.xlsx
+Single-run mode:
+  python insights/generate_context_insights.py --run-dir <run_dir>
 
-Outputs:
-  - insights/EVALUATION_CONTEXT_REPORT.md
+Bulk mode (default):
+  python insights/generate_context_insights.py
+This scans results/runs/*/* and generates only missing report artifacts.
 """
 
 from __future__ import annotations
 
 import sqlite3
+import argparse
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Iterable
 
 import numpy as np
 import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parent.parent
-RESULTS_DIR = ROOT / "results"
-INSIGHTS_DIR = ROOT / "insights"
-
-SCORES_DB = RESULTS_DIR / "evaluation_scores_euf_context.db"
-RESULTS_DB = RESULTS_DIR / "evaluation_results_euf_context.db"
-SCORES_XLSX = RESULTS_DIR / "evaluation_scores_euf_context.xlsx"
-RESULTS_XLSX = RESULTS_DIR / "evaluation_results_euf_context.xlsx"
-RESULTS_BY_MODEL_XLSX = RESULTS_DIR / "evaluation_results_euf_context_by_model.xlsx"
-
-OUT_MD = INSIGHTS_DIR / "EVALUATION_CONTEXT_REPORT.md"
 
 SCORE_COLS = [
     "relevance",
@@ -58,6 +46,17 @@ class Inputs:
     results_by_model_all_rows: int
 
 
+@dataclass
+class RunPaths:
+    run_dir: Path
+    scores_db: Path
+    results_db: Path
+    scores_xlsx: Path
+    results_xlsx: Path
+    results_by_model_xlsx: Path
+    out_md: Path
+
+
 def _base_question_id(qid: str) -> str:
     if isinstance(qid, str) and "_" in qid:
         return qid.split("_", 1)[0]
@@ -75,21 +74,27 @@ def _load_sqlite_table(db_path: Path, table: str) -> pd.DataFrame:
         return pd.read_sql_query(f"SELECT * FROM {table}", con)
 
 
-def load_inputs() -> Inputs:
-    required = [SCORES_DB, RESULTS_DB, SCORES_XLSX, RESULTS_XLSX, RESULTS_BY_MODEL_XLSX]
+def load_inputs(paths: RunPaths) -> Inputs:
+    required = [
+        paths.scores_db,
+        paths.results_db,
+        paths.scores_xlsx,
+        paths.results_xlsx,
+        paths.results_by_model_xlsx,
+    ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
         raise FileNotFoundError("Missing required input files:\n- " + "\n- ".join(missing))
 
-    scores = _load_sqlite_table(SCORES_DB, "scores")
-    results = _load_sqlite_table(RESULTS_DB, "evaluations")
+    scores = _load_sqlite_table(paths.scores_db, "scores")
+    results = _load_sqlite_table(paths.results_db, "evaluations")
 
-    scores_xlsx_rows = len(pd.read_excel(SCORES_XLSX, sheet_name=0))
-    results_xlsx_rows = len(pd.read_excel(RESULTS_XLSX, sheet_name=0))
+    scores_xlsx_rows = len(pd.read_excel(paths.scores_xlsx, sheet_name=0))
+    results_xlsx_rows = len(pd.read_excel(paths.results_xlsx, sheet_name=0))
 
-    by_model_xl = pd.ExcelFile(RESULTS_BY_MODEL_XLSX)
+    by_model_xl = pd.ExcelFile(paths.results_by_model_xlsx)
     if "all_results" in by_model_xl.sheet_names:
-        results_by_model_all_rows = len(pd.read_excel(RESULTS_BY_MODEL_XLSX, sheet_name="all_results"))
+        results_by_model_all_rows = len(pd.read_excel(paths.results_by_model_xlsx, sheet_name="all_results"))
     else:
         results_by_model_all_rows = -1
 
@@ -362,12 +367,96 @@ def build_report(inp: Inputs) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
+def _run_paths(run_dir: Path) -> RunPaths:
+    return RunPaths(
+        run_dir=run_dir,
+        scores_db=run_dir / "scores" / "evaluation_scores_euf_context.db",
+        results_db=run_dir / "raw" / "evaluation_results_euf_context.db",
+        scores_xlsx=run_dir / "scores" / "evaluation_scores_euf_context.xlsx",
+        results_xlsx=run_dir / "raw" / "evaluation_results_euf_context.xlsx",
+        results_by_model_xlsx=run_dir / "raw" / "evaluation_results_euf_context_by_model.xlsx",
+        out_md=run_dir / "insights" / "EVALUATION_CONTEXT_REPORT.md",
+    )
+
+
+def _discover_run_dirs(repo_root: Path) -> Iterable[Path]:
+    runs_root = repo_root / "results" / "runs"
+    if not runs_root.exists():
+        return []
+    return sorted([p for p in runs_root.glob("*/*") if p.is_dir()])
+
+
+def _is_complete(paths: RunPaths) -> bool:
+    return paths.out_md.exists()
+
+
+def _process_run(run_dir: Path, force: bool = False) -> tuple[bool, str]:
+    paths = _run_paths(run_dir)
+    if not force and _is_complete(paths):
+        return False, f"skip (already complete): {run_dir}"
+    try:
+        inp = load_inputs(paths)
+    except FileNotFoundError as e:
+        return False, f"skip (missing input): {run_dir} :: {e}"
+
+    try:
+        paths.out_md.parent.mkdir(parents=True, exist_ok=True)
+        report = build_report(inp)
+        paths.out_md.write_text(report, encoding="utf-8")
+    except Exception as e:
+        return False, f"skip (generation error): {run_dir} :: {e}"
+    return True, f"generated: {run_dir}"
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate context insights report for one run or all runs."
+    )
+    parser.add_argument(
+        "--run-dir",
+        type=Path,
+        help="Specific run directory (e.g., results/runs/a40/<run_id>).",
+    )
+    parser.add_argument(
+        "--all-runs",
+        action="store_true",
+        help="Process all runs under results/runs/*/* (default when --run-dir is omitted).",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Regenerate even when output artifact already exists.",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
-    INSIGHTS_DIR.mkdir(parents=True, exist_ok=True)
-    inp = load_inputs()
-    report = build_report(inp)
-    OUT_MD.write_text(report, encoding="utf-8")
-    print(f"Wrote: {OUT_MD}")
+    args = _parse_args()
+
+    if args.run_dir:
+        run_dir = args.run_dir.expanduser().resolve()
+        changed, msg = _process_run(run_dir, force=args.force)
+        print(msg)
+        if changed:
+            print(f"Wrote: {_run_paths(run_dir).out_md}")
+        return
+
+    run_dirs = list(_discover_run_dirs(ROOT))
+    if not run_dirs:
+        print("No run directories found under results/runs")
+        return
+
+    generated = 0
+    skipped = 0
+    for run_dir in run_dirs:
+        changed, msg = _process_run(run_dir, force=args.force)
+        print(msg)
+        if changed:
+            generated += 1
+        else:
+            skipped += 1
+
+    print(f"Summary: generated={generated}, skipped={skipped}, total={len(run_dirs)}")
 
 
 if __name__ == "__main__":

@@ -14,3 +14,6 @@ mistralai/Devstral-Small-2-24B-Instruct-2512
 jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym
 Qwen/Qwen3.5-27B
 Qwen/Qwen3.5-35B-A3B
+Qwen/Qwen3.5-9B
+moonshotai/Kimi-K2.5
+moonshotai/Kimi-K2-Instruct-0905

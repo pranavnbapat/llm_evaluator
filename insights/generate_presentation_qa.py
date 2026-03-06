@@ -2,39 +2,36 @@
 """
 Generate presentation Q&A sheet from latest insights artifacts.
 
-Outputs:
-  - insights/Presentation_QA.md
-  - insights/data/presentation_qa.csv
-  - insights/data/presentation_qa.xlsx
+Single-run mode:
+  python insights/generate_presentation_qa.py --run-dir <run_dir>
+
+Bulk mode (default):
+  python insights/generate_presentation_qa.py
+This scans results/runs/*/* and generates only missing presentation QA artifacts.
 """
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Iterable
 
 import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parent.parent
-INSIGHTS_DIR = ROOT / "insights"
-DATA_DIR = INSIGHTS_DIR / "data"
-
-MODEL_SUMMARY = DATA_DIR / "model_summary.csv"
-LANG_SUMMARY = DATA_DIR / "language_summary.csv"
-QUESTION_SUMMARY = DATA_DIR / "question_summary.csv"
-LATENCY_SUMMARY = DATA_DIR / "latency_summary.csv"
-
-OUT_MD = INSIGHTS_DIR / "Presentation_QA.md"
-OUT_CSV = DATA_DIR / "presentation_qa.csv"
-OUT_XLSX = DATA_DIR / "presentation_qa.xlsx"
 
 
-def load_context() -> Dict[str, str]:
+def load_context(
+    model_summary: Path,
+    lang_summary: Path,
+    question_summary: Path,
+    latency_summary: Path,
+) -> Dict[str, str]:
     ctx: Dict[str, str] = {}
-    if MODEL_SUMMARY.exists():
-        m = pd.read_csv(MODEL_SUMMARY)
-        if not m.empty:
+    if model_summary.exists():
+        m = pd.read_csv(model_summary)
+        if not m.empty and {"model_name", "avg_overall"}.issubset(m.columns):
             best = m.sort_values("avg_overall", ascending=False).iloc[0]
             worst = m.sort_values("avg_overall", ascending=True).iloc[0]
             ctx["best_model"] = str(best["model_name"])
@@ -44,9 +41,9 @@ def load_context() -> Dict[str, str]:
             ctx["spread"] = f"{(best['avg_overall'] - worst['avg_overall']):.3f}"
             ctx["models_n"] = str(m["model_name"].nunique())
 
-    if LANG_SUMMARY.exists():
-        l = pd.read_csv(LANG_SUMMARY)
-        if not l.empty:
+    if lang_summary.exists():
+        l = pd.read_csv(lang_summary)
+        if not l.empty and {"language", "avg_overall"}.issubset(l.columns):
             top = l.sort_values("avg_overall", ascending=False).iloc[0]
             bot = l.sort_values("avg_overall", ascending=True).iloc[0]
             ctx["top_lang"] = str(top["language"])
@@ -56,9 +53,9 @@ def load_context() -> Dict[str, str]:
             ctx["lang_spread"] = f"{(top['avg_overall'] - bot['avg_overall']):.3f}"
             ctx["langs_n"] = str(l["language"].nunique())
 
-    if QUESTION_SUMMARY.exists():
-        q = pd.read_csv(QUESTION_SUMMARY)
-        if not q.empty:
+    if question_summary.exists():
+        q = pd.read_csv(question_summary)
+        if not q.empty and {"base_qid", "avg_overall"}.issubset(q.columns):
             topq = q.sort_values("avg_overall", ascending=False).iloc[0]
             lowq = q.sort_values("avg_overall", ascending=True).iloc[0]
             ctx["top_q"] = str(topq["base_qid"])
@@ -67,9 +64,9 @@ def load_context() -> Dict[str, str]:
             ctx["low_q_score"] = f"{lowq['avg_overall']:.3f}"
             ctx["qs_n"] = str(q["base_qid"].nunique())
 
-    if LATENCY_SUMMARY.exists():
-        t = pd.read_csv(LATENCY_SUMMARY)
-        if not t.empty:
+    if latency_summary.exists():
+        t = pd.read_csv(latency_summary)
+        if not t.empty and {"model_name", "avg_latency_ms"}.issubset(t.columns):
             fast = t.sort_values("avg_latency_ms", ascending=True).iloc[0]
             slow = t.sort_values("avg_latency_ms", ascending=False).iloc[0]
             ctx["fast_model"] = str(fast["model_name"])
@@ -282,7 +279,7 @@ def build_qa(ctx: Dict[str, str]) -> pd.DataFrame:
     return df
 
 
-def write_markdown(df: pd.DataFrame) -> None:
+def write_markdown(df: pd.DataFrame, out_md: Path) -> None:
     lines = ["# Presentation Q&A Sheet", ""]
     lines.append("Use this during stakeholder reviews to answer common methodology, quality, and deployment questions.")
     lines.append("")
@@ -291,23 +288,125 @@ def write_markdown(df: pd.DataFrame) -> None:
     for _, r in df.iterrows():
         vals = [str(r[c]).replace("\n", " ").replace("|", "\\|") for c in df.columns]
         lines.append("| " + " | ".join(vals) + " |")
-    OUT_MD.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    out_md.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _run_paths(run_dir: Path) -> dict:
+    insights_dir = run_dir / "insights"
+    data_dir = insights_dir / "data"
+    return {
+        "run_dir": run_dir,
+        "insights_dir": insights_dir,
+        "data_dir": data_dir,
+        "model_summary": data_dir / "model_summary.csv",
+        "lang_summary": data_dir / "language_summary.csv",
+        "question_summary": data_dir / "question_summary.csv",
+        "latency_summary": data_dir / "latency_summary.csv",
+        "out_md": insights_dir / "Presentation_QA.md",
+        "out_csv": data_dir / "presentation_qa.csv",
+        "out_xlsx": data_dir / "presentation_qa.xlsx",
+    }
+
+
+def _discover_run_dirs(repo_root: Path) -> Iterable[Path]:
+    runs_root = repo_root / "results" / "runs"
+    if not runs_root.exists():
+        return []
+    return sorted([p for p in runs_root.glob("*/*") if p.is_dir()])
+
+
+def _is_complete(paths: dict) -> bool:
+    return paths["out_csv"].exists() and paths["out_xlsx"].exists()
+
+
+def _process_run(run_dir: Path, force: bool = False) -> tuple[bool, str]:
+    paths = _run_paths(run_dir)
+    if not force and _is_complete(paths):
+        return False, f"skip (already complete): {run_dir}"
+
+    required = [
+        paths["model_summary"],
+        paths["lang_summary"],
+        paths["question_summary"],
+        paths["latency_summary"],
+    ]
+    missing_inputs = [p for p in required if not p.exists()]
+    if missing_inputs:
+        missing_text = ", ".join(str(p) for p in missing_inputs)
+        return False, f"skip (missing input): {run_dir} :: {missing_text}"
+
+    paths["insights_dir"].mkdir(parents=True, exist_ok=True)
+    paths["data_dir"].mkdir(parents=True, exist_ok=True)
+
+    try:
+        ctx = load_context(
+            paths["model_summary"],
+            paths["lang_summary"],
+            paths["question_summary"],
+            paths["latency_summary"],
+        )
+        qa = build_qa(ctx)
+        qa.to_csv(paths["out_csv"], index=False)
+        with pd.ExcelWriter(paths["out_xlsx"], engine="openpyxl") as w:
+            qa.to_excel(w, sheet_name="presentation_qa", index=False)
+        write_markdown(qa, paths["out_md"])
+    except Exception as e:
+        return False, f"skip (generation error): {run_dir} :: {e}"
+    return True, f"generated: {run_dir}"
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate presentation QA artifacts for one run or all runs."
+    )
+    parser.add_argument(
+        "--run-dir",
+        type=Path,
+        help="Specific run directory (e.g., results/runs/a40/<run_id>).",
+    )
+    parser.add_argument(
+        "--all-runs",
+        action="store_true",
+        help="Process all runs under results/runs/*/* (default when --run-dir is omitted).",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Regenerate even when output artifacts already exist.",
+    )
+    return parser.parse_args()
 
 
 def main() -> None:
-    INSIGHTS_DIR.mkdir(parents=True, exist_ok=True)
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    args = _parse_args()
 
-    ctx = load_context()
-    qa = build_qa(ctx)
-    qa.to_csv(OUT_CSV, index=False)
-    with pd.ExcelWriter(OUT_XLSX, engine="openpyxl") as w:
-        qa.to_excel(w, sheet_name="presentation_qa", index=False)
-    write_markdown(qa)
+    if args.run_dir:
+        run_dir = args.run_dir.expanduser().resolve()
+        changed, msg = _process_run(run_dir, force=args.force)
+        print(msg)
+        if changed:
+            paths = _run_paths(run_dir)
+            print(f"Wrote: {paths['out_md']}")
+            print(f"Wrote: {paths['out_csv']}")
+            print(f"Wrote: {paths['out_xlsx']}")
+        return
 
-    print(f"Wrote: {OUT_MD}")
-    print(f"Wrote: {OUT_CSV}")
-    print(f"Wrote: {OUT_XLSX}")
+    run_dirs = list(_discover_run_dirs(ROOT))
+    if not run_dirs:
+        print("No run directories found under results/runs")
+        return
+
+    generated = 0
+    skipped = 0
+    for run_dir in run_dirs:
+        changed, msg = _process_run(run_dir, force=args.force)
+        print(msg)
+        if changed:
+            generated += 1
+        else:
+            skipped += 1
+
+    print(f"Summary: generated={generated}, skipped={skipped}, total={len(run_dirs)}")
 
 
 if __name__ == "__main__":
