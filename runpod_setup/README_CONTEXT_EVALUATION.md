@@ -2,36 +2,10 @@
 
 This guide explains how to deploy the new RAG (Retrieval-Augmented Generation) evaluation with search result context.
 
-## What's New
-
-1. **New questions file**: `translations/eu_24_languages_euf_context.py`
-   - 5 questions in all 24 EU languages
-   - Each question includes 5 English context entries (search results)
-   - Total: 120 questions with context
-
-2. **New evaluation script**: `runpod_setup/evaluate_context.py`
-   - Evaluates models with context-enhanced prompts
-   - Saves to run-based folder under `results/runs/<gpu_bucket>/<run_id>/raw/`
-
-3. **New scoring script**: `runpod_setup/evaluate_context_results.py`
-   - Scores context-based responses
-   - Saves to run-based folder under `results/runs/<gpu_bucket>/<run_id>/scores/`
-
 ## Deployment Steps
 
-### 1. Push Changes to GitHub
 
-```bash
-# From project root
-git add translations/eu_24_languages_euf_context.py
-git add runpod_setup/evaluate_context.py
-git add runpod_setup/evaluate_context_results.py
-git add runpod_setup/README_CONTEXT_EVALUATION.md
-git commit -m "Add context-based RAG evaluation framework"
-git push
-```
-
-### 2. On RunPod Instance
+### 1. On RunPod Instance
 
 ```bash
 # SSH into RunPod
@@ -44,7 +18,7 @@ cd /workspace/llm_evaluator
 git pull
 ```
 
-### 3. Setup Environment
+### 2. Setup Environment
 
 ```bash
 # Run setup (if not already done)
@@ -55,7 +29,7 @@ bash setup.sh
 python download_models.py
 ```
 
-### 4. Run Context-Based Evaluation
+### 3. Run Context-Based Evaluation
 
 ```bash
 # Make sure you're in runpod_setup directory
