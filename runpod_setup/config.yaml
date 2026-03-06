@@ -26,7 +26,7 @@ models:
     local_path: "/workspace/models/deepseek_r1_distill_qwen_14b_fp16_a40"
     quant: null
     dtype: "float16"
-    max_model_len: 3584
+    max_model_len: 1280
     gpu_memory_util: 0.90
 
   deepseek_r1_distill_qwen_7b_fp16_a40:
@@ -35,7 +35,7 @@ models:
     local_path: "/workspace/models/deepseek_r1_distill_qwen_7b_fp16_a40"
     quant: null
     dtype: "float16"
-    max_model_len: 16384
+    max_model_len: 4096
     gpu_memory_util: 0.90
 
   eurollm_9b_instruct_2512_fp16_a40:
@@ -44,7 +44,7 @@ models:
     local_path: "/workspace/models/eurollm_9b_instruct_2512_fp16_a40"
     quant: null
     dtype: "float16"
-    max_model_len: 4096
+    max_model_len: 2304
     gpu_memory_util: 0.90
 
   mistral_nemo_instruct_2407_fp16_a40:
@@ -53,7 +53,7 @@ models:
     local_path: "/workspace/models/mistral_nemo_instruct_2407_fp16_a40"
     quant: null
     dtype: "float16"
-    max_model_len: 4096
+    max_model_len: 1536
     gpu_memory_util: 0.90
 
   mixtral_8x7b_instruct_v0_1_fp16_a40:
@@ -62,7 +62,7 @@ models:
     local_path: "/workspace/models/mixtral_8x7b_instruct_v0_1_fp16_a40"
     quant: null
     dtype: "float16"
-    max_model_len: 8192
+    max_model_len: 3328
     gpu_memory_util: 0.90
 
   qwen3_30b_a3b_instruct_2507_awq_fp16_a40:
@@ -71,7 +71,7 @@ models:
     local_path: "/workspace/models/qwen3_30b_a3b_instruct_2507_awq_fp16_a40"
     quant: null
     dtype: "float16"
-    max_model_len: 16384
+    max_model_len: 8192
     gpu_memory_util: 0.90
 
   qwen3_5_9b_fp16_a40:
@@ -80,7 +80,7 @@ models:
     local_path: "/workspace/models/qwen3_5_9b_fp16_a40"
     quant: null
     dtype: "float16"
-    max_model_len: 8192
+    max_model_len: 3328
     gpu_memory_util: 0.90
 
   teuken_7b_instruct_commercial_v0_4_fp16_a40:
@@ -97,6 +97,7 @@ evaluation:
   num_runs: ${NUM_RUNS:-3}                      # Runs per question
   temperature: ${TEMPERATURE:-0.0}              # Deterministic
   max_tokens: 512
+
 
 
 
