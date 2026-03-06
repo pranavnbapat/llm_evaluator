@@ -6,6 +6,7 @@ Rules:
 - Read HF repos from a plain text file (one repo per line).
 - Estimate fit heuristically using model_static_check helpers.
 - Include only models whose fit label is in --allow-fits (default: comfortable).
+- Optionally cap max_model_len for target concurrent users (--concurrent-users).
 - Rewrite only the `models:` block in the config file.
 """
 
@@ -70,6 +71,14 @@ def extract_model_dims(cfg: Dict) -> Tuple[Optional[int], Optional[int], Optiona
     return hidden_size, num_layers, num_heads, num_kv_heads, head_dim
 
 
+def extract_max_position_embeddings(cfg: Dict) -> Optional[int]:
+    text_cfg = cfg.get("text_config") or {}
+    max_pos = text_cfg.get("max_position_embeddings", cfg.get("max_position_embeddings"))
+    if isinstance(max_pos, int) and max_pos > 0:
+        return max_pos
+    return None
+
+
 def choose_len_by_fit(
     weights_mb: float,
     hidden_size: int,
@@ -78,12 +87,33 @@ def choose_len_by_fit(
     head_dim: int,
     dtype_bytes: int,
     seq_lens: List[int],
+    max_supported_len: Optional[int],
+    concurrency_seq_cap: Optional[int],
     target_vram_gb: int,
     allow_fits: List[str],
 ) -> Optional[Tuple[int, float, float, str]]:
     candidates: List[Tuple[int, float, float, str]] = []
     vram_mb = target_vram_gb * 1024
-    for seq_len in seq_lens:
+    candidate_lens = sorted(set(seq_lens))
+    if max_supported_len:
+        # Respect model context limits, but do not automatically jump to very large
+        # max_position_embeddings values that were not explicitly requested.
+        candidate_lens = [s for s in candidate_lens if 0 < s <= max_supported_len]
+        # If all requested seq_lens exceed model support, fall back to model max.
+        if not candidate_lens:
+            candidate_lens = [max_supported_len]
+    if concurrency_seq_cap:
+        candidate_lens = [s for s in candidate_lens if s <= concurrency_seq_cap]
+        # If requested seq_lens are too large for the target concurrency,
+        # synthesize a conservative fallback length instead of skipping.
+        if not candidate_lens and concurrency_seq_cap > 0:
+            fallback = max(256, (concurrency_seq_cap // 256) * 256)
+            if max_supported_len:
+                fallback = min(fallback, max_supported_len)
+            if fallback > 0:
+                candidate_lens = [fallback]
+
+    for seq_len in candidate_lens:
         kv_mb = estimate_kv_cache_mb(
             hidden_size=hidden_size,
             num_layers=num_layers,
@@ -101,6 +131,44 @@ def choose_len_by_fit(
     if not allowed:
         return None
     return max(allowed, key=lambda x: x[0])
+
+
+def estimate_seq_cap_for_concurrency(
+    *,
+    weights_mb: float,
+    hidden_size: int,
+    num_layers: int,
+    num_kv_heads: int,
+    head_dim: int,
+    dtype_bytes: int,
+    target_vram_gb: int,
+    concurrent_users: int,
+) -> Optional[int]:
+    if concurrent_users <= 1:
+        return None
+
+    vram_mb = target_vram_gb * 1024
+    # Keep extra headroom for runtime overhead/fragmentation under parallel load.
+    reserve_mb = max(vram_mb * 0.20, 4096.0)
+    kv_budget_total_mb = vram_mb - weights_mb - reserve_mb
+    if kv_budget_total_mb <= 0:
+        return 0
+
+    kv_budget_per_user_mb = kv_budget_total_mb / concurrent_users
+    kv_per_token_mb = estimate_kv_cache_mb(
+        hidden_size=hidden_size,
+        num_layers=num_layers,
+        num_kv_heads=num_kv_heads,
+        head_dim=head_dim,
+        seq_len=1,
+        dtype_bytes=dtype_bytes,
+    )
+    if kv_per_token_mb <= 0:
+        return None
+
+    # Conservative factor to keep practical room for scheduling fluctuations.
+    raw_cap = int((kv_budget_per_user_mb / kv_per_token_mb) * 0.75)
+    return max(raw_cap, 0)
 
 
 def render_models_yaml(models: List[Dict[str, str]]) -> str:
@@ -139,6 +207,39 @@ def replace_models_block(config_text: str, new_models_block: str) -> str:
     return f"{before}{new_models_block}{after}"
 
 
+def replace_evaluation_max_tokens(config_text: str, max_tokens: int) -> str:
+    lines = config_text.splitlines(keepends=True)
+    eval_start = None
+    for i, line in enumerate(lines):
+        if re.match(r"^evaluation:\s*$", line.strip()):
+            eval_start = i
+            break
+    if eval_start is None:
+        raise ValueError("Could not find `evaluation:` block in config file.")
+
+    eval_end = len(lines)
+    for j in range(eval_start + 1, len(lines)):
+        if re.match(r"^[A-Za-z_][A-Za-z0-9_]*:\s*$", lines[j]) and not lines[j].startswith("  "):
+            eval_end = j
+            break
+
+    replaced = False
+    for k in range(eval_start + 1, eval_end):
+        if re.match(r"^\s{2}max_tokens:\s*", lines[k]):
+            # Use \g<1> to avoid accidental backreference/octal ambiguity
+            # when max_tokens starts with digits (e.g., 512).
+            lines[k] = re.sub(r"(:\s*).*$", rf"\g<1>{max_tokens}\n", lines[k], count=1)
+            replaced = True
+            break
+
+    if not replaced:
+        # Insert near top of evaluation block with two-space indentation.
+        insert_at = eval_start + 1
+        lines.insert(insert_at, f"  max_tokens: {max_tokens}\n")
+
+    return "".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate GPU-specific models config block.")
     parser.add_argument("gpu", help="Target GPU: a40|a100|a100sxm|h200|h200_sxm|b200")
@@ -154,6 +255,18 @@ def main() -> int:
     )
     parser.add_argument("--seq-lens", default="4096,8192,16384", help="Comma-separated candidate sequence lengths.")
     parser.add_argument("--dtype-bytes", type=int, default=2, help="fp16/bf16=2")
+    parser.add_argument(
+        "--concurrent-users",
+        type=int,
+        default=1,
+        help="Target number of concurrently served users (default: 1).",
+    )
+    parser.add_argument(
+        "--target-max-output-tokens",
+        type=int,
+        default=None,
+        help="Optional override for evaluation.max_tokens in config.yaml.",
+    )
     parser.add_argument(
         "--allow-fits",
         default="comfortable",
@@ -173,6 +286,12 @@ def main() -> int:
         return 2
 
     seq_lens = parse_seq_lens(args.seq_lens)
+    if args.concurrent_users < 1:
+        print("Error: --concurrent-users must be >= 1")
+        return 2
+    if args.target_max_output_tokens is not None and args.target_max_output_tokens < 1:
+        print("Error: --target-max-output-tokens must be >= 1")
+        return 2
     allow_fits = [x.strip().lower() for x in args.allow_fits.split(",") if x.strip()]
     valid_fits = {"comfortable", "tight", "very tight", "unlikely"}
     if any(f not in valid_fits for f in allow_fits):
@@ -208,11 +327,26 @@ def main() -> int:
             continue
 
         hidden_size, num_layers, _, num_kv_heads, head_dim = extract_model_dims(cfg)
+        max_supported_len = extract_max_position_embeddings(cfg)
         text_cfg = cfg.get("text_config") or {}
         weights_mb = estimate_weights_mb(text_cfg if text_cfg else cfg)
 
         if not all([hidden_size, num_layers, num_kv_heads, head_dim]) or weights_mb is None:
             skipped.append((repo, "missing dimensions or weight estimate"))
+            continue
+
+        concurrency_seq_cap = estimate_seq_cap_for_concurrency(
+            weights_mb=weights_mb,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            num_kv_heads=num_kv_heads,
+            head_dim=head_dim,
+            dtype_bytes=args.dtype_bytes,
+            target_vram_gb=target_vram_gb,
+            concurrent_users=args.concurrent_users,
+        )
+        if args.concurrent_users > 1 and concurrency_seq_cap == 0:
+            skipped.append((repo, f"insufficient KV budget for {args.concurrent_users} concurrent users"))
             continue
 
         chosen = choose_len_by_fit(
@@ -223,6 +357,8 @@ def main() -> int:
             head_dim=head_dim,
             dtype_bytes=args.dtype_bytes,
             seq_lens=seq_lens,
+            max_supported_len=max_supported_len,
+            concurrency_seq_cap=concurrency_seq_cap,
             target_vram_gb=target_vram_gb,
             allow_fits=allow_fits,
         )
@@ -250,6 +386,8 @@ def main() -> int:
 
     if args.dry_run:
         print(new_models_block)
+        if args.target_max_output_tokens is not None:
+            print(f"\nWould set evaluation.max_tokens: {args.target_max_output_tokens}")
     else:
         if not generated and not args.allow_empty:
             print(
@@ -259,8 +397,12 @@ def main() -> int:
             return 1
         original = config_file.read_text(encoding="utf-8")
         updated = replace_models_block(original, new_models_block)
+        if args.target_max_output_tokens is not None:
+            updated = replace_evaluation_max_tokens(updated, args.target_max_output_tokens)
         config_file.write_text(updated, encoding="utf-8")
         print(f"Updated models block in: {config_file}")
+        if args.target_max_output_tokens is not None:
+            print(f"Updated evaluation.max_tokens in: {config_file}")
 
     print(
         f"\nTarget GPU: {target_gpu} ({target_vram_gb}GB) | "
