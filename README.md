@@ -26,7 +26,7 @@ export HF_TOKEN="hf_your_token"
 
 # 5. Run evaluation (~2-3 hours)
 export OPENAI_API_KEY="sk_your_key"
-.venv/bin/python runpod_setup/evaluate.py
+.venv/bin/python runpod_setup/evaluate_context.py
 
 # 6. Download results to your laptop
 scp -r root@YOUR_IP:/workspace/evaluation_results ./

@@ -44,7 +44,7 @@ Takes 1-3 hours, downloads ~150GB to `/workspace/models/`.
 
 ```bash
 export OPENAI_API_KEY="sk_your_key"
-.venv/bin/python runpod_setup/evaluate.py
+.venv/bin/python runpod_setup/evaluate_context.py
 ```
 
 This will:
@@ -130,7 +130,7 @@ ps aux | grep vllm
 killall vllm  # Force kill
 
 # Then retry
-.venv/bin/python runpod_setup/evaluate.py
+.venv/bin/python runpod_setup/evaluate_context.py
 ```
 
 ## Configuration
