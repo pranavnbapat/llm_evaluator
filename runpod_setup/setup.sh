@@ -132,7 +132,7 @@ if [[ ! -f ".venv/.vllm_installed" ]]; then
             pip install -q --upgrade vllm --extra-index-url https://download.pytorch.org/whl/cu128
         else
             pip install -q torch==2.9.1
-            pip install -q vllm==0.15.1
+            pip install -q vllm==0.17.0
         fi
     fi
     pip install -q huggingface-hub hf_transfer pyyaml tqdm
