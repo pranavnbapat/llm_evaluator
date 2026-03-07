@@ -133,10 +133,11 @@ def choose_len_by_fit(
     seq_lens: List[int],
     max_supported_len: Optional[int],
     concurrency_seq_cap: Optional[int],
+    target_max_output_tokens: int,
     target_vram_gb: int,
     allow_fits: List[str],
-) -> Optional[Tuple[int, float, float, str]]:
-    candidates: List[Tuple[int, float, float, str]] = []
+) -> Optional[Tuple[int, int, float, float, str]]:
+    candidates: List[Tuple[int, int, float, float, str]] = []
     vram_mb = target_vram_gb * 1024
     candidate_lens = sorted(set(seq_lens))
     if max_supported_len:
@@ -158,6 +159,9 @@ def choose_len_by_fit(
                 candidate_lens = [fallback]
 
     for seq_len in candidate_lens:
+        usable_input_tokens = seq_len - target_max_output_tokens
+        if usable_input_tokens <= 0:
+            continue
         kv_mb = estimate_kv_cache_mb(
             hidden_size=hidden_size,
             num_layers=num_layers,
@@ -169,9 +173,9 @@ def choose_len_by_fit(
         total_mb = weights_mb + kv_mb
         fit = classify_fit(total_mb, target_vram_gb)
         ratio = total_mb / vram_mb
-        candidates.append((seq_len, total_mb, ratio, fit))
+        candidates.append((seq_len, usable_input_tokens, total_mb, ratio, fit))
 
-    allowed = [c for c in candidates if c[3] in allow_fits]
+    allowed = [c for c in candidates if c[4] in allow_fits]
     if not allowed:
         return None
     return max(allowed, key=lambda x: x[0])
@@ -187,6 +191,7 @@ def estimate_seq_cap_for_concurrency(
     dtype_bytes: int,
     target_vram_gb: int,
     concurrent_users: int,
+    target_max_output_tokens: int,
 ) -> Optional[int]:
     if concurrent_users <= 1:
         return None
@@ -212,6 +217,8 @@ def estimate_seq_cap_for_concurrency(
 
     # Conservative factor to keep practical room for scheduling fluctuations.
     raw_cap = int((kv_budget_per_user_mb / kv_per_token_mb) * 0.75)
+    if raw_cap <= target_max_output_tokens:
+        return 0
     return max(raw_cap, 0)
 
 
@@ -225,6 +232,7 @@ def render_models_yaml(models: List[Dict[str, str]]) -> str:
         lines.append("    quant: null")
         lines.append(f"    dtype: \"{m['dtype']}\"")
         lines.append(f"    max_model_len: {m['max_model_len']}")
+        lines.append(f"    usable_input_tokens: {m['usable_input_tokens']}")
         lines.append(f"    gpu_memory_util: {m['gpu_memory_util']}")
         if m.get("trust_remote_code") == "true":
             lines.append("    trust_remote_code: true")
@@ -284,6 +292,25 @@ def replace_evaluation_max_tokens(config_text: str, max_tokens: int) -> str:
         lines.insert(insert_at, f"  max_tokens: {max_tokens}\n")
 
     return "".join(lines)
+
+
+def extract_evaluation_max_tokens(config_text: str) -> Optional[int]:
+    lines = config_text.splitlines()
+    eval_start = None
+    for i, line in enumerate(lines):
+        if re.match(r"^evaluation:\s*$", line.strip()):
+            eval_start = i
+            break
+    if eval_start is None:
+        return None
+
+    for j in range(eval_start + 1, len(lines)):
+        if re.match(r"^[A-Za-z_][A-Za-z0-9_]*:\s*$", lines[j]) and not lines[j].startswith("  "):
+            break
+        m = re.match(r"^\s{2}max_tokens:\s*(\d+)\s*$", lines[j])
+        if m:
+            return int(m.group(1))
+    return None
 
 
 def main() -> int:
@@ -353,6 +380,13 @@ def main() -> int:
         print(f"Error: config file not found: {config_file}")
         return 2
 
+    original = config_file.read_text(encoding="utf-8")
+    effective_max_output_tokens = (
+        args.target_max_output_tokens
+        if args.target_max_output_tokens is not None
+        else extract_evaluation_max_tokens(original) or 512
+    )
+
     env = load_env()
     hf_token = env.get("HF_TOKEN")
     target_vram_gb = TARGET_GPU_VRAM_GB[target_gpu]
@@ -395,9 +429,19 @@ def main() -> int:
             dtype_bytes=args.dtype_bytes,
             target_vram_gb=target_vram_gb,
             concurrent_users=args.concurrent_users,
+            target_max_output_tokens=effective_max_output_tokens,
         )
         if args.concurrent_users > 1 and concurrency_seq_cap == 0:
-            skipped.append((repo, f"insufficient KV budget for {args.concurrent_users} concurrent users"))
+            skipped.append(
+                (
+                    repo,
+                    (
+                        "insufficient KV budget for "
+                        f"{args.concurrent_users} concurrent users with "
+                        f"target_max_output_tokens={effective_max_output_tokens}"
+                    ),
+                )
+            )
             continue
 
         chosen = choose_len_by_fit(
@@ -410,14 +454,24 @@ def main() -> int:
             seq_lens=seq_lens,
             max_supported_len=max_supported_len,
             concurrency_seq_cap=concurrency_seq_cap,
+            target_max_output_tokens=effective_max_output_tokens,
             target_vram_gb=target_vram_gb,
             allow_fits=allow_fits,
         )
         if chosen is None:
-            skipped.append((repo, f"no seq_len in allowed fits: {','.join(allow_fits)}"))
+            skipped.append(
+                (
+                    repo,
+                    (
+                        f"no seq_len in allowed fits with usable_input_tokens>0 "
+                        f"(target_max_output_tokens={effective_max_output_tokens}): "
+                        f"{','.join(allow_fits)}"
+                    ),
+                )
+            )
             continue
 
-        max_model_len, _, ratio, fit = chosen
+        max_model_len, usable_input_tokens, _, ratio, fit = chosen
         model_key_base = sanitize_repo_key(repo)
         top_key = f"{model_key_base}_fp16_{target_gpu}"
         generated.append(
@@ -428,6 +482,7 @@ def main() -> int:
                 "local_path": f"/workspace/models/{top_key}",
                 "dtype": dtype,
                 "max_model_len": str(max_model_len),
+                "usable_input_tokens": str(usable_input_tokens),
                 "gpu_memory_util": f"{choose_gpu_mem_util(ratio):.2f}",
                 "fit": fit,
                 "trust_remote_code": "true" if repo in TRUST_REMOTE_CODE_REPOS else "false",
@@ -448,7 +503,6 @@ def main() -> int:
                 "Use --allow-empty to force."
             )
             return 1
-        original = config_file.read_text(encoding="utf-8")
         updated = replace_models_block(original, new_models_block)
         if args.target_max_output_tokens is not None:
             updated = replace_evaluation_max_tokens(updated, args.target_max_output_tokens)
@@ -461,10 +515,15 @@ def main() -> int:
         f"\nTarget GPU: {target_gpu} ({target_vram_gb}GB) | "
         f"Included: {len(generated)} | Skipped: {len(skipped)}"
     )
+    print(f"Target max output tokens for sizing: {effective_max_output_tokens}")
     if generated:
         print("Included models:")
         for m in generated:
-            print(f"  - {m['repo']} | max_model_len={m['max_model_len']} | fit={m['fit']}")
+            print(
+                "  - "
+                f"{m['repo']} | max_model_len={m['max_model_len']} | "
+                f"usable_input_tokens={m['usable_input_tokens']} | fit={m['fit']}"
+            )
     if skipped:
         print("Skipped models:")
         for repo, reason in skipped:

@@ -29,15 +29,6 @@ models:
     max_model_len: 8192
     gpu_memory_util: 0.90
 
-  qwen3_5_9b_fp16_a40:
-    name: "qwen3-5-9b-a40"
-    repo: "Qwen/Qwen3.5-9B"
-    local_path: "/workspace/models/qwen3_5_9b_fp16_a40"
-    quant: null
-    dtype: "float16"
-    max_model_len: 2304
-    gpu_memory_util: 0.90
-
 evaluation:
   # All 24 EU languages
   languages: ["BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU", "GA", "IT", "LV", "LT", "MT", "PL", "PT", "RO", "SK", "SL", "ES", "SV"]
