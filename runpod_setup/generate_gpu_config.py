@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import requests
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
@@ -83,6 +84,32 @@ def extract_max_position_embeddings(cfg: Dict) -> Optional[int]:
     max_pos = text_cfg.get("max_position_embeddings", cfg.get("max_position_embeddings"))
     if isinstance(max_pos, int) and max_pos > 0:
         return max_pos
+    return None
+
+
+def fetch_checkpoint_total_size_mb(repo_id: str, hf_token: Optional[str] = None) -> Optional[float]:
+    """Fetch total checkpoint size (MB) from HF shard index metadata, if available."""
+    headers = {}
+    if hf_token:
+        headers["Authorization"] = f"Bearer {hf_token}"
+
+    candidates = [
+        f"https://huggingface.co/{repo_id}/resolve/main/model.safetensors.index.json",
+        f"https://huggingface.co/{repo_id}/resolve/main/pytorch_model.bin.index.json",
+    ]
+
+    for url in candidates:
+        try:
+            resp = requests.get(url, timeout=20, headers=headers)
+            if resp.status_code != 200:
+                continue
+            data = resp.json()
+            meta = data.get("metadata") or {}
+            total_size_bytes = meta.get("total_size")
+            if isinstance(total_size_bytes, int) and total_size_bytes > 0:
+                return total_size_bytes / (1024 ** 2)
+        except Exception:
+            continue
     return None
 
 
@@ -338,7 +365,11 @@ def main() -> int:
         hidden_size, num_layers, _, num_kv_heads, head_dim = extract_model_dims(cfg)
         max_supported_len = extract_max_position_embeddings(cfg)
         text_cfg = cfg.get("text_config") or {}
-        weights_mb = estimate_weights_mb(text_cfg if text_cfg else cfg)
+        # Prefer real checkpoint size over config-field heuristic when available.
+        # This avoids underestimating large/new architectures (e.g., gpt-oss-120b).
+        weights_mb = fetch_checkpoint_total_size_mb(repo, hf_token=hf_token)
+        if weights_mb is None:
+            weights_mb = estimate_weights_mb(text_cfg if text_cfg else cfg)
 
         if not all([hidden_size, num_layers, num_kv_heads, head_dim]) or weights_mb is None:
             skipped.append((repo, "missing dimensions or weight estimate"))
