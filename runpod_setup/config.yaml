@@ -20,14 +20,14 @@ vllm_api_key: "${VLLM_API_KEY:-sk-runpod-eval}"
 # Model Configuration
 # ----------------------------------------------------------------------------
 models:
-  gpt_oss_20b_fp16_a40:
-    name: "gpt-oss-20b-a40"
-    repo: "openai/gpt-oss-20b"
-    local_path: "/workspace/models/gpt_oss_20b_fp16_a40"
+  qwen3_30b_a3b_instruct_2507_awq_fp16_a40:
+    name: "qwen3-30b-a3b-instruct-2507-awq-a40"
+    repo: "stelterlab/Qwen3-30B-A3B-Instruct-2507-AWQ"
+    local_path: "/workspace/models/qwen3_30b_a3b_instruct_2507_awq_fp16_a40"
     quant: null
-    dtype: "bfloat16"
-    max_model_len: 4096
-    usable_input_tokens: 3584
+    dtype: "float16"
+    max_model_len: 3584
+    usable_input_tokens: 3072
     gpu_memory_util: 0.90
 
 evaluation:
@@ -36,8 +36,6 @@ evaluation:
   num_runs: ${NUM_RUNS:-3}                      # Runs per question
   temperature: ${TEMPERATURE:-0.0}              # Deterministic
   max_tokens: 512
-
-
 
 
 # ----------------------------------------------------------------------------
