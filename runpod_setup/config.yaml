@@ -20,14 +20,14 @@ vllm_api_key: "${VLLM_API_KEY:-sk-runpod-eval}"
 # Model Configuration
 # ----------------------------------------------------------------------------
 models:
-#  gpt_oss_120b_fp16_a40:
-#    name: "gpt-oss-120b-a40"
-#    repo: "openai/gpt-oss-120b"
-#    local_path: "/workspace/models/gpt_oss_120b_fp16_a40"
-#    quant: null
-#    dtype: "float16"
-#    max_model_len: 8192
-#    gpu_memory_util: 0.90
+  gpt_oss_120b_fp16_a40:
+    name: "gpt-oss-120b-a40"
+    repo: "openai/gpt-oss-120b"
+    local_path: "/workspace/models/gpt_oss_120b_fp16_a40"
+    quant: null
+    dtype: "float16"
+    max_model_len: 8192
+    gpu_memory_util: 0.90
 
   gpt_oss_20b_fp16_a40:
     name: "gpt-oss-20b-a40"
