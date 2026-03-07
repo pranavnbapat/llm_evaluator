@@ -896,11 +896,20 @@ def main():
     print(f"💾 Database: {run_paths['raw_dir'] / 'evaluation_results_euf_context.db'}")
     
     all_results = []
+    model_statuses = []
     
     try:
         gpu_monitor.start()
         for model_config in models:
             model_name = model_config["name"].replace(" ", "_").lower()
+            model_status = {
+                "model_name": model_config.get("name", model_name),
+                "repo": model_config.get("repo", ""),
+                "status": "pending",
+                "started_at": datetime.now().isoformat(),
+                "finished_at": None,
+                "details": "",
+            }
             gpu_monitor.set_context(
                 phase="loading_model",
                 model_name=model_config.get("name", model_name),
@@ -923,6 +932,10 @@ def main():
                 gpu_monitor.set_context(phase="model_start_failed")
                 # Ensure partially started workers are torn down before next model.
                 vllm.stop()
+                model_status["status"] = "startup_failed"
+                model_status["finished_at"] = datetime.now().isoformat()
+                model_status["details"] = "vLLM startup failed; see /tmp/vllm_<model>.log"
+                model_statuses.append(model_status)
                 continue
             
             evaluator: Optional[Evaluator] = None
@@ -931,6 +944,19 @@ def main():
                 evaluator = Evaluator(vllm, config, gpu_monitor=gpu_monitor)
                 results = evaluator.evaluate_model(model_name, model_config)
                 all_results.append(results)
+                model_status["status"] = "evaluated"
+                model_status["finished_at"] = datetime.now().isoformat()
+                model_status["details"] = (
+                    f"successful_responses={results['successful_responses']}/"
+                    f"{results['total_questions']}"
+                )
+                model_statuses.append(model_status)
+            except Exception as e:
+                model_status["status"] = "evaluation_error"
+                model_status["finished_at"] = datetime.now().isoformat()
+                model_status["details"] = f"{type(e).__name__}: {e}"
+                model_statuses.append(model_status)
+                raise
                 
             finally:
                 if evaluator:
@@ -947,7 +973,13 @@ def main():
         print(f"\n📊 Summary:")
         for r in all_results:
             print(f"   {r['model_display_name']}: {r['successful_responses']}/{r['total_questions']}")
-        
+
+        failed = [m for m in model_statuses if m["status"] != "evaluated"]
+        if failed:
+            print("\n⚠️ Models not fully evaluated:")
+            for m in failed:
+                print(f"   - {m['model_name']}: {m['status']} ({m['details']})")
+
         print(f"\n💾 Results saved to: {Path(config['paths']['results_dir']) / 'evaluation_results_euf_context.db'}")
         db_path = Path(config["paths"]["results_dir"]) / "evaluation_results_euf_context.db"
         excel_path = export_results_to_excel(db_path)
@@ -960,6 +992,10 @@ def main():
         if excel_path:
             print(f"   3. Review spreadsheet in {excel_path}")
             print(f"   4. Review by-model workbook in {db_path.with_name(f'{db_path.stem}_by_model.xlsx')}")
+        status_path = run_paths["metadata_dir"] / "model_status.json"
+        with open(status_path, "w", encoding="utf-8") as f:
+            json.dump(model_statuses, f, indent=2)
+        print(f"   5. Review model status in {status_path}")
         
     except KeyboardInterrupt:
         print("\n\n⚠️ Interrupted by user")
