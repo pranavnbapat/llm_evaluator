@@ -13,10 +13,35 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
+SCRIPT_START_EPOCH="$(date +%s)"
+SCRIPT_START_HUMAN="$(date '+%Y-%m-%d %H:%M:%S')"
+
+format_duration() {
+    local total="$1"
+    local h=$((total / 3600))
+    local m=$(((total % 3600) / 60))
+    local s=$((total % 60))
+    printf "%02dh:%02dm:%02ds" "$h" "$m" "$s"
+}
+
+step_start() {
+    STEP_LABEL="$1"
+    STEP_START_EPOCH="$(date +%s)"
+    STEP_START_HUMAN="$(date '+%Y-%m-%d %H:%M:%S')"
+    echo "⏱️  [$STEP_LABEL] started at $STEP_START_HUMAN"
+}
+
+step_end() {
+    local end_epoch
+    end_epoch="$(date +%s)"
+    local elapsed=$((end_epoch - STEP_START_EPOCH))
+    echo "⏱️  [$STEP_LABEL] finished in $(format_duration "$elapsed")"
+}
 
 echo "========================================"
 echo "  RunPod LLM Evaluator Setup"
 echo "========================================"
+echo "Started at: $SCRIPT_START_HUMAN"
 echo ""
 
 # ----------------------------------------------------------------------------
@@ -53,6 +78,7 @@ echo ""
 # Install System Dependencies
 # ----------------------------------------------------------------------------
 
+step_start "System packages"
 echo "📦 Installing system packages..."
 PACKAGES=(
     git
@@ -88,12 +114,14 @@ fi
 # Install git-lfs
 git lfs install
 echo "✓ System packages installed"
+step_end
 echo ""
 
 # ----------------------------------------------------------------------------
 # Setup Project Virtual Environment
 # ----------------------------------------------------------------------------
 
+step_start "Python environment and dependencies"
 echo "🔧 Setting up project virtual environment..."
 cd "$REPO_DIR"
 
@@ -114,7 +142,11 @@ if [[ ! -f ".venv/.deps_installed" ]]; then
     TMP_REQ_FILE="$(mktemp)"
     # Install core deps first; GPU serving stack is installed in the vLLM step below.
     grep -vE '^[[:space:]]*(torch|torchaudio|torchvision|vllm|flashinfer-python|compressed-tensors)([<>=!~].*)?$' requirements.txt > "$TMP_REQ_FILE"
+    CORE_DEPS_START_EPOCH="$(date +%s)"
+    echo "  ⏱️  [Core dependencies] installing..."
     pip install -q -r "$TMP_REQ_FILE"
+    CORE_DEPS_END_EPOCH="$(date +%s)"
+    echo "  ⏱️  [Core dependencies] finished in $(format_duration "$((CORE_DEPS_END_EPOCH - CORE_DEPS_START_EPOCH))")"
     rm -f "$TMP_REQ_FILE"
     touch .venv/.deps_installed
 else
@@ -124,6 +156,7 @@ fi
 # Install vLLM in venv (avoids system conflicts)
 if [[ ! -f ".venv/.vllm_installed" ]]; then
     echo "  Installing vLLM (this may take a few minutes)..."
+    VLLM_DEPS_START_EPOCH="$(date +%s)"
     if [[ -n "${VLLM_PIP_SPEC}" ]]; then
         pip install -q ${VLLM_PIP_SPEC}
     else
@@ -137,18 +170,22 @@ if [[ ! -f ".venv/.vllm_installed" ]]; then
         fi
     fi
     pip install -q huggingface-hub hf_transfer pyyaml tqdm
+    VLLM_DEPS_END_EPOCH="$(date +%s)"
+    echo "  ⏱️  [vLLM/runtime dependencies] finished in $(format_duration "$((VLLM_DEPS_END_EPOCH - VLLM_DEPS_START_EPOCH))")"
     touch .venv/.vllm_installed
 else
     echo "✓ vLLM already installed"
 fi
 
 echo "✓ All dependencies installed"
+step_end
 echo ""
 
 # ----------------------------------------------------------------------------
 # Create Directory Structure
 # ----------------------------------------------------------------------------
 
+step_start "Directory setup"
 echo "📁 Creating directories..."
 mkdir -p /workspace/models
 mkdir -p /workspace/evaluation_results
@@ -156,6 +193,7 @@ mkdir -p /workspace/.cache/huggingface
 mkdir -p "$REPO_DIR/results"
 
 echo "✓ Directories created"
+step_end
 echo ""
 
 # ----------------------------------------------------------------------------
@@ -165,6 +203,11 @@ echo ""
 echo "========================================"
 echo "  Setup Complete!"
 echo "========================================"
+SCRIPT_END_HUMAN="$(date '+%Y-%m-%d %H:%M:%S')"
+SCRIPT_END_EPOCH="$(date +%s)"
+SCRIPT_TOTAL_ELAPSED="$((SCRIPT_END_EPOCH - SCRIPT_START_EPOCH))"
+echo "Finished at: $SCRIPT_END_HUMAN"
+echo "Total setup time: $(format_duration "$SCRIPT_TOTAL_ELAPSED")"
 echo ""
 echo "Next steps:"
 echo ""
