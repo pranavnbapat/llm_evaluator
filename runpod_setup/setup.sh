@@ -112,7 +112,8 @@ source .venv/bin/activate
 if [[ ! -f ".venv/.deps_installed" ]]; then
     echo "  Installing project dependencies..."
     TMP_REQ_FILE="$(mktemp)"
-    grep -vE '^[[:space:]]*torch([<>=!~].*)?$' requirements.txt > "$TMP_REQ_FILE"
+    # Install core deps first; GPU serving stack is installed in the vLLM step below.
+    grep -vE '^[[:space:]]*(torch|torchaudio|torchvision|vllm|flashinfer-python|compressed-tensors)([<>=!~].*)?$' requirements.txt > "$TMP_REQ_FILE"
     pip install -q -r "$TMP_REQ_FILE"
     rm -f "$TMP_REQ_FILE"
     touch .venv/.deps_installed
