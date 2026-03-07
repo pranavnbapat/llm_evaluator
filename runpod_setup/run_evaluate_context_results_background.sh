@@ -9,15 +9,17 @@ EVAL_SCRIPT="$REPO_DIR/runpod_setup/evaluate_context_results.py"
 
 MODE="tmux"
 SESSION_NAME="eval_context_scores"
+ALL_RUNS=0
 
 usage() {
   cat <<USAGE
-Usage: $(basename "$0") [--mode tmux|nohup] [--session NAME]
+Usage: $(basename "$0") [--mode tmux|nohup] [--session NAME] [--all-runs]
 
 Starts runpod_setup/evaluate_context_results.py in a persistent background run.
 Defaults:
   --mode tmux
   --session eval_context_scores
+  --all-runs disabled (scores one run via EVAL_RUN_DIR/EVAL_RUN_ID/latest)
 USAGE
 }
 
@@ -30,6 +32,10 @@ while [[ $# -gt 0 ]]; do
     --session)
       SESSION_NAME="${2:-}"
       shift 2
+      ;;
+    --all-runs)
+      ALL_RUNS=1
+      shift 1
       ;;
     -h|--help)
       usage
@@ -77,6 +83,7 @@ detect_gpu_bucket() {
 }
 
 GPU_BUCKET="$(detect_gpu_bucket)"
+RUNS_BASE="$REPO_DIR/results/runs/$GPU_BUCKET"
 if [[ -n "${EVAL_RUN_DIR:-}" ]]; then
   RUN_DIR="$EVAL_RUN_DIR"
 elif [[ -n "${EVAL_RUN_ID:-}" ]]; then
@@ -87,7 +94,9 @@ else
   RUN_DIR=""
 fi
 
-if [[ -n "$RUN_DIR" ]]; then
+if [[ $ALL_RUNS -eq 1 ]]; then
+  LOG_DIR="$REPO_DIR/logs"
+elif [[ -n "$RUN_DIR" ]]; then
   LOG_DIR="$RUN_DIR/logs"
 fi
 mkdir -p "$LOG_DIR"
@@ -110,23 +119,36 @@ if [[ "$MODE" == "tmux" ]]; then
     exit 1
   fi
 
-  CMD="cd '$REPO_DIR' && EVAL_RUN_GPU='$GPU_BUCKET'"
-  if [[ -n "$RUN_DIR" ]]; then
-    CMD="$CMD EVAL_RUN_DIR='$RUN_DIR'"
+  if [[ $ALL_RUNS -eq 1 ]]; then
+    CMD="cd '$REPO_DIR' && found=0; for d in '$RUNS_BASE'/*; do [ -d \"\$d\" ] || continue; db=\"\$d/raw/evaluation_results_euf_context.db\"; [ -f \"\$db\" ] || continue; found=1; mkdir -p \"\$d/logs\"; ts=\$(date +%Y%m%d_%H%M%S); run_log=\"\$d/logs/evaluate_context_results_\${ts}.log\"; echo \"Scoring run: \$d\"; EVAL_RUN_GPU='$GPU_BUCKET' EVAL_RUN_DIR=\"\$d\" '$PYTHON_BIN' '$EVAL_SCRIPT' 2>&1 | tee \"\$run_log\"; done; if [ \"\$found\" -eq 0 ]; then echo \"No run DBs found under $RUNS_BASE\"; fi"
+  else
+    CMD="cd '$REPO_DIR' && EVAL_RUN_GPU='$GPU_BUCKET'"
+    if [[ -n "$RUN_DIR" ]]; then
+      CMD="$CMD EVAL_RUN_DIR='$RUN_DIR'"
+    fi
+    CMD="$CMD '$PYTHON_BIN' '$EVAL_SCRIPT' 2>&1 | tee '$LOG_FILE'"
   fi
-  CMD="$CMD '$PYTHON_BIN' '$EVAL_SCRIPT' 2>&1 | tee '$LOG_FILE'"
   tmux new-session -d -s "$SESSION_NAME" "$CMD"
 
   echo "Started in tmux session: $SESSION_NAME"
-  if [[ -n "$RUN_DIR" ]]; then echo "Run dir: $RUN_DIR"; fi
+  if [[ $ALL_RUNS -eq 1 ]]; then
+    echo "Mode: all-runs"
+    echo "Runs base: $RUNS_BASE"
+  elif [[ -n "$RUN_DIR" ]]; then
+    echo "Run dir: $RUN_DIR"
+  fi
   echo "GPU bucket: $GPU_BUCKET"
-  echo "Log file: $LOG_FILE"
+  if [[ $ALL_RUNS -eq 0 ]]; then
+    echo "Log file: $LOG_FILE"
+  fi
   echo "Attach: tmux attach -t $SESSION_NAME"
   echo "Detach: Ctrl+b then d"
   exit 0
 fi
 
-if [[ -n "$RUN_DIR" ]]; then
+if [[ $ALL_RUNS -eq 1 ]]; then
+  nohup bash -lc "cd '$REPO_DIR' && found=0; for d in '$RUNS_BASE'/*; do [ -d \"\$d\" ] || continue; db=\"\$d/raw/evaluation_results_euf_context.db\"; [ -f \"\$db\" ] || continue; found=1; mkdir -p \"\$d/logs\"; ts=\$(date +%Y%m%d_%H%M%S); run_log=\"\$d/logs/evaluate_context_results_\${ts}.log\"; echo \"Scoring run: \$d\"; EVAL_RUN_GPU='$GPU_BUCKET' EVAL_RUN_DIR=\"\$d\" '$PYTHON_BIN' '$EVAL_SCRIPT' >\"\$run_log\" 2>&1; done; if [ \"\$found\" -eq 0 ]; then echo \"No run DBs found under $RUNS_BASE\"; fi" >"$LOG_FILE" 2>&1 &
+elif [[ -n "$RUN_DIR" ]]; then
   EVAL_RUN_GPU="$GPU_BUCKET" EVAL_RUN_DIR="$RUN_DIR" nohup "$PYTHON_BIN" "$EVAL_SCRIPT" >"$LOG_FILE" 2>&1 &
 else
   EVAL_RUN_GPU="$GPU_BUCKET" nohup "$PYTHON_BIN" "$EVAL_SCRIPT" >"$LOG_FILE" 2>&1 &
@@ -135,7 +157,12 @@ PID=$!
 echo "$PID" > "$LOG_DIR/evaluate_context_results.pid"
 
 echo "Started with nohup (pid: $PID)"
-if [[ -n "$RUN_DIR" ]]; then echo "Run dir: $RUN_DIR"; fi
+if [[ $ALL_RUNS -eq 1 ]]; then
+  echo "Mode: all-runs"
+  echo "Runs base: $RUNS_BASE"
+elif [[ -n "$RUN_DIR" ]]; then
+  echo "Run dir: $RUN_DIR"
+fi
 echo "GPU bucket: $GPU_BUCKET"
 echo "Log file: $LOG_FILE"
 echo "PID file: $LOG_DIR/evaluate_context_results.pid"
