@@ -47,6 +47,8 @@ models:
     dtype: "float16"
     max_model_len: 4096
     gpu_memory_util: 0.88
+    trust_remote_code: true
+
 evaluation:
   # All 24 EU languages
   languages: ["BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU", "GA", "IT", "LV", "LT", "MT", "PL", "PT", "RO", "SK", "SL", "ES", "SV"]
