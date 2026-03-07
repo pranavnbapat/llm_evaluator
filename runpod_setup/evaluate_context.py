@@ -155,10 +155,9 @@ class VLlmManager:
             return False
 
     def _kill_stale_vllm(self) -> None:
-        """Kill stale vLLM servers that may still be bound to our port."""
-        if not self._is_port_open():
-            return
-        print(f"   ⚠️ Detected existing server on port {self.port}; cleaning stale vLLM...")
+        """Best-effort cleanup of stale vLLM processes between model swaps."""
+        if self._is_port_open():
+            print(f"   ⚠️ Detected existing server on port {self.port}; cleaning stale vLLM...")
         try:
             subprocess.run(["pkill", "-f", r"\bvllm\b.*\bserve\b"], check=False)
         except Exception:
@@ -922,6 +921,8 @@ def main():
             if not vllm.start(model_config):
                 print(f"❌ Failed to start vLLM for {model_config['name']}")
                 gpu_monitor.set_context(phase="model_start_failed")
+                # Ensure partially started workers are torn down before next model.
+                vllm.stop()
                 continue
             
             evaluator: Optional[Evaluator] = None
