@@ -20,34 +20,32 @@ vllm_api_key: "${VLLM_API_KEY:-sk-runpod-eval}"
 # Model Configuration
 # ----------------------------------------------------------------------------
 models:
-#  mixtral_8x7b_instruct_v0_1_fp16_a40:
-#    name: "mixtral-8x7b-instruct-v0-1-a40"
-#    repo: "mistralai/Mixtral-8x7B-Instruct-v0.1"
-#    local_path: "/workspace/models/mixtral_8x7b_instruct_v0_1_fp16_a40"
-#    quant: null
-#    dtype: "float16"
-#    max_model_len: 2048
-#    gpu_memory_util: 0.80
-
-#  qwen3_5_9b_fp16_a40:
-#    name: "qwen3-5-9b-a40"
-#    repo: "Qwen/Qwen3.5-9B"
-#    local_path: "/workspace/models/qwen3_5_9b_fp16_a40"
-#    quant: null
-#    dtype: "float16"
-#    max_model_len: 4096
-#    gpu_memory_util: 0.88
-#    trust_remote_code: true
-
-  teuken_7b_instruct_commercial_v0_4_fp16_a40:
-    name: "teuken-7b-instruct-commercial-v0-4-a40"
-    repo: "openGPT-X/Teuken-7B-instruct-commercial-v0.4"
-    local_path: "/workspace/models/teuken_7b_instruct_commercial_v0_4_fp16_a40"
+  gpt_oss_120b_fp16_a40:
+    name: "gpt-oss-120b-a40"
+    repo: "openai/gpt-oss-120b"
+    local_path: "/workspace/models/gpt_oss_120b_fp16_a40"
     quant: null
     dtype: "float16"
-    max_model_len: 4096
-    gpu_memory_util: 0.88
-    trust_remote_code: true
+    max_model_len: 8192
+    gpu_memory_util: 0.90
+
+  gpt_oss_20b_fp16_a40:
+    name: "gpt-oss-20b-a40"
+    repo: "openai/gpt-oss-20b"
+    local_path: "/workspace/models/gpt_oss_20b_fp16_a40"
+    quant: null
+    dtype: "float16"
+    max_model_len: 16384
+    gpu_memory_util: 0.90
+
+  qwen3_5_9b_fp16_a40:
+    name: "qwen3-5-9b-a40"
+    repo: "Qwen/Qwen3.5-9B"
+    local_path: "/workspace/models/qwen3_5_9b_fp16_a40"
+    quant: null
+    dtype: "float16"
+    max_model_len: 3328
+    gpu_memory_util: 0.90
 
 evaluation:
   # All 24 EU languages
@@ -55,6 +53,7 @@ evaluation:
   num_runs: ${NUM_RUNS:-3}                      # Runs per question
   temperature: ${TEMPERATURE:-0.0}              # Deterministic
   max_tokens: 512
+
 
 
 
