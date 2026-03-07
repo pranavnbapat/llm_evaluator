@@ -26,7 +26,8 @@ models:
     local_path: "/workspace/models/gpt_oss_20b_fp16_a40"
     quant: null
     dtype: "bfloat16"
-    max_model_len: 8192
+    max_model_len: 4096
+    usable_input_tokens: 3584
     gpu_memory_util: 0.90
 
 evaluation:
@@ -39,9 +40,6 @@ evaluation:
 
 
 
-
-
-
 # ----------------------------------------------------------------------------
 # vLLM Configuration
 # ----------------------------------------------------------------------------
@@ -49,6 +47,7 @@ vllm:
   port: ${VLLM_PORT:-8000}
   host: "${VLLM_HOST:-0.0.0.0}"
   timeout: ${VLLM_TIMEOUT:-120}                 # Seconds to wait for startup
+
 
 # ----------------------------------------------------------------------------
 # Paths

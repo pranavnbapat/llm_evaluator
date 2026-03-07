@@ -601,18 +601,24 @@ class Evaluator:
                 context_parts.append(f"[{i}] {title}")
         
         return "\n\n".join(context_parts)
-    
-    def _build_prompt(self, question: dict) -> str:
-        """Build prompt with context for RAG evaluation."""
-        question_text = question['question']
-        context = question.get('context', [])
-        language = question.get('language', 'EN')
-        
-        # Format context
-        context_str = self._format_context(context)
-        
-        # Build RAG-style prompt with explicit language instruction
-        prompt = f"""You are an expert agriculture advisor. A farmer has asked you a question. Use the provided search results to give a helpful, accurate response.
+
+    @staticmethod
+    def _estimate_tokens(text: str) -> int:
+        """Fast model-agnostic token estimate for budgeting."""
+        return max(0, int(round(len(text) / 4)))
+
+    @staticmethod
+    def _clip_text_to_token_budget(text: str, token_budget: int) -> str:
+        """Approximate clipping by chars so estimated tokens stay within budget."""
+        if token_budget <= 0:
+            return ""
+        char_budget = token_budget * 4
+        if len(text) <= char_budget:
+            return text
+        return text[:char_budget]
+
+    def _compose_prompt(self, *, question_text: str, language: str, context_str: str) -> str:
+        return f"""You are an expert agriculture advisor. A farmer has asked you a question. Use the provided search results to give a helpful, accurate response.
 
 SEARCH RESULTS (in English):
 {context_str}
@@ -628,8 +634,46 @@ IMPORTANT INSTRUCTIONS:
 5. If the search results don't fully answer the question, provide your best expert knowledge
 
 Your response:"""
+    
+    def _build_prompt(self, question: dict, usable_input_tokens: Optional[int] = None) -> str:
+        """Build prompt with optional input-token budget enforcement."""
+        question_text = question['question']
+        context = question.get('context', [])
+        language = question.get('language', 'EN')
         
-        return prompt
+        # Format context
+        context_str = self._format_context(context)
+        prompt = self._compose_prompt(
+            question_text=question_text,
+            language=language,
+            context_str=context_str,
+        )
+        if not usable_input_tokens or usable_input_tokens <= 0:
+            return prompt
+
+        # If prompt already fits, keep full context.
+        if self._estimate_tokens(prompt) <= usable_input_tokens:
+            return prompt
+
+        # Reserve budget for question + instructions first, then trim context.
+        no_context_prompt = self._compose_prompt(
+            question_text=question_text,
+            language=language,
+            context_str="",
+        )
+        no_context_tokens = self._estimate_tokens(no_context_prompt)
+        context_budget = max(0, usable_input_tokens - no_context_tokens)
+        clipped_context = self._clip_text_to_token_budget(context_str, context_budget)
+        clipped_prompt = self._compose_prompt(
+            question_text=question_text,
+            language=language,
+            context_str=clipped_context,
+        )
+
+        # Final hard clip for rare rounding edge-cases.
+        if self._estimate_tokens(clipped_prompt) > usable_input_tokens:
+            return self._clip_text_to_token_budget(clipped_prompt, usable_input_tokens)
+        return clipped_prompt
     
     def evaluate_model(self, model_name: str, model_config: dict) -> dict:
         """Evaluate a single model with context."""
@@ -643,8 +687,14 @@ Your response:"""
             "model_display_name": model_config["name"],
             "timestamp": datetime.now().isoformat(),
             "total_questions": 0,
-            "successful_responses": 0
+            "successful_responses": 0,
+            "trimmed_prompts": 0,
         }
+        usable_input_tokens = model_config.get("usable_input_tokens")
+        try:
+            usable_input_tokens = int(usable_input_tokens) if usable_input_tokens is not None else None
+        except (TypeError, ValueError):
+            usable_input_tokens = None
         
         # Evaluate each question (already includes all languages)
         for question_data in tqdm(self.questions, desc="Questions"):
@@ -665,7 +715,10 @@ Your response:"""
                 start_time = time.time()
                 
                 # Build prompt with context
-                prompt = self._build_prompt(question_data)
+                full_prompt = self._build_prompt(question_data, usable_input_tokens=None)
+                prompt = self._build_prompt(question_data, usable_input_tokens=usable_input_tokens)
+                if prompt != full_prompt:
+                    results["trimmed_prompts"] += 1
                 
                 response = self.vllm.chat_completion(
                     messages=[{"role": "user", "content": prompt}],
@@ -695,6 +748,11 @@ Your response:"""
             json.dump(results, f, indent=2)
         
         print(f"\n📊 Results: {results['successful_responses']}/{results['total_questions']} successful")
+        if usable_input_tokens:
+            print(
+                f"✂️ Prompt trims (usable_input_tokens={usable_input_tokens}): "
+                f"{results['trimmed_prompts']}/{results['total_questions']}"
+            )
         print(f"💾 Saved to: {self.db_path}")
         print(f"📄 JSON: {json_path}")
         
