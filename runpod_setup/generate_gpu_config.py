@@ -87,6 +87,16 @@ def extract_max_position_embeddings(cfg: Dict) -> Optional[int]:
     return None
 
 
+def detect_required_dtype(cfg: Dict) -> str:
+    """Return model dtype for vLLM config generation."""
+    quant_cfg = cfg.get("quantization_config") or {}
+    quant_method = str(quant_cfg.get("quant_method", "")).lower()
+    if quant_method == "mxfp4":
+        # vLLM requires bfloat16 for MXFP4 checkpoints.
+        return "bfloat16"
+    return "float16"
+
+
 def fetch_checkpoint_total_size_mb(repo_id: str, hf_token: Optional[str] = None) -> Optional[float]:
     """Fetch total checkpoint size (MB) from HF shard index metadata, if available."""
     headers = {}
@@ -213,7 +223,7 @@ def render_models_yaml(models: List[Dict[str, str]]) -> str:
         lines.append(f"    repo: \"{m['repo']}\"")
         lines.append(f"    local_path: \"{m['local_path']}\"")
         lines.append("    quant: null")
-        lines.append("    dtype: \"float16\"")
+        lines.append(f"    dtype: \"{m['dtype']}\"")
         lines.append(f"    max_model_len: {m['max_model_len']}")
         lines.append(f"    gpu_memory_util: {m['gpu_memory_util']}")
         if m.get("trust_remote_code") == "true":
@@ -364,6 +374,7 @@ def main() -> int:
 
         hidden_size, num_layers, _, num_kv_heads, head_dim = extract_model_dims(cfg)
         max_supported_len = extract_max_position_embeddings(cfg)
+        dtype = detect_required_dtype(cfg)
         text_cfg = cfg.get("text_config") or {}
         # Prefer real checkpoint size over config-field heuristic when available.
         # This avoids underestimating large/new architectures (e.g., gpt-oss-120b).
@@ -415,6 +426,7 @@ def main() -> int:
                 "name": build_name(repo, target_gpu),
                 "repo": repo,
                 "local_path": f"/workspace/models/{top_key}",
+                "dtype": dtype,
                 "max_model_len": str(max_model_len),
                 "gpu_memory_util": f"{choose_gpu_mem_util(ratio):.2f}",
                 "fit": fit,
