@@ -64,6 +64,12 @@ Created/updated in the active run folder (recommended):
 - `results/runs/<gpu_bucket>/<run_id>/scores/evaluation_scores_euf_context.db`
 - `results/runs/<gpu_bucket>/<run_id>/scores/evaluation_scores_euf_context.xlsx`
 
+Important behavior:
+
+- `runpod_setup/evaluate_context_results.py` performs a full rescore for the selected run.
+- It clears existing rows in the `scores` table (`DELETE FROM scores`) before inserting new scores.
+- So rerunning scoring overwrites prior score rows for that run DB instead of appending duplicates.
+
 Legacy fallback (if no run folder is resolved):
 
 - `evaluation_scores_euf_context.db`

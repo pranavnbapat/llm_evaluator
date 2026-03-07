@@ -34,6 +34,13 @@ from model_static_check import (  # noqa: E402
     normalize_target_gpu,
 )
 
+# Some repos require custom model/tokenizer Python from the HF repo.
+# Setting trust_remote_code=true allows vLLM/Transformers to execute that code at load time;
+# only enable this for repos you trust.
+TRUST_REMOTE_CODE_REPOS = {
+    "openGPT-X/Teuken-7B-instruct-commercial-v0.4",
+}
+
 
 def parse_seq_lens(raw: str) -> List[int]:
     seq = sorted({int(x.strip()) for x in raw.split(",") if x.strip().isdigit()})
@@ -182,6 +189,8 @@ def render_models_yaml(models: List[Dict[str, str]]) -> str:
         lines.append("    dtype: \"float16\"")
         lines.append(f"    max_model_len: {m['max_model_len']}")
         lines.append(f"    gpu_memory_util: {m['gpu_memory_util']}")
+        if m.get("trust_remote_code") == "true":
+            lines.append("    trust_remote_code: true")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
@@ -378,6 +387,7 @@ def main() -> int:
                 "max_model_len": str(max_model_len),
                 "gpu_memory_util": f"{choose_gpu_mem_util(ratio):.2f}",
                 "fit": fit,
+                "trust_remote_code": "true" if repo in TRUST_REMOTE_CODE_REPOS else "false",
             }
         )
 

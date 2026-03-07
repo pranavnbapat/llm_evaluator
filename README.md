@@ -1,50 +1,24 @@
 # LLM Evaluator
 
-Evaluate 5 Large Language Models across 24 EU languages using scientific metrics.
+Evaluate configurable LLM sets across 24 EU languages using reproducible metrics.
 
-## 🚀 Quick Start
+## Documentation
 
-The fastest way to run evaluations is with A40 48GB GPU.
-
-```bash
-# 1. SSH and clone
-ssh root@YOUR_IP
-cd /workspace
-git clone https://github.com/YOUR_USERNAME/llm_evaluator.git
-cd llm_evaluator
-
-# 2. Setup (installs vLLM, creates venv)
-bash runpod_setup/setup.sh
-
-# 3. Edit config with your tokens
-nano runpod_setup/config.yaml
-# Set: hf_token, openai_api_key
-
-# 4. Download models (~1-3 hours)
-export HF_TOKEN="hf_your_token"
-.venv/bin/python runpod_setup/download_models.py
-
-# 5. Run evaluation (~2-3 hours)
-export OPENAI_API_KEY="sk_your_key"
-.venv/bin/python runpod_setup/evaluate_context.py
-
-# 6. Download results to your laptop
-scp -r root@YOUR_IP:/workspace/evaluation_results ./
-```
-
-See [runpod_setup/README.md](runpod_setup/README.md) for detailed instructions.
-For scoring-only setup/run, see [README_SCORING.md](README_SCORING.md).
+- Deployment and execution on a GPU server:
+  [runpod_setup/README.md](runpod_setup/README.md)
+- Scoring-only setup and usage:
+  [README_SCORING.md](README_SCORING.md)
 
 ---
 
 ## 📊 What This Evaluates
 
-### 5 Models
-- **EuroLLM-9B** - EU-focused model
-- **Qwen3-30B-AWQ** - Alibaba's Qwen (quantized)
-- **DeepSeek-14B** - Reasoning model
-- **Mixtral-8x7B** - Mistral's MoE model
-- **Mistral-Small-24B** - Mistral's dense model
+### Models
+The model set is configurable and not fixed in this README.
+
+Source of truth:
+- Candidate repos: `runpod_setup/model_repos.txt`
+- Active run config: `runpod_setup/config.yaml` (`models:` block, often generated via `generate_gpu_config.py`)
 
 ### 24 EU Languages
 BG, HR, CS, DA, NL, EN, ET, FI, FR, DE, EL, HU, GA, IT, LV, LT, MT, PL, PT, RO, SK, SL, ES, SV
@@ -74,39 +48,53 @@ BG, HR, CS, DA, NL, EN, ET, FI, FR, DE, EL, HU, GA, IT, LV, LT, MT, PL, PT, RO, 
 Questions × Languages × Models × Runs → Responses → Metrics → Analysis
 ```
 
-### Quality Score Formula
-```
-OQS = 0.25×RS + 0.20×FA + 0.15×CS + 0.15×FL + 0.10×CO + 0.10×PA + 0.05×TE
+### Benchmark Protocol
+- Fixed multilingual question/context set from `translations/eu_24_languages_euf_context.py`
+- Repeated runs controlled by `runpod_setup/config.yaml`:
+  - `evaluation.num_runs`
+  - `evaluation.temperature`
+  - `evaluation.max_tokens`
+- Per-run isolation via `run_id` and run folders under:
+  - `results/runs/<gpu_bucket>/<run_id>/`
+- Raw benchmark artifacts:
+  - `raw/evaluation_results_euf_context.db`
+  - per-model JSON summaries in `raw/`
+  - `logs/gpu_metrics.csv`
+  - `metadata/run_info.json` and `metadata/model_status.json`
 
-Where:
-- RS = Relevance Score
-- FA = Factual Accuracy
-- CS = Completeness Score
-- FL = Fluency Score
-- CO = Coherence Score
-- PA = Prompt Alignment
-- TE = Token Efficiency
-```
+### Quality Scoring
+The scoring stage (`runpod_setup/evaluate_context_results.py`) computes:
+- Relevance
+- Factual Accuracy
+- Completeness
+- Fluency
+- Coherence
+- Prompt Alignment
+- Token Efficiency
+- Overall Quality (weighted composite)
 
-### Statistical Validation
-- **ICC (Intraclass Correlation)** - Measures reproducibility across runs
-- **Paired t-test** - Compares models statistically
-- **Cohen's d** - Effect size between models
-- **Bootstrap CI** - Non-parametric confidence intervals
-- **Cross-Language Robustness Score (CLRS)** - Penalizes high variance across languages
+The active metric profile and weights come from:
+- `metrics/metrics_config.yaml` (context profile used by default in scoring script)
+
+### Statistical Analysis Utilities
+The repo includes statistical helper functions in:
+- `metrics/statistical_analysis.py` (ICC, paired t-test, Cohen's d, bootstrap CI, cross-language consistency)
+
+Use these on scored outputs (`scores/evaluation_scores_euf_context.db`) when you need formal model comparison.
 
 ---
 
 ## 📈 Results
 
 After evaluation, you get:
-- **SQLite database** (`evaluation_results.db`) - All responses
-- **JSON summaries** - Per-model statistics
-- **Statistical reports** - Significance tests, comparisons
+- **Raw SQLite database** (`evaluation_results_euf_context.db`) - responses/latency
+- **Scored SQLite database** (`evaluation_scores_euf_context.db`) - per-response quality metrics
+- **JSON summaries** - per-model completion/success info
 
 Query the database:
 ```bash
-sqlite3 evaluation_results.db "SELECT model_name, AVG(latency_ms) FROM evaluations GROUP BY model_name;"
+sqlite3 results/runs/<gpu_bucket>/<run_id>/raw/evaluation_results_euf_context.db \
+  "SELECT model_name, AVG(latency_ms) FROM evaluations GROUP BY model_name;"
 ```
 
 ---
