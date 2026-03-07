@@ -30,6 +30,7 @@ import sqlite3
 import subprocess
 import threading
 import csv
+import socket
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
@@ -145,9 +146,29 @@ class VLlmManager:
         self.host = config["vllm"]["host"]
         self.client_host = "127.0.0.1" if self.host in ("0.0.0.0", "::") else self.host
         self.api_key = config.get("vllm_api_key", "")
+
+    def _is_port_open(self) -> bool:
+        try:
+            with socket.create_connection((self.client_host, self.port), timeout=1):
+                return True
+        except Exception:
+            return False
+
+    def _kill_stale_vllm(self) -> None:
+        """Kill stale vLLM servers that may still be bound to our port."""
+        if not self._is_port_open():
+            return
+        print(f"   ⚠️ Detected existing server on port {self.port}; cleaning stale vLLM...")
+        try:
+            subprocess.run(["pkill", "-f", r"\bvllm\b.*\bserve\b"], check=False)
+        except Exception:
+            pass
+        # Give OS/processes a brief window to release the port.
+        time.sleep(2)
         
     def start(self, model_config: dict) -> bool:
         """Start vLLM with given model."""
+        self._kill_stale_vllm()
         model_path = model_config["local_path"]
         # Safe, consistent log suffix
         model_name = model_config["name"].replace(" ", "_").replace("-", "_").lower()
@@ -162,6 +183,7 @@ class VLlmManager:
             "--dtype", model_config.get("dtype", "auto"),
             "--max-model-len", str(model_config["max_model_len"]),
             "--gpu-memory-utilization", str(model_config["gpu_memory_util"]),
+            "--served-model-name", model_config["name"],
         ]
         # Only add api-key if actually set
         if self.api_key:
@@ -194,9 +216,9 @@ class VLlmManager:
         )
         
         # Wait for ready
-        return self._wait_for_ready(model_name)
+        return self._wait_for_ready(model_name, expected_model_id=model_config["name"])
     
-    def _wait_for_ready(self, model_name: str, timeout: int = 1800) -> bool:
+    def _wait_for_ready(self, model_name: str, expected_model_id: Optional[str] = None, timeout: int = 1800) -> bool:
         """Wait for vLLM to be ready."""
         url = f"http://{self.client_host}:{self.port}/health"
         
@@ -204,8 +226,12 @@ class VLlmManager:
             try:
                 response = requests.get(url, timeout=5)
                 if response.status_code == 200:
-                    print(f"   ✅ vLLM ready!")
                     mid = self._get_model_name()
+                    if expected_model_id and mid and mid != expected_model_id:
+                        print(f"   ⚠️ Stale server detected (expected '{expected_model_id}', got '{mid}').")
+                        self._kill_stale_vllm()
+                        return False
+                    print(f"   ✅ vLLM ready!")
                     print(f"   🔎 vLLM model id: {mid}")
                     return True
             except:
@@ -219,7 +245,7 @@ class VLlmManager:
                     with open(f"/tmp/vllm_{model_name}.log", "r") as f:
                         lines = f.readlines()
                         print(f"   📝 Last error lines:")
-                        for line in lines[-20:]:
+                        for line in lines[-80:]:
                             print(f"      {line.strip()}")
                 except:
                     pass
