@@ -37,6 +37,7 @@ models:
     dtype: "float16"
     max_model_len: 4096
     gpu_memory_util: 0.88
+    trust_remote_code: true
 
   teuken_7b_instruct_commercial_v0_4_fp16_a40:
     name: "teuken-7b-instruct-commercial-v0-4-a40"
