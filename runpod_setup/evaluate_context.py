@@ -184,6 +184,8 @@ class VLlmManager:
             "--gpu-memory-utilization", str(model_config["gpu_memory_util"]),
             "--served-model-name", model_config["name"],
         ]
+        if model_config.get("trust_remote_code"):
+            cmd.append("--trust-remote-code")
         # Only add api-key if actually set
         if self.api_key:
             cmd.extend(["--api-key", self.api_key])
