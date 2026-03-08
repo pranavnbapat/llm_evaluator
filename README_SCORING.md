@@ -26,6 +26,39 @@ Verify:
 tmux -V
 ```
 
+## 2.5) Configure Scoring Performance Env (Recommended)
+
+You can set scoring env once in root `.env` or export in shell.
+
+Option A: `.env` (persistent for the repo)
+
+```bash
+cp .env.sample .env
+```
+
+Set these keys in `.env`:
+
+```bash
+EVALUATOR_METRICS_DEVICE=cuda
+EVALUATOR_SCORE_COMMIT_EVERY=500
+TRANSFORMERS_VERBOSITY=error
+HF_HUB_DISABLE_PROGRESS_BARS=1
+```
+
+Batch size by GPU:
+- A100 SXM: `EVALUATOR_SCORE_BATCH_SIZE=128`
+- A40: `EVALUATOR_SCORE_BATCH_SIZE=96`
+
+Option B: export in current shell (non-persistent)
+
+```bash
+export EVALUATOR_METRICS_DEVICE=cuda
+export EVALUATOR_SCORE_BATCH_SIZE=128   # use 96 on A40
+export EVALUATOR_SCORE_COMMIT_EVERY=500
+export TRANSFORMERS_VERBOSITY=error
+export HF_HUB_DISABLE_PROGRESS_BARS=1
+```
+
 ## 3) Run Scoring (Foreground)
 
 ```bash

@@ -67,6 +67,22 @@ Background:
 bash gpu_runtime/run_evaluate_context_results_background.sh
 ```
 
+Scoring performance env (recommended):
+
+```bash
+# A100 SXM profile
+export EVALUATOR_METRICS_DEVICE=cuda
+export EVALUATOR_SCORE_BATCH_SIZE=128
+export EVALUATOR_SCORE_COMMIT_EVERY=500
+export TRANSFORMERS_VERBOSITY=error
+export HF_HUB_DISABLE_PROGRESS_BARS=1
+
+# A40 alternative profile
+# export EVALUATOR_SCORE_BATCH_SIZE=96
+```
+
+You can also put the same keys in root `.env` (copy from `.env.sample`) instead of exporting every session.
+
 ### 8. Generate insights (run after scoring)
 
 Recommended (single command):
