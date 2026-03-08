@@ -1,0 +1,8 @@
+============================================================
+  Evaluating Context-Based Responses
+  Database: /workspace/llm_evaluator/results/evaluation_results_euf_context.db
+============================================================
+  Path mode: legacy
+  GPU bucket: a100 (env:EVAL_RUN_GPU)
+❌ Database not found: /workspace/llm_evaluator/results/evaluation_results_euf_context.db
+   Run evaluation first: python gpu_runtime/evaluate_context.py
