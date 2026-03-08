@@ -297,7 +297,7 @@ def main():
         })
     
     env_file_vals = load_env_file(PROJECT_ROOT / ".env")
-    batch_size = max(1, getenv_int("EVALUATOR_SCORE_BATCH_SIZE", 64, env_file_vals))
+    batch_size = max(1, getenv_int("EVALUATOR_SCORE_BATCH_SIZE", 96, env_file_vals))
     commit_every = max(1, getenv_int("EVALUATOR_SCORE_COMMIT_EVERY", 200, env_file_vals))
     inserted = 0
     pbar = tqdm(total=len(prepared))
