@@ -17,5 +17,3 @@ Qwen/Qwen3.5-35B-A3B
 Qwen/Qwen3.5-9B
 moonshotai/Kimi-K2.5
 moonshotai/Kimi-K2-Instruct-0905
-openai/gpt-oss-20b
-openai/gpt-oss-120b
