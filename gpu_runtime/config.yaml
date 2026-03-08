@@ -19,6 +19,14 @@ vllm_api_key: "${VLLM_API_KEY:-sk-runpod-eval}"
 # ----------------------------------------------------------------------------
 # Model Configuration
 # ----------------------------------------------------------------------------
+generation_profile:
+  gpu: "a40"
+  concurrent_users: 25
+  target_max_output_tokens: 512
+  seq_lens: "4096,8192,16384"
+  allow_fits: "comfortable"
+  generated_at: "2026-03-08 11:16:14"
+
 models:
   deepseek_r1_distill_qwen_7b_fp16_a40:
     name: "deepseek-r1-distill-qwen-7b-a40"
@@ -100,14 +108,13 @@ models:
     usable_input_tokens: 3584
     gpu_memory_util: 0.90
     trust_remote_code: true
+
 evaluation:
   # All 24 EU languages
   languages: ["BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU", "GA", "IT", "LV", "LT", "MT", "PL", "PT", "RO", "SK", "SL", "ES", "SV"]
   num_runs: ${NUM_RUNS:-3}                      # Runs per question
   temperature: ${TEMPERATURE:-0.0}              # Deterministic
   max_tokens: 512
-
-
 
 
 # ----------------------------------------------------------------------------

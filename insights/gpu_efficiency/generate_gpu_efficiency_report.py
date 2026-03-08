@@ -27,6 +27,8 @@ import matplotlib.pyplot as plt
 
 
 ROOT = Path(__file__).resolve().parents[2]
+REQUIRED_GPU_COLUMNS = {"timestamp", "phase", "util_gpu_pct", "mem_used_mb", "temp_c"}
+OPTIONAL_GPU_NUMERIC_COLUMNS = {"util_mem_pct", "mem_total_mb", "mem_free_mb", "cpu_util_pct"}
 
 
 def _read_sql(db: Path, q: str) -> pd.DataFrame:
@@ -63,23 +65,24 @@ def load_gpu_metrics(log_path: Path) -> pd.DataFrame:
         raise FileNotFoundError(f"Missing {log_path}")
     df = pd.read_csv(log_path)
     df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
-    if "timestamp" in df.columns:
-        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-    for c in [
-        "util_gpu_pct",
-        "util_mem_pct",
-        "mem_total_mb",
-        "mem_used_mb",
-        "mem_free_mb",
-        "temp_c",
-        "cpu_util_pct",
-    ]:
+
+    missing = sorted(c for c in REQUIRED_GPU_COLUMNS if c not in df.columns)
+    if missing:
+        raise ValueError(
+            f"gpu_metrics.csv missing required columns: {missing}. "
+            f"Found columns: {sorted(df.columns.tolist())}"
+        )
+
+    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+    for c in sorted((REQUIRED_GPU_COLUMNS | OPTIONAL_GPU_NUMERIC_COLUMNS) - {"timestamp", "phase"}):
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
+    df["phase"] = df["phase"].fillna("unknown").astype(str)
+
     if "model_name" in df.columns:
-        df["model_name_norm"] = df["model_name"].map(_norm_model_name)
+        df["model_name_norm"] = df["model_name"].map(_norm_model_name).replace("", np.nan)
     else:
-        df["model_name_norm"] = ""
+        df["model_name_norm"] = np.nan
     return df
 
 
@@ -88,7 +91,7 @@ def build_tables(gpu: pd.DataFrame, results_db: Path, scores_db: Path) -> Dict[s
     phase_counts["pct"] = (phase_counts["samples"] / phase_counts["samples"].sum() * 100).round(2)
 
     model_gpu = (
-        gpu.dropna(subset=["model_name_norm"])
+        gpu[gpu["model_name_norm"].notna() & (gpu["model_name_norm"] != "")]
         .groupby(["model_name_norm"], as_index=False)
         .agg(
             samples=("timestamp", "count"),
@@ -280,7 +283,7 @@ def write_outputs(
         f"- In this run, global `gpu_util_p90` is **{util_p90:.2f}%**, so the GPU was near saturation for most active samples."
     )
     lines.append(
-        f"- Global `mem_used_max_gb` is **{mem_max_gb:.2f} GB** while `mem_used_mean_gb` is **{mem_mean_gb:.2f} GB`."
+        f"- Global `mem_used_max_gb` is **{mem_max_gb:.2f} GB** while `mem_used_mean_gb` is **{mem_mean_gb:.2f} GB**."
     )
     lines.append("  This indicates high memory residency during evaluation phases with lower memory during loading/idle.")
     lines.append("")

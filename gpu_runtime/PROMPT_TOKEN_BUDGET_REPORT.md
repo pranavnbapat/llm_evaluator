@@ -11,7 +11,7 @@ Token counts are **estimates** using `round(char_count / 4)`. Exact token counts
 ## Column Definitions
 
 - `instruction_tokens`: fixed template/instructions only (no context, no question)
-- `question_tokens`: farmer question only
+- `question_tokens`: question only
 - `context_tokens`: formatted search results only
 - `total_input_tokens`: `instruction_tokens + question_tokens + context_tokens`
 - `total_with_output_512`: `total_input_tokens + 512`

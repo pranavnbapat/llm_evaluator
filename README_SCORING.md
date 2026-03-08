@@ -96,31 +96,54 @@ Dependency order:
 
 1. `gpu_runtime/evaluate_context_results.py` (creates `scores/*.db` + `scores/*.xlsx`)
 2. `insights/generate_context_charts.py` (creates `insights/data/*.csv` + `insights/charts/*.png`)
-3. `insights/generate_context_insights.py` (creates `insights/EVALUATION_CONTEXT_REPORT.md`)
-4. `insights/generate_presentation_qa.py` (creates `insights/Presentation_QA.md` + `insights/data/presentation_qa.*`)
-5. `insights/gpu_efficiency/generate_gpu_efficiency_report.py` (creates `insights/gpu_efficiency/*`)
+3. `insights/generate_presentation_qa.py` (creates `insights/Presentation_QA.md` + `insights/data/presentation_qa.*`)
+4. `insights/generate_context_token_budget.py` (creates token-budget CSVs in `insights/data/`)
+5. `insights/generate_context_vram_docs.py` (creates VRAM/context markdown docs from token-budget data)
+6. `insights/generate_gpu_insights_report.py` (creates the combined run-level insights report markdown)
+7. `insights/gpu_efficiency/generate_gpu_efficiency_report.py` (creates `insights/gpu_efficiency/*`)
 
-Single run (recommended):
+Single run (recommended, one command):
 
 ```bash
 RUN_DIR="results/runs/a40/2026-03-01_230442_context_eval"
+bash gpu_runtime/run_post_scoring_insights.sh --run-dir "$RUN_DIR"
+```
+
+Single run (manual equivalent):
+
+```bash
+RUN_DIR="results/runs/a40/2026-03-01_230442_context_eval"
+GPU_BUCKET="a40"
 
 EVAL_RUN_GPU=a40 EVAL_RUN_DIR="$RUN_DIR" \
 python gpu_runtime/evaluate_context_results.py
 
 python insights/generate_context_charts.py --run-dir "$RUN_DIR"
-python insights/generate_context_insights.py --run-dir "$RUN_DIR"
 python insights/generate_presentation_qa.py --run-dir "$RUN_DIR"
+python insights/generate_context_token_budget.py --run-dir "$RUN_DIR"
+python insights/generate_context_vram_docs.py --run-dir "$RUN_DIR"
 python insights/gpu_efficiency/generate_gpu_efficiency_report.py --run-dir "$RUN_DIR"
+python insights/generate_gpu_insights_report.py --gpu "$GPU_BUCKET"
 ```
 
-Bulk mode (all runs under `results/runs/*/*`):
+Bulk mode (all runs, one command):
+
+```bash
+bash gpu_runtime/run_post_scoring_insights.sh --all-runs
+```
+
+Bulk mode (manual equivalent):
 
 ```bash
 python insights/generate_context_charts.py
-python insights/generate_context_insights.py
 python insights/generate_presentation_qa.py
+python insights/generate_context_token_budget.py
+python insights/generate_context_vram_docs.py
 python insights/gpu_efficiency/generate_gpu_efficiency_report.py
+# per GPU bucket:
+python insights/generate_gpu_insights_report.py --gpu a40
+python insights/generate_gpu_insights_report.py --gpu a100
+python insights/generate_gpu_insights_report.py --gpu b200
 ```
 
 Bulk mode behavior:
@@ -134,7 +157,8 @@ Bulk mode behavior:
 If you see:
 
 - `generate_context_charts.py ... missing ... scores/evaluation_scores_euf_context.db`
-- `generate_context_insights.py ... missing ... scores/evaluation_scores_euf_context.xlsx`
+- `generate_context_token_budget.py ... missing ... raw/evaluation_results_euf_context.db`
+- `generate_gpu_insights_report.py ... missing ... insights/data/*.csv`
 
 Then scoring has not completed for that run yet. Run:
 

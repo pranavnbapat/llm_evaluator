@@ -98,6 +98,13 @@ def build_summaries(scores: pd.DataFrame, results: pd.DataFrame) -> tuple[pd.Dat
         .reset_index()
     )
 
+    # Keep only completed responses with valid latency for latency-based summaries/charts.
+    if "response" in results.columns:
+        results = results[results["response"].notna()].copy()
+    if "latency_ms" in results.columns:
+        results["latency_ms"] = pd.to_numeric(results["latency_ms"], errors="coerce")
+        results = results[results["latency_ms"].notna()].copy()
+
     latency_summary = (
         results.groupby("model_name")
         .agg(

@@ -69,20 +69,53 @@ bash gpu_runtime/run_evaluate_context_results_background.sh
 
 ### 8. Generate insights (run after scoring)
 
-Run these scripts in order for a specific run:
+Recommended (single command):
 
 ```bash
 RUN_DIR="results/runs/<gpu_bucket>/<run_id>"
+bash gpu_runtime/run_post_scoring_insights.sh --run-dir "$RUN_DIR"
+```
+
+All runs:
+
+```bash
+bash gpu_runtime/run_post_scoring_insights.sh --all-runs
+```
+
+Regenerate outputs:
+
+```bash
+RUN_DIR="results/runs/<gpu_bucket>/<run_id>"
+bash gpu_runtime/run_post_scoring_insights.sh --run-dir "$RUN_DIR" --force
+```
+
+Equivalent manual order for one run:
+
+```bash
+RUN_DIR="results/runs/<gpu_bucket>/<run_id>"
+GPU_BUCKET="<gpu_bucket>"
 
 python insights/generate_context_charts.py --run-dir "$RUN_DIR"
-python insights/generate_context_insights.py --run-dir "$RUN_DIR"
 python insights/generate_presentation_qa.py --run-dir "$RUN_DIR"
+python insights/generate_context_token_budget.py --run-dir "$RUN_DIR"
+python insights/generate_context_vram_docs.py --run-dir "$RUN_DIR"
 python insights/gpu_efficiency/generate_gpu_efficiency_report.py --run-dir "$RUN_DIR"
+python insights/generate_gpu_insights_report.py --gpu "$GPU_BUCKET"
 ```
+
+What each script does:
+- `generate_context_charts.py`: creates `insights/charts/*.png` and summary CSVs in `insights/data/`.
+- `generate_presentation_qa.py`: creates presentation QA artifacts (`insights/Presentation_QA.md`, `insights/data/presentation_qa.*`).
+- `generate_context_token_budget.py`: creates token-budget CSVs in `insights/data/`.
+- `generate_context_vram_docs.py`: creates VRAM/context markdown docs from token-budget outputs.
+- `generate_gpu_insights_report.py`: creates the combined run-level insights report markdown.
+- `gpu_efficiency/generate_gpu_efficiency_report.py`: creates GPU utilization/phase efficiency charts + markdown in `insights/gpu_efficiency/`.
+- `gpu_runtime/run_post_scoring_insights.sh`: runs the full post-scoring pipeline in this order.
 
 Notes:
 - Insights scripts are not auto-triggered by evaluation/scoring.
-- You can also run each script without `--run-dir` to process runs in bulk mode.
+- Most scripts support bulk mode without `--run-dir`.
+- Run `gpu_efficiency` after evaluation has produced `logs/gpu_metrics.csv`.
 
 ## Output Layout
 

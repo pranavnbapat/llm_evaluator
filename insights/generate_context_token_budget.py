@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Iterable
 
 import pandas as pd
+from transformers import AutoTokenizer
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -46,14 +47,10 @@ def _run_paths(run_dir: Path) -> dict:
 
 def _required_outputs(out_dir: Path) -> list[Path]:
     return [
-        out_dir / "token_budget_prompt_details_estimated.csv",
-        out_dir / "token_budget_question_profile_estimated.csv",
-        out_dir / "token_budget_language_question_estimated.csv",
-        out_dir / "token_budget_model_language_question_estimated.csv",
-        out_dir / "token_budget_model_output_budget_estimated.csv",
-        out_dir / "token_budget_response_details_estimated_range.csv",
-        out_dir / "token_budget_response_model_summary_estimated_range.csv",
-        out_dir / "token_budget_response_language_question_summary_estimated_range.csv",
+        out_dir / "token_budget_question_profile.csv",
+        out_dir / "token_budget_response_details.csv",
+        out_dir / "token_budget_model_summary.csv",
+        out_dir / "token_budget_language_question_summary.csv",
     ]
 
 
@@ -63,14 +60,6 @@ def _is_complete(out_dir: Path) -> bool:
 
 def _est_token_single(text: str) -> int:
     return int(round(len(text) / 4.0))
-
-
-def _est_token_range(text: str) -> tuple[int, int, int]:
-    n = len(text)
-    t_min = int(math.ceil(n / 5.0))
-    t_max = int(math.ceil(n / 4.0))
-    t_mid = int(round((t_min + t_max) / 2.0))
-    return t_min, t_max, t_mid
 
 
 def _build_prompt(question_text: str, language: str, context_str: str) -> str:
@@ -104,21 +93,61 @@ def _format_context(context: list) -> str:
     return "\n\n".join(parts)
 
 
-def _model_len_map_from_config(config_path: Path) -> dict[str, tuple[int, str]]:
-    out: dict[str, tuple[int, str]] = {}
+def _model_cfg_map_from_config(config_path: Path) -> dict[str, dict]:
+    out: dict[str, dict] = {}
     if not config_path.exists():
         return out
     try:
         import yaml
+
         data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
         for _, cfg in (data.get("models") or {}).items():
             name = str(cfg.get("name", "")).strip()
+            if not name:
+                continue
             mlen = cfg.get("max_model_len")
-            if name and isinstance(mlen, int):
-                out[name.lower()] = (mlen, "config")
+            out[name.lower()] = {
+                "max_model_len": mlen if isinstance(mlen, int) else DEFAULT_MAX_MODEL_LEN,
+                "max_model_len_source": "config" if isinstance(mlen, int) else "assumed_from_config_default",
+                "repo": str(cfg.get("repo", "")).strip(),
+                "local_path": str(cfg.get("local_path", "")).strip(),
+                "trust_remote_code": bool(cfg.get("trust_remote_code", False)),
+            }
     except Exception:
         pass
     return out
+
+
+def _load_tokenizer_for_model(model_key: str, cfg_map: dict[str, dict], cache: dict[str, object]):
+    if model_key in cache:
+        return cache[model_key]
+
+    cfg = cfg_map.get(model_key) or {}
+    local_path = str(cfg.get("local_path") or "").strip()
+    repo = str(cfg.get("repo") or "").strip()
+    trust_remote_code = bool(cfg.get("trust_remote_code", False))
+
+    tok = None
+    if local_path and Path(local_path).exists():
+        try:
+            tok = AutoTokenizer.from_pretrained(local_path, trust_remote_code=trust_remote_code)
+        except Exception:
+            tok = None
+    if tok is None and repo:
+        try:
+            tok = AutoTokenizer.from_pretrained(repo, trust_remote_code=trust_remote_code)
+        except Exception:
+            tok = None
+
+    cache[model_key] = tok
+    return tok
+
+
+def _count_tokens_exact(tokenizer, text: str) -> int:
+    if tokenizer is None:
+        return -1
+    txt = "" if text is None else str(text)
+    return len(tokenizer.encode(txt, add_special_tokens=False))
 
 
 def _process_run(run_dir: Path, force: bool = False) -> tuple[bool, str]:
@@ -131,7 +160,7 @@ def _process_run(run_dir: Path, force: bool = False) -> tuple[bool, str]:
         return False, f"skip (already complete): {run_dir}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Prompt/question context estimates from canonical question source.
+    # Canonical question/profile metadata (language-agnostic planning view).
     q_rows = []
     for q in get_all_questions_with_context():
         qid = q["question_id"]
@@ -148,17 +177,9 @@ def _process_run(run_dir: Path, force: bool = False) -> tuple[bool, str]:
                 "question_tokens_est": _est_token_single(qtxt),
                 "context_tokens_est": _est_token_single(cstr),
                 "prompt_tokens_est": _est_token_single(prompt),
-                "question_chars": len(qtxt),
-                "context_chars": len(cstr),
-                "prompt_chars": len(prompt),
             }
         )
     qdf = pd.DataFrame(q_rows)
-
-    prompt_details = qdf[[
-        "question_id", "base_question", "language", "question_tokens_est", "context_tokens_est", "prompt_tokens_est"
-    ]].sort_values(["base_question", "language"])
-    prompt_details.to_csv(out_dir / "token_budget_prompt_details_estimated.csv", index=False)
 
     q_profile = (
         qdf.groupby("base_question", as_index=False)
@@ -171,13 +192,10 @@ def _process_run(run_dir: Path, force: bool = False) -> tuple[bool, str]:
             prompt_tokens_est_avg=("prompt_tokens_est", "mean"),
             prompt_tokens_est_max=("prompt_tokens_est", "max"),
         )
+        .sort_values("base_question")
     )
-    q_profile.to_csv(out_dir / "token_budget_question_profile_estimated.csv", index=False)
+    q_profile.to_csv(out_dir / "token_budget_question_profile.csv", index=False)
 
-    lq = qdf[["language", "base_question", "question_tokens_est", "context_tokens_est", "prompt_tokens_est"]].sort_values(["language", "base_question"])
-    lq.to_csv(out_dir / "token_budget_language_question_estimated.csv", index=False)
-
-    # Response-level estimates from results DB.
     with sqlite3.connect(rp["results_db"]) as con:
         res = pd.read_sql_query(
             """
@@ -195,94 +213,88 @@ def _process_run(run_dir: Path, force: bool = False) -> tuple[bool, str]:
                 pd.DataFrame().to_csv(p, index=False)
         return True, f"generated (empty data): {run_dir}"
 
-    config_map = _model_len_map_from_config(ROOT / "gpu_runtime" / "config.yaml")
+    cfg_map = _model_cfg_map_from_config(ROOT / "gpu_runtime" / "config.yaml")
+    tokenizer_cache: dict[str, object] = {}
 
-    m = res.merge(
-        qdf[["question_id", "base_question", "question_chars", "context_chars", "prompt_chars", "prompt_tokens_est"]],
-        on="question_id",
-        how="left",
-    )
+    m = res.merge(qdf[["question_id", "base_question"]], on="question_id", how="left")
 
-    # Token ranges for prompt/response/total.
-    rmins = []
-    rmaxs = []
-    rmids = []
-    tmins = []
-    tmaxs = []
-    tmids = []
-    remain_min = []
-    remain_max = []
-    cap_min = []
-    cap_max = []
+    input_tokens = []
+    response_tokens = []
+    total_tokens = []
     max_len_vals = []
     max_len_src = []
+    token_sources = []
+    remaining_output = []
+    effective_caps = []
+    exceeds = []
 
     for _, row in m.iterrows():
         response = row.get("response") or ""
-        pchars = int(row.get("prompt_chars") or 0)
-        rchars = len(response)
-
-        in_min, in_max, in_mid = _est_token_range("x" * pchars)
-        out_min, out_max, out_mid = _est_token_range(response)
+        question_text = row.get("question_text") or ""
+        language = row.get("language") or ""
+        context_text = row.get("context") or ""
+        prompt_text = _build_prompt(str(question_text), str(language), str(context_text))
 
         model_key = str(row.get("model_name") or "").strip().lower()
-        if model_key in config_map:
-            max_len, src = config_map[model_key]
+        tok = _load_tokenizer_for_model(model_key, cfg_map, tokenizer_cache)
+
+        in_tok = _count_tokens_exact(tok, prompt_text)
+        out_tok = _count_tokens_exact(tok, response)
+        if in_tok >= 0 and out_tok >= 0:
+            token_sources.append("tokenizer_exact")
+        else:
+            token_sources.append("char_estimated")
+            in_tok = _est_token_single(prompt_text)
+            out_tok = _est_token_single(str(response))
+
+        model_cfg = cfg_map.get(model_key)
+        if model_cfg:
+            max_len = int(model_cfg.get("max_model_len", DEFAULT_MAX_MODEL_LEN))
+            src = str(model_cfg.get("max_model_len_source", "config"))
         else:
             max_len, src = DEFAULT_MAX_MODEL_LEN, "assumed_from_config_default"
 
-        total_min = in_min + out_min
-        total_max = in_max + out_max
-        total_mid = in_mid + out_mid
+        tot = int(in_tok) + int(out_tok)
+        rem = int(max_len) - int(in_tok)
+        cap = max(0, min(rem, 2048))
 
-        rem_min = max_len - in_max
-        rem_max = max_len - in_min
-        eff_cap_min = max(0, min(rem_min, 2048))
-        eff_cap_max = max(0, min(rem_max, 2048))
-
-        rmins.append(out_min)
-        rmaxs.append(out_max)
-        rmids.append(out_mid)
-        tmins.append(total_min)
-        tmaxs.append(total_max)
-        tmids.append(total_mid)
-        remain_min.append(rem_min)
-        remain_max.append(rem_max)
-        cap_min.append(eff_cap_min)
-        cap_max.append(eff_cap_max)
-        max_len_vals.append(max_len)
+        input_tokens.append(int(in_tok))
+        response_tokens.append(int(out_tok))
+        total_tokens.append(int(tot))
+        max_len_vals.append(int(max_len))
         max_len_src.append(src)
+        remaining_output.append(int(rem))
+        effective_caps.append(int(cap))
+        exceeds.append(bool(tot > int(max_len)))
 
-    m["response_chars"] = m["response"].map(lambda x: len(x or ""))
-    m["input_tokens_est_min"] = m["prompt_chars"].map(lambda n: int(math.ceil((n or 0) / 5.0)))
-    m["input_tokens_est_max"] = m["prompt_chars"].map(lambda n: int(math.ceil((n or 0) / 4.0)))
-    m["input_tokens_est_mid"] = ((m["input_tokens_est_min"] + m["input_tokens_est_max"]) / 2.0).round().astype(int)
-    m["response_tokens_est_min"] = rmins
-    m["response_tokens_est_max"] = rmaxs
-    m["response_tokens_est_mid"] = rmids
-    m["total_tokens_est_min"] = tmins
-    m["total_tokens_est_max"] = tmaxs
-    m["total_tokens_est_mid"] = tmids
+    m["input_tokens"] = input_tokens
+    m["response_tokens"] = response_tokens
+    m["total_tokens"] = total_tokens
     m["max_model_len"] = max_len_vals
     m["max_model_len_source"] = max_len_src
-    m["remaining_output_tokens_est_min"] = remain_min
-    m["remaining_output_tokens_est_max"] = remain_max
-    m["effective_output_cap_est_min"] = cap_min
-    m["effective_output_cap_est_max"] = cap_max
-    m["would_exceed_max_len_est"] = m["total_tokens_est_mid"] > m["max_model_len"]
+    m["token_count_source"] = token_sources
+    m["remaining_output_tokens"] = remaining_output
+    m["effective_output_cap"] = effective_caps
+    m["would_exceed_max_len"] = exceeds
 
-    resp_detail_cols = [
-        "id", "model_name", "language", "question_id", "run_number",
-        "question_chars", "context_chars", "prompt_chars", "response_chars",
-        "input_tokens_est_min", "input_tokens_est_max", "input_tokens_est_mid",
-        "response_tokens_est_min", "response_tokens_est_max", "response_tokens_est_mid",
-        "total_tokens_est_min", "total_tokens_est_max", "total_tokens_est_mid",
-        "max_model_len", "max_model_len_source",
-        "remaining_output_tokens_est_min", "remaining_output_tokens_est_max",
-        "effective_output_cap_est_min", "effective_output_cap_est_max",
-        "would_exceed_max_len_est", "base_question",
+    detail_cols = [
+        "id",
+        "model_name",
+        "language",
+        "question_id",
+        "base_question",
+        "run_number",
+        "input_tokens",
+        "response_tokens",
+        "total_tokens",
+        "max_model_len",
+        "max_model_len_source",
+        "token_count_source",
+        "remaining_output_tokens",
+        "effective_output_cap",
+        "would_exceed_max_len",
     ]
-    m[resp_detail_cols].to_csv(out_dir / "token_budget_response_details_estimated_range.csv", index=False)
+    m[detail_cols].to_csv(out_dir / "token_budget_response_details.csv", index=False)
 
     model_summary = (
         m.groupby("model_name", as_index=False)
@@ -290,53 +302,36 @@ def _process_run(run_dir: Path, force: bool = False) -> tuple[bool, str]:
             n=("id", "count"),
             max_model_len=("max_model_len", "max"),
             max_model_len_source=("max_model_len_source", "first"),
-            input_tokens_est_mid_mean=("input_tokens_est_mid", "mean"),
-            response_tokens_est_mid_mean=("response_tokens_est_mid", "mean"),
-            response_tokens_est_mid_p90=("response_tokens_est_mid", lambda x: x.quantile(0.90)),
-            response_tokens_est_mid_max=("response_tokens_est_mid", "max"),
-            total_tokens_est_mid_mean=("total_tokens_est_mid", "mean"),
-            total_tokens_est_mid_max=("total_tokens_est_mid", "max"),
-            remaining_output_tokens_est_min=("remaining_output_tokens_est_min", "min"),
-            remaining_output_tokens_est_max=("remaining_output_tokens_est_max", "max"),
+            input_tokens_mean=("input_tokens", "mean"),
+            response_tokens_mean=("response_tokens", "mean"),
+            response_tokens_p90=("response_tokens", lambda x: x.quantile(0.90)),
+            response_tokens_max=("response_tokens", "max"),
+            total_tokens_mean=("total_tokens", "mean"),
+            total_tokens_max=("total_tokens", "max"),
+            remaining_output_tokens_min=("remaining_output_tokens", "min"),
+            remaining_output_tokens_avg=("remaining_output_tokens", "mean"),
+            remaining_output_tokens_max=("remaining_output_tokens", "max"),
+            effective_output_cap_min=("effective_output_cap", "min"),
+            effective_output_cap_max=("effective_output_cap", "max"),
+            exceed_rate=("would_exceed_max_len", "mean"),
         )
         .sort_values("model_name")
     )
-    model_summary.to_csv(out_dir / "token_budget_response_model_summary_estimated_range.csv", index=False)
+    model_summary.to_csv(out_dir / "token_budget_model_summary.csv", index=False)
 
-    lq_resp = (
+    lq_summary = (
         m.groupby(["language", "base_question"], as_index=False)
         .agg(
-            input_tokens_est_mid=("input_tokens_est_mid", "mean"),
-            response_tokens_est_mid_mean=("response_tokens_est_mid", "mean"),
-            response_tokens_est_mid_p90=("response_tokens_est_mid", lambda x: x.quantile(0.90)),
-            response_tokens_est_mid_max=("response_tokens_est_mid", "max"),
-            total_tokens_est_mid_mean=("total_tokens_est_mid", "mean"),
-            total_tokens_est_mid_max=("total_tokens_est_mid", "max"),
+            input_tokens_mean=("input_tokens", "mean"),
+            response_tokens_mean=("response_tokens", "mean"),
+            response_tokens_p90=("response_tokens", lambda x: x.quantile(0.90)),
+            response_tokens_max=("response_tokens", "max"),
+            total_tokens_mean=("total_tokens", "mean"),
+            total_tokens_max=("total_tokens", "max"),
         )
         .sort_values(["language", "base_question"])
     )
-    lq_resp.to_csv(out_dir / "token_budget_response_language_question_summary_estimated_range.csv", index=False)
-
-    # Prompt-budget by model + question/language.
-    mlq = m[["question_id", "language", "base_question", "prompt_tokens_est", "model_name", "max_model_len"]].copy()
-    mlq["remaining_output_tokens_est"] = mlq["max_model_len"] - mlq["prompt_tokens_est"]
-    mlq["effective_output_cap"] = mlq["remaining_output_tokens_est"].map(lambda x: max(0, min(int(x), 2048)))
-    mlq = mlq.drop_duplicates(subset=["question_id", "model_name"]).sort_values(["model_name", "question_id"])
-    mlq.to_csv(out_dir / "token_budget_model_language_question_estimated.csv", index=False)
-
-    mo = (
-        mlq.groupby("model_name", as_index=False)
-        .agg(
-            max_model_len=("max_model_len", "max"),
-            remaining_output_tokens_est_min=("remaining_output_tokens_est", "min"),
-            remaining_output_tokens_est_avg=("remaining_output_tokens_est", "mean"),
-            remaining_output_tokens_est_max=("remaining_output_tokens_est", "max"),
-            effective_output_cap_min=("effective_output_cap", "min"),
-            effective_output_cap_max=("effective_output_cap", "max"),
-        )
-        .sort_values("model_name")
-    )
-    mo.to_csv(out_dir / "token_budget_model_output_budget_estimated.csv", index=False)
+    lq_summary.to_csv(out_dir / "token_budget_language_question_summary.csv", index=False)
 
     return True, f"generated: {run_dir}"
 

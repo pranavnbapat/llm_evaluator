@@ -13,13 +13,121 @@ This scans results/runs/*/* and generates only missing presentation QA artifacts
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
-from typing import Dict, List, Iterable
+from typing import Dict, List, Iterable, Optional
 
 import pandas as pd
+import requests
 
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def load_env(path: Path) -> Dict[str, str]:
+    env: Dict[str, str] = {}
+    if not path.exists():
+        return env
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        env[k.strip()] = v.strip().strip('"').strip("'")
+    return env
+
+
+def resolve_chat_completions_url(base: str) -> str:
+    u = base.rstrip("/")
+    if u.endswith("/chat/completions"):
+        return u
+    if u.endswith("/v1"):
+        return f"{u}/chat/completions"
+    return f"{u}/v1/chat/completions"
+
+
+class QALLMClient:
+    def __init__(self, url: str, model: str, api_key: str, timeout_s: int = 90) -> None:
+        self.url = resolve_chat_completions_url(url)
+        self.model = model
+        self.api_key = api_key
+        self.timeout_s = timeout_s
+
+    @classmethod
+    def from_root_env(cls, repo_root: Path) -> Optional["QALLMClient"]:
+        env = load_env(repo_root / ".env")
+        llm_url = env.get("LLM_URL", "")
+        llm_model = env.get("LLM", "")
+        api_key = env.get("LLM_API_KEY", "") or env.get("OPENAI_API_KEY", "")
+        if not llm_url or not llm_model:
+            return None
+        return cls(url=llm_url, model=llm_model, api_key=api_key)
+
+    def answer_row(self, row: Dict[str, str], ctx: Dict[str, str]) -> Dict[str, str]:
+        context_blob = (
+            f"models_n={ctx.get('models_n')}\n"
+            f"langs_n={ctx.get('langs_n')}\n"
+            f"qs_n={ctx.get('qs_n')}\n"
+            f"best_model={ctx.get('best_model')} ({ctx.get('best_score')})\n"
+            f"worst_model={ctx.get('worst_model')} ({ctx.get('worst_score')})\n"
+            f"spread={ctx.get('spread')}\n"
+            f"top_language={ctx.get('top_lang')} ({ctx.get('top_lang_score')})\n"
+            f"bottom_language={ctx.get('bottom_lang')} ({ctx.get('bottom_lang_score')})\n"
+            f"fast_model={ctx.get('fast_model')} ({ctx.get('fast_latency')})\n"
+            f"slow_model={ctx.get('slow_model')} ({ctx.get('slow_latency')})"
+        )
+
+        system = (
+            "You generate concise, evidence-grounded presentation QA responses for an LLM evaluation report. "
+            "Use only the provided context and do not invent numeric values."
+        )
+        user = (
+            "Return strict JSON with keys: Answer, Evidence, Risk_or_Caveat.\n"
+            f"Category: {row['Category']}\n"
+            f"Question: {row['Question']}\n"
+            f"Default_Answer: {row['Answer']}\n"
+            f"Default_Evidence: {row['Evidence']}\n"
+            f"Default_Risk: {row['Risk_or_Caveat']}\n"
+            "Context:\n"
+            f"{context_blob}\n"
+            "Constraints: keep each field under 35 words."
+        )
+
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "temperature": 0.2,
+            "max_tokens": 220,
+        }
+
+        resp = requests.post(self.url, headers=headers, json=payload, timeout=self.timeout_s)
+        resp.raise_for_status()
+        data = resp.json()
+        content = data["choices"][0]["message"]["content"].strip()
+
+        parsed: Dict[str, str]
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError:
+            # Some models wrap JSON in markdown fences.
+            start = content.find("{")
+            end = content.rfind("}")
+            if start == -1 or end == -1 or end <= start:
+                raise ValueError("LLM response is not valid JSON")
+            parsed = json.loads(content[start : end + 1])
+
+        out = dict(row)
+        out["Answer"] = str(parsed.get("Answer", row["Answer"]))
+        out["Evidence"] = str(parsed.get("Evidence", row["Evidence"]))
+        out["Risk_or_Caveat"] = str(parsed.get("Risk_or_Caveat", row["Risk_or_Caveat"]))
+        return out
 
 
 def load_context(
@@ -102,7 +210,7 @@ def load_context(
     return ctx
 
 
-def build_qa(ctx: Dict[str, str]) -> pd.DataFrame:
+def build_qa(ctx: Dict[str, str], llm_client: Optional[QALLMClient] = None) -> pd.DataFrame:
     rows: List[Dict[str, str]] = [
         {
             "Category": "Scope",
@@ -259,7 +367,18 @@ def build_qa(ctx: Dict[str, str]) -> pd.DataFrame:
             "Risk_or_Caveat": "Ensure repository includes environment versions and seeds.",
         },
     ]
+
+    if llm_client is not None:
+        enriched: List[Dict[str, str]] = []
+        for row in rows:
+            try:
+                enriched.append(llm_client.answer_row(row, ctx))
+            except Exception:
+                enriched.append(row)
+        rows = enriched
+
     df = pd.DataFrame(rows)
+
     # Normalize voice to "we" framing for presentation consistency.
     replacements = [
         (" did you ", " did we "),
@@ -319,7 +438,7 @@ def _is_complete(paths: dict) -> bool:
     return paths["out_csv"].exists() and paths["out_xlsx"].exists()
 
 
-def _process_run(run_dir: Path, force: bool = False) -> tuple[bool, str]:
+def _process_run(run_dir: Path, llm_client: Optional[QALLMClient], force: bool = False) -> tuple[bool, str]:
     paths = _run_paths(run_dir)
     if not force and _is_complete(paths):
         return False, f"skip (already complete): {run_dir}"
@@ -345,7 +464,7 @@ def _process_run(run_dir: Path, force: bool = False) -> tuple[bool, str]:
             paths["question_summary"],
             paths["latency_summary"],
         )
-        qa = build_qa(ctx)
+        qa = build_qa(ctx, llm_client=llm_client)
         qa.to_csv(paths["out_csv"], index=False)
         with pd.ExcelWriter(paths["out_xlsx"], engine="openpyxl") as w:
             qa.to_excel(w, sheet_name="presentation_qa", index=False)
@@ -374,15 +493,28 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Regenerate even when output artifacts already exist.",
     )
+    parser.add_argument(
+        "--no-llm",
+        action="store_true",
+        help="Disable LLM-generated answers and use template answers only.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = _parse_args()
 
+    llm_client = None if args.no_llm else QALLMClient.from_root_env(ROOT)
+    if args.no_llm:
+        print("LLM mode: disabled (--no-llm)")
+    elif llm_client is None:
+        print("LLM mode: unavailable (missing LLM_URL or LLM in root .env); using template answers")
+    else:
+        print(f"LLM mode: enabled ({llm_client.model})")
+
     if args.run_dir:
         run_dir = args.run_dir.expanduser().resolve()
-        changed, msg = _process_run(run_dir, force=args.force)
+        changed, msg = _process_run(run_dir, llm_client=llm_client, force=args.force)
         print(msg)
         if changed:
             paths = _run_paths(run_dir)
@@ -399,7 +531,7 @@ def main() -> None:
     generated = 0
     skipped = 0
     for run_dir in run_dirs:
-        changed, msg = _process_run(run_dir, force=args.force)
+        changed, msg = _process_run(run_dir, llm_client=llm_client, force=args.force)
         print(msg)
         if changed:
             generated += 1

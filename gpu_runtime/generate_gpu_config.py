@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -294,6 +295,60 @@ def replace_evaluation_max_tokens(config_text: str, max_tokens: int) -> str:
     return "".join(lines)
 
 
+def render_generation_profile_yaml(
+    *,
+    gpu: str,
+    concurrent_users: int,
+    target_max_output_tokens: int,
+    seq_lens_raw: str,
+    allow_fits_raw: str,
+) -> str:
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    lines = [
+        "generation_profile:",
+        f"  gpu: \"{gpu}\"",
+        f"  concurrent_users: {concurrent_users}",
+        f"  target_max_output_tokens: {target_max_output_tokens}",
+        f"  seq_lens: \"{seq_lens_raw}\"",
+        f"  allow_fits: \"{allow_fits_raw}\"",
+        f"  generated_at: \"{ts}\"",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def replace_generation_profile_block(config_text: str, profile_block: str) -> str:
+    lines = config_text.splitlines(keepends=True)
+    start = None
+    for i, line in enumerate(lines):
+        if re.match(r"^generation_profile:\s*$", line.strip()):
+            start = i
+            break
+
+    if start is not None:
+        end = len(lines)
+        for j in range(start + 1, len(lines)):
+            if re.match(r"^[A-Za-z_][A-Za-z0-9_]*:\s*$", lines[j]) and not lines[j].startswith("  "):
+                end = j
+                break
+        before = "".join(lines[:start])
+        after = "".join(lines[end:])
+        return f"{before}{profile_block}{after}"
+
+    # If block doesn't exist, insert it before `models:` if possible.
+    models_start = None
+    for i, line in enumerate(lines):
+        if re.match(r"^models:\s*$", line.strip()):
+            models_start = i
+            break
+    if models_start is None:
+        return config_text.rstrip() + "\n\n" + profile_block
+
+    before = "".join(lines[:models_start])
+    after = "".join(lines[models_start:])
+    return f"{before}{profile_block}{after}"
+
+
 def extract_evaluation_max_tokens(config_text: str) -> Optional[int]:
     lines = config_text.splitlines()
     eval_start = None
@@ -491,8 +546,16 @@ def main() -> int:
 
     generated.sort(key=lambda x: x["key"])
     new_models_block = render_models_yaml(generated)
+    generation_profile_block = render_generation_profile_yaml(
+        gpu=target_gpu,
+        concurrent_users=args.concurrent_users,
+        target_max_output_tokens=effective_max_output_tokens,
+        seq_lens_raw=args.seq_lens,
+        allow_fits_raw=args.allow_fits,
+    )
 
     if args.dry_run:
+        print(generation_profile_block)
         print(new_models_block)
         if args.target_max_output_tokens is not None:
             print(f"\nWould set evaluation.max_tokens: {args.target_max_output_tokens}")
@@ -506,8 +569,9 @@ def main() -> int:
         updated = replace_models_block(original, new_models_block)
         if args.target_max_output_tokens is not None:
             updated = replace_evaluation_max_tokens(updated, args.target_max_output_tokens)
+        updated = replace_generation_profile_block(updated, generation_profile_block)
         config_file.write_text(updated, encoding="utf-8")
-        print(f"Updated models block in: {config_file}")
+        print(f"Updated models and generation_profile blocks in: {config_file}")
         if args.target_max_output_tokens is not None:
             print(f"Updated evaluation.max_tokens in: {config_file}")
 

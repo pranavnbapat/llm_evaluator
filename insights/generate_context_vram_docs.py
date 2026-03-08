@@ -38,11 +38,10 @@ def _run_paths(run_dir: Path) -> dict:
         "language_summary": data_dir / "language_summary.csv",
         "question_summary": data_dir / "question_summary.csv",
         "latency_summary": data_dir / "latency_summary.csv",
-        "token_model_summary": data_dir / "token_budget_response_model_summary_estimated_range.csv",
-        "token_q_profile": data_dir / "token_budget_question_profile_estimated.csv",
-        "token_lq_summary": data_dir / "token_budget_response_language_question_summary_estimated_range.csv",
-        "token_response_detail": data_dir / "token_budget_response_details_estimated_range.csv",
-        "token_model_output_budget": data_dir / "token_budget_model_output_budget_estimated.csv",
+        "token_model_summary": data_dir / "token_budget_model_summary.csv",
+        "token_q_profile": data_dir / "token_budget_question_profile.csv",
+        "token_lq_summary": data_dir / "token_budget_language_question_summary.csv",
+        "token_response_detail": data_dir / "token_budget_response_details.csv",
         "guide_md": run_dir / "insights" / "VRAM_CONTEXT_CONCURRENCY_GUIDE.md",
         "deep_dive_md": run_dir / "insights" / "VRAM_CONTEXT_CONCURRENCY_DEEP_DIVE.md",
         "faq_md": run_dir / "insights" / "FAQs.md",
@@ -359,18 +358,14 @@ Definitions:
 ## D) Full Row-Level Token Table (All Responses)
 
 A detailed per-response table is exported to CSV:
-- `insights/data/token_budget_response_details_estimated_range.csv` ({ctx['token_row_count']} rows)
+- `insights/data/token_budget_response_details.csv` ({ctx['token_row_count']} rows)
 
 ## E) CSV Exports
 
-- `insights/data/token_budget_response_details_estimated_range.csv`
-- `insights/data/token_budget_response_language_question_summary_estimated_range.csv`
-- `insights/data/token_budget_response_model_summary_estimated_range.csv`
-- `insights/data/token_budget_model_language_question_estimated.csv`
-- `insights/data/token_budget_question_profile_estimated.csv`
-- `insights/data/token_budget_model_output_budget_estimated.csv`
-- `insights/data/token_budget_language_question_estimated.csv`
-- `insights/data/token_budget_prompt_details_estimated.csv`
+- `insights/data/token_budget_response_details.csv`
+- `insights/data/token_budget_language_question_summary.csv`
+- `insights/data/token_budget_model_summary.csv`
+- `insights/data/token_budget_question_profile.csv`
 
 ---
 
@@ -443,7 +438,6 @@ def _process_run(run_dir: Path, force: bool = False) -> tuple[bool, str]:
     tq = _load_or_empty(rp["token_q_profile"])
     tlq = _load_or_empty(rp["token_lq_summary"])
     trow = _load_or_empty(rp["token_response_detail"])
-    tmodel_out = _load_or_empty(rp["token_model_output_budget"])
 
     # Minimal input requirement: at least one summary table.
     if msum.empty and tmodel.empty:
@@ -470,18 +464,18 @@ def _process_run(run_dir: Path, force: bool = False) -> tuple[bool, str]:
         "top_q_score": f"{top_q['avg_overall']:.3f}" if top_q is not None else "N/A",
         "low_q": str(low_q["base_qid"]) if low_q is not None else "N/A",
         "low_q_score": f"{low_q['avg_overall']:.3f}" if low_q is not None else "N/A",
-        "input_mean": f"{tmodel['input_tokens_est_mid_mean'].mean():.1f}" if (not tmodel.empty and 'input_tokens_est_mid_mean' in tmodel.columns) else "N/A",
-        "resp_mean": f"{tmodel['response_tokens_est_mid_mean'].mean():.1f}" if (not tmodel.empty and 'response_tokens_est_mid_mean' in tmodel.columns) else "N/A",
-        "resp_p90": f"{tmodel['response_tokens_est_mid_p90'].max():.1f}" if (not tmodel.empty and 'response_tokens_est_mid_p90' in tmodel.columns) else "N/A",
-        "total_max": f"{int(tmodel['total_tokens_est_mid_max'].max())}" if (not tmodel.empty and 'total_tokens_est_mid_max' in tmodel.columns) else "N/A",
+        "input_mean": f"{tmodel['input_tokens_mean'].mean():.1f}" if (not tmodel.empty and 'input_tokens_mean' in tmodel.columns) else "N/A",
+        "resp_mean": f"{tmodel['response_tokens_mean'].mean():.1f}" if (not tmodel.empty and 'response_tokens_mean' in tmodel.columns) else "N/A",
+        "resp_p90": f"{tmodel['response_tokens_p90'].max():.1f}" if (not tmodel.empty and 'response_tokens_p90' in tmodel.columns) else "N/A",
+        "total_max": f"{int(tmodel['total_tokens_max'].max())}" if (not tmodel.empty and 'total_tokens_max' in tmodel.columns) else "N/A",
         "model_table": _md_table(msum.sort_values("avg_overall", ascending=False), ["model_name", "n", "avg_overall", "std_overall"], 10),
         "lang_table": _md_table(lsum.sort_values("avg_overall", ascending=False), ["language", "n", "avg_overall", "std_overall"], 24),
         "question_table": _md_table(qsum.sort_values("avg_overall", ascending=False), ["base_qid", "n", "avg_overall", "avg_factual", "avg_completeness", "avg_fluency"], 10),
-        "token_model_table": _md_table(tmodel.sort_values("model_name"), ["model_name", "n", "input_tokens_est_mid_mean", "response_tokens_est_mid_mean", "response_tokens_est_mid_p90", "total_tokens_est_mid_max", "remaining_output_tokens_est_min", "remaining_output_tokens_est_max"], 20),
+        "token_model_table": _md_table(tmodel.sort_values("model_name"), ["model_name", "n", "input_tokens_mean", "response_tokens_mean", "response_tokens_p90", "total_tokens_max", "remaining_output_tokens_min", "remaining_output_tokens_max"], 20),
         "token_q_table": _md_table(tq.sort_values("base_question"), ["base_question", "context_tokens_est", "question_tokens_est_avg", "prompt_tokens_est_avg"], 10),
         "token_q_table_extended": _md_table(tq.sort_values("base_question"), ["base_question", "context_tokens_est", "question_tokens_est_min", "question_tokens_est_avg", "question_tokens_est_max", "prompt_tokens_est_min", "prompt_tokens_est_avg", "prompt_tokens_est_max"], 20),
-        "token_lq_table": _md_table(tlq.sort_values(["language", "base_question"]), ["language", "base_question", "input_tokens_est_mid", "response_tokens_est_mid_mean", "response_tokens_est_mid_p90", "response_tokens_est_mid_max", "total_tokens_est_mid_mean", "total_tokens_est_mid_max"], 200),
-        "token_model_output_budget_table": _md_table(tmodel_out.sort_values("model_name"), ["model_name", "max_model_len", "remaining_output_tokens_est_min", "remaining_output_tokens_est_avg", "remaining_output_tokens_est_max", "effective_output_cap_min", "effective_output_cap_max"], 30),
+        "token_lq_table": _md_table(tlq.sort_values(["language", "base_question"]), ["language", "base_question", "input_tokens_mean", "response_tokens_mean", "response_tokens_p90", "response_tokens_max", "total_tokens_mean", "total_tokens_max"], 200),
+        "token_model_output_budget_table": _md_table(tmodel.sort_values("model_name"), ["model_name", "max_model_len", "remaining_output_tokens_min", "remaining_output_tokens_avg", "remaining_output_tokens_max", "effective_output_cap_min", "effective_output_cap_max"], 30),
         "token_row_count": str(len(trow)),
     }
 
