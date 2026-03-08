@@ -20,6 +20,46 @@ vllm_api_key: "${VLLM_API_KEY:-sk-runpod-eval}"
 # Model Configuration
 # ----------------------------------------------------------------------------
 models:
+  deepseek_r1_distill_qwen_7b_fp16_a40:
+    name: "deepseek-r1-distill-qwen-7b-a40"
+    repo: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+    local_path: "/workspace/models/deepseek_r1_distill_qwen_7b_fp16_a40"
+    quant: null
+    dtype: "float16"
+    max_model_len: 3328
+    usable_input_tokens: 2816
+    gpu_memory_util: 0.90
+
+  eurollm_9b_instruct_2512_fp16_a40:
+    name: "eurollm-9b-instruct-2512-a40"
+    repo: "utter-project/EuroLLM-9B-Instruct-2512"
+    local_path: "/workspace/models/eurollm_9b_instruct_2512_fp16_a40"
+    quant: null
+    dtype: "float16"
+    max_model_len: 768
+    usable_input_tokens: 256
+    gpu_memory_util: 0.90
+
+  gpt_oss_20b_fp16_a40:
+    name: "gpt-oss-20b-a40"
+    repo: "openai/gpt-oss-20b"
+    local_path: "/workspace/models/gpt_oss_20b_fp16_a40"
+    quant: null
+    dtype: "bfloat16"
+    max_model_len: 4096
+    usable_input_tokens: 3584
+    gpu_memory_util: 0.90
+
+  mistral_small_3_2_24b_instruct_2506_awq_sym_fp16_a40:
+    name: "mistral-small-3-2-24b-instruct-2506-awq-sym-a40"
+    repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
+    local_path: "/workspace/models/mistral_small_3_2_24b_instruct_2506_awq_sym_fp16_a40"
+    quant: null
+    dtype: "float16"
+    max_model_len: 768
+    usable_input_tokens: 256
+    gpu_memory_util: 0.90
+
   qwen3_30b_a3b_instruct_2507_awq_fp16_a40:
     name: "qwen3-30b-a3b-instruct-2507-awq-a40"
     repo: "stelterlab/Qwen3-30B-A3B-Instruct-2507-AWQ"
@@ -30,12 +70,33 @@ models:
     usable_input_tokens: 3072
     gpu_memory_util: 0.90
 
+  qwen3_5_9b_fp16_a40:
+    name: "qwen3-5-9b-a40"
+    repo: "Qwen/Qwen3.5-9B"
+    local_path: "/workspace/models/qwen3_5_9b_fp16_a40"
+    quant: null
+    dtype: "float16"
+    max_model_len: 1024
+    usable_input_tokens: 512
+    gpu_memory_util: 0.90
+
+  teuken_7b_instruct_commercial_v0_4_fp16_a40:
+    name: "teuken-7b-instruct-commercial-v0-4-a40"
+    repo: "openGPT-X/Teuken-7B-instruct-commercial-v0.4"
+    local_path: "/workspace/models/teuken_7b_instruct_commercial_v0_4_fp16_a40"
+    quant: null
+    dtype: "float16"
+    max_model_len: 4096
+    usable_input_tokens: 3584
+    gpu_memory_util: 0.90
+    trust_remote_code: true
 evaluation:
   # All 24 EU languages
   languages: ["BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU", "GA", "IT", "LV", "LT", "MT", "PL", "PT", "RO", "SK", "SL", "ES", "SV"]
   num_runs: ${NUM_RUNS:-3}                      # Runs per question
   temperature: ${TEMPERATURE:-0.0}              # Deterministic
   max_tokens: 512
+
 
 
 # ----------------------------------------------------------------------------

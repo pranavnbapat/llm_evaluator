@@ -5,7 +5,7 @@
 # Run this once on a fresh RunPod instance
 #
 # Usage:
-#   cd /workspace/llm_evaluator/runpod_setup
+#   cd /workspace/llm_evaluator/gpu_runtime
 #   bash setup.sh
 # ============================================================================
 
@@ -212,22 +212,22 @@ echo ""
 echo "Next steps:"
 echo ""
 echo "1. Set your Hugging Face token:"
-echo "   echo \"HF_TOKEN=your_token\" > /workspace/llm_evaluator/runpod_setup/.env"
+echo "   echo \"HF_TOKEN=your_token\" > /workspace/llm_evaluator/gpu_runtime/.env"
 echo ""
 echo "2. Activate virtualenv in your shell:"
 echo "   source /workspace/llm_evaluator/.venv/bin/activate"
 echo ""
 echo "3. Configure Git PAT push auth (one-time per pod):"
-echo "   bash /workspace/llm_evaluator/runpod_setup/git_bootstrap.sh"
+echo "   bash /workspace/llm_evaluator/gpu_runtime/git_bootstrap.sh"
 echo ""
 echo "4. Download models:"
-echo "   python /workspace/llm_evaluator/runpod_setup/download_models.py"
+echo "   python /workspace/llm_evaluator/gpu_runtime/download_models.py"
 echo ""
 echo "5. Run context evaluation:"
-echo "   Foreground:  python /workspace/llm_evaluator/runpod_setup/evaluate_context.py"
-echo "   Background:  bash /workspace/llm_evaluator/runpod_setup/run_evaluate_context_background.sh"
+echo "   Foreground:  python /workspace/llm_evaluator/gpu_runtime/evaluate_context.py"
+echo "   Background:  bash /workspace/llm_evaluator/gpu_runtime/run_evaluate_context_background.sh"
 echo ""
 echo "6. Run scoring:"
-echo "   Foreground:  python /workspace/llm_evaluator/runpod_setup/evaluate_context_results.py"
-echo "   Background:  bash /workspace/llm_evaluator/runpod_setup/run_evaluate_context_results_background.sh"
+echo "   Foreground:  python /workspace/llm_evaluator/gpu_runtime/evaluate_context_results.py"
+echo "   Background:  bash /workspace/llm_evaluator/gpu_runtime/run_evaluate_context_results_background.sh"
 echo ""

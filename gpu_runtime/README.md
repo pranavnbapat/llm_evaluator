@@ -16,23 +16,23 @@ cd llm_evaluator
 ### 2. Setup
 
 ```bash
-bash runpod_setup/setup.sh
+bash gpu_runtime/setup.sh
 source .venv/bin/activate
 ```
 
 ### 3. Configure tokens
 
 ```bash
-echo "HF_TOKEN=hf_your_token" > runpod_setup/.env
+echo "HF_TOKEN=hf_your_token" > gpu_runtime/.env
 export OPENAI_API_KEY="sk_your_key"
 ```
 
 ### 4. Generate GPU-specific model config
 
 ```bash
-python runpod_setup/generate_gpu_config.py a40 \
-  --repos-file runpod_setup/model_repos.txt \
-  --config-file runpod_setup/config.yaml \
+python gpu_runtime/generate_gpu_config.py a40 \
+  --repos-file gpu_runtime/model_repos.txt \
+  --config-file gpu_runtime/config.yaml \
   --concurrent-users 50 \
   --target-max-output-tokens 512
 ```
@@ -40,31 +40,31 @@ python runpod_setup/generate_gpu_config.py a40 \
 ### 5. Download models
 
 ```bash
-python runpod_setup/download_models.py
+python gpu_runtime/download_models.py
 ```
 
 ### 6. Run evaluation
 
 Foreground:
 ```bash
-python runpod_setup/evaluate_context.py
+python gpu_runtime/evaluate_context.py
 ```
 
 Background:
 ```bash
-bash runpod_setup/run_evaluate_context_background.sh
+bash gpu_runtime/run_evaluate_context_background.sh
 ```
 
 ### 7. Run scoring
 
 Foreground:
 ```bash
-python runpod_setup/evaluate_context_results.py
+python gpu_runtime/evaluate_context_results.py
 ```
 
 Background:
 ```bash
-bash runpod_setup/run_evaluate_context_results_background.sh
+bash gpu_runtime/run_evaluate_context_results_background.sh
 ```
 
 ### 8. Generate insights (run after scoring)
@@ -105,12 +105,12 @@ Latest symlink:
 
 Generate only (no file write):
 ```bash
-python runpod_setup/generate_gpu_config.py a40 --dry-run
+python gpu_runtime/generate_gpu_config.py a40 --dry-run
 ```
 
 Include tighter fits:
 ```bash
-python runpod_setup/generate_gpu_config.py a40 --allow-fits "comfortable,tight"
+python gpu_runtime/generate_gpu_config.py a40 --allow-fits "comfortable,tight"
 ```
 
 Force run folder controls:
@@ -155,5 +155,5 @@ cat results/runs/<gpu_bucket>/<run_id>/metadata/run_info.json
 Configure once per server:
 
 ```bash
-bash runpod_setup/git_bootstrap.sh
+bash gpu_runtime/git_bootstrap.sh
 ```

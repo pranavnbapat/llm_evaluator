@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Batch-generate `models:` entries in runpod_setup/config.yaml for one target GPU.
+Batch-generate `models:` entries in gpu_runtime/config.yaml for one target GPU.
 
 Rules:
 - Read HF repos from a plain text file (one repo per line).
@@ -318,12 +318,12 @@ def main() -> int:
     parser.add_argument("gpu", help="Target GPU: a40|a100|a100sxm|h200|h200_sxm|b200")
     parser.add_argument(
         "--repos-file",
-        default="runpod_setup/model_repos.txt",
+        default="gpu_runtime/model_repos.txt",
         help="Text file with one HF repo per line.",
     )
     parser.add_argument(
         "--config-file",
-        default="runpod_setup/config.yaml",
+        default="gpu_runtime/config.yaml",
         help="Config file where `models:` block will be replaced.",
     )
     parser.add_argument("--seq-lens", default="4096,8192,16384", help="Comma-separated candidate sequence lengths.")

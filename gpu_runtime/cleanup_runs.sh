@@ -5,9 +5,9 @@ set -euo pipefail
 # Default mode is dry-run. Use --apply to actually delete.
 #
 # Examples:
-#   bash runpod_setup/cleanup_runs.sh --gpu-bucket a40 --prune-partial
-#   bash runpod_setup/cleanup_runs.sh --gpu-bucket a40 --keep-latest 2
-#   bash runpod_setup/cleanup_runs.sh --gpu-bucket a40 --prune-partial --keep-latest 2 --apply
+#   bash gpu_runtime/cleanup_runs.sh --gpu-bucket a40 --prune-partial
+#   bash gpu_runtime/cleanup_runs.sh --gpu-bucket a40 --keep-latest 2
+#   bash gpu_runtime/cleanup_runs.sh --gpu-bucket a40 --prune-partial --keep-latest 2 --apply
 
 GPU_BUCKET="a40"
 RESULTS_ROOT="results/runs"

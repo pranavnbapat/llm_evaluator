@@ -554,7 +554,7 @@ def build_llm_prompt(
         label = target_gpu.upper().replace("_SXM", "-SXM")
         lines.append(f"Output one YAML block for {label} only.")
     else:
-        lines.append("Output four YAML blocks (A40, A100, H200-SXM, B200) for runpod_setup/config.yaml.")
+        lines.append("Output four YAML blocks (A40, A100, H200-SXM, B200) for gpu_runtime/config.yaml.")
     lines.append("Formatting rules:")
     lines.append("- Use lower-case keys with two-space indentation.")
     lines.append("- Use quant: null for FP16 (not 'none').")

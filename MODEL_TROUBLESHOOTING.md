@@ -172,7 +172,7 @@ mixtral_8x7b_awq:
 
 ```bash
 # 1. Verify .env has tokens
-cat runpod_setup/.env
+cat gpu_runtime/.env
 
 # 2. Check model files are complete
 ls -la /workspace/models/model_name/

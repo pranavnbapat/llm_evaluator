@@ -14,7 +14,7 @@ usage() {
   cat <<USAGE
 Usage: $(basename "$0") [--mode tmux|nohup] [--session NAME]
 
-Starts runpod_setup/evaluate_context.py in a persistent background run.
+Starts gpu_runtime/evaluate_context.py in a persistent background run.
 Defaults:
   --mode tmux
   --session eval_context
@@ -50,7 +50,7 @@ fi
 
 if [[ ! -x "$PYTHON_BIN" ]]; then
   echo "Missing virtualenv python: $PYTHON_BIN"
-  echo "Run runpod_setup/setup.sh first."
+  echo "Run gpu_runtime/setup.sh first."
   exit 1
 fi
 

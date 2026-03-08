@@ -1,11 +1,11 @@
-# runpod_setup/evaluate_context_results.py
+# gpu_runtime/evaluate_context_results.py
 
 #!/usr/bin/env python3
 """
 Evaluate context-based responses from SQLite database using scientific metrics.
 
 Usage:
-    python runpod_setup/evaluate_context_results.py
+    python gpu_runtime/evaluate_context_results.py
 
 This will:
     1. Read all responses from results/evaluation_results_euf_context.db
@@ -203,7 +203,7 @@ def main():
     
     if not db_path.exists():
         print(f"❌ Database not found: {db_path}")
-        print(f"   Run evaluation first: python runpod_setup/evaluate_context.py")
+        print(f"   Run evaluation first: python gpu_runtime/evaluate_context.py")
         sys.exit(1)
     
     # Initialize evaluator

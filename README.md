@@ -5,7 +5,7 @@ Evaluate configurable LLM sets across 24 EU languages using reproducible metrics
 ## Documentation
 
 - Deployment and execution on a GPU server:
-  [runpod_setup/README.md](runpod_setup/README.md)
+  [gpu_runtime/README.md](gpu_runtime/README.md)
 - Scoring-only setup and usage:
   [README_SCORING.md](README_SCORING.md)
 
@@ -17,8 +17,8 @@ Evaluate configurable LLM sets across 24 EU languages using reproducible metrics
 The model set is configurable and not fixed in this README.
 
 Source of truth:
-- Candidate repos: `runpod_setup/model_repos.txt`
-- Active run config: `runpod_setup/config.yaml` (`models:` block, often generated via `generate_gpu_config.py`)
+- Candidate repos: `gpu_runtime/model_repos.txt`
+- Active run config: `gpu_runtime/config.yaml` (`models:` block, often generated via `generate_gpu_config.py`)
 
 ### 24 EU Languages
 BG, HR, CS, DA, NL, EN, ET, FI, FR, DE, EL, HU, GA, IT, LV, LT, MT, PL, PT, RO, SK, SL, ES, SV
@@ -50,7 +50,7 @@ Questions × Languages × Models × Runs → Responses → Metrics → Analysis
 
 ### Benchmark Protocol
 - Fixed multilingual question/context set from `translations/eu_24_languages_euf_context.py`
-- Repeated runs controlled by `runpod_setup/config.yaml`:
+- Repeated runs controlled by `gpu_runtime/config.yaml`:
   - `evaluation.num_runs`
   - `evaluation.temperature`
   - `evaluation.max_tokens`
@@ -63,7 +63,7 @@ Questions × Languages × Models × Runs → Responses → Metrics → Analysis
   - `metadata/run_info.json` and `metadata/model_status.json`
 
 ### Quality Scoring
-The scoring stage (`runpod_setup/evaluate_context_results.py`) computes:
+The scoring stage (`gpu_runtime/evaluate_context_results.py`) computes:
 - Relevance
 - Factual Accuracy
 - Completeness

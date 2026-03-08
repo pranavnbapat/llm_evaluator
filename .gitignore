@@ -56,7 +56,7 @@ venv.bak/
 !.env.runpod.example
 
 # RunPod setup specific env file
-runpod_setup/.env
+gpu_runtime/.env
 secrets/
 *.pem
 *.key

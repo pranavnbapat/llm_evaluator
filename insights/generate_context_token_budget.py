@@ -195,7 +195,7 @@ def _process_run(run_dir: Path, force: bool = False) -> tuple[bool, str]:
                 pd.DataFrame().to_csv(p, index=False)
         return True, f"generated (empty data): {run_dir}"
 
-    config_map = _model_len_map_from_config(ROOT / "runpod_setup" / "config.yaml")
+    config_map = _model_len_map_from_config(ROOT / "gpu_runtime" / "config.yaml")
 
     m = res.merge(
         qdf[["question_id", "base_question", "question_chars", "context_chars", "prompt_chars", "prompt_tokens_est"]],

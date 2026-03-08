@@ -3,7 +3,7 @@
 Generated: 2026-03-07
 
 This report measures prompt budget from:
-- `runpod_setup/evaluate_context.py` prompt template
+- `gpu_runtime/evaluate_context.py` prompt template
 - `translations/eu_24_languages_euf_context.py` question/context data
 
 Token counts are **estimates** using `round(char_count / 4)`. Exact token counts vary by model tokenizer.

@@ -7,8 +7,8 @@ Source of questions/context:
 - `translations/eu_24_languages_euf_context.py`
 
 Execution/scoring scripts:
-- `runpod_setup/evaluate_context.py`
-- `runpod_setup/evaluate_context_results.py`
+- `gpu_runtime/evaluate_context.py`
+- `gpu_runtime/evaluate_context_results.py`
 
 ## Dataset Design
 

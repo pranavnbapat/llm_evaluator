@@ -1,4 +1,4 @@
-# runpod_setup/evaluate_context.py
+# gpu_runtime/evaluate_context.py
 
 #!/workspace/llm_evaluator/.venv/bin/python3
 """
@@ -1047,7 +1047,7 @@ def main():
             print(f"📄 Excel exported to: {excel_path}")
             print(f"📄 By-model Excel exported to: {db_path.with_name(f'{db_path.stem}_by_model.xlsx')}")
         print("\nNext steps:")
-        print("   1. Run scoring: python runpod_setup/evaluate_context_results.py")
+        print("   1. Run scoring: python gpu_runtime/evaluate_context_results.py")
         print(f"   2. Check results in {db_path}")
         if excel_path:
             print(f"   3. Review spreadsheet in {excel_path}")

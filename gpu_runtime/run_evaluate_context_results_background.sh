@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 LOG_DIR="$REPO_DIR/logs"
 PYTHON_BIN="$REPO_DIR/.venv/bin/python"
-EVAL_SCRIPT="$REPO_DIR/runpod_setup/evaluate_context_results.py"
+EVAL_SCRIPT="$REPO_DIR/gpu_runtime/evaluate_context_results.py"
 
 MODE="tmux"
 SESSION_NAME="eval_context_scores"
@@ -15,7 +15,7 @@ usage() {
   cat <<USAGE
 Usage: $(basename "$0") [--mode tmux|nohup] [--session NAME] [--all-runs]
 
-Starts runpod_setup/evaluate_context_results.py in a persistent background run.
+Starts gpu_runtime/evaluate_context_results.py in a persistent background run.
 Defaults:
   --mode tmux
   --session eval_context_scores
@@ -56,7 +56,7 @@ fi
 
 if [[ ! -x "$PYTHON_BIN" ]]; then
   echo "Missing virtualenv python: $PYTHON_BIN"
-  echo "Run runpod_setup/setup.sh first."
+  echo "Run gpu_runtime/setup.sh first."
   exit 1
 fi
 

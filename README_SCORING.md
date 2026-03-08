@@ -1,6 +1,6 @@
 # Scoring Run Guide (RunPod)
 
-This guide runs only the scoring step (`runpod_setup/evaluate_context_results.py`) from an existing context-evaluation database.
+This guide runs only the scoring step (`gpu_runtime/evaluate_context_results.py`) from an existing context-evaluation database.
 
 ## 1) Clone and Set Up Python Env
 
@@ -29,7 +29,7 @@ tmux -V
 ## 3) Run Scoring (Foreground)
 
 ```bash
-python runpod_setup/evaluate_context_results.py
+python gpu_runtime/evaluate_context_results.py
 ```
 
 By default, scoring resolves paths in this order:
@@ -41,7 +41,7 @@ By default, scoring resolves paths in this order:
 ## 4) Run Scoring Detached (tmux background)
 
 ```bash
-bash runpod_setup/run_evaluate_context_results_background.sh
+bash gpu_runtime/run_evaluate_context_results_background.sh
 ```
 
 Default tmux session name: `eval_context_scores`
@@ -66,7 +66,7 @@ Created/updated in the active run folder (recommended):
 
 Important behavior:
 
-- `runpod_setup/evaluate_context_results.py` performs a full rescore for the selected run.
+- `gpu_runtime/evaluate_context_results.py` performs a full rescore for the selected run.
 - It clears existing rows in the `scores` table (`DELETE FROM scores`) before inserting new scores.
 - So rerunning scoring overwrites prior score rows for that run DB instead of appending duplicates.
 
@@ -94,7 +94,7 @@ These scripts are run-folder aware and support both single-run and bulk modes.
 
 Dependency order:
 
-1. `runpod_setup/evaluate_context_results.py` (creates `scores/*.db` + `scores/*.xlsx`)
+1. `gpu_runtime/evaluate_context_results.py` (creates `scores/*.db` + `scores/*.xlsx`)
 2. `insights/generate_context_charts.py` (creates `insights/data/*.csv` + `insights/charts/*.png`)
 3. `insights/generate_context_insights.py` (creates `insights/EVALUATION_CONTEXT_REPORT.md`)
 4. `insights/generate_presentation_qa.py` (creates `insights/Presentation_QA.md` + `insights/data/presentation_qa.*`)
@@ -106,7 +106,7 @@ Single run (recommended):
 RUN_DIR="results/runs/a40/2026-03-01_230442_context_eval"
 
 EVAL_RUN_GPU=a40 EVAL_RUN_DIR="$RUN_DIR" \
-python runpod_setup/evaluate_context_results.py
+python gpu_runtime/evaluate_context_results.py
 
 python insights/generate_context_charts.py --run-dir "$RUN_DIR"
 python insights/generate_context_insights.py --run-dir "$RUN_DIR"
@@ -140,7 +140,7 @@ Then scoring has not completed for that run yet. Run:
 
 ```bash
 EVAL_RUN_GPU=a40 EVAL_RUN_DIR="results/runs/a40/2026-03-01_230442_context_eval" \
-python runpod_setup/evaluate_context_results.py
+python gpu_runtime/evaluate_context_results.py
 ```
 
 If you see:
