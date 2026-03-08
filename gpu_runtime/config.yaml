@@ -40,16 +40,6 @@ models:
     usable_input_tokens: 256
     gpu_memory_util: 0.90
 
-  gpt_oss_20b_fp16_a40:
-    name: "gpt-oss-20b-a40"
-    repo: "openai/gpt-oss-20b"
-    local_path: "/workspace/models/gpt_oss_20b_fp16_a40"
-    quant: null
-    dtype: "bfloat16"
-    max_model_len: 4096
-    usable_input_tokens: 3584
-    gpu_memory_util: 0.90
-
   mistral_small_3_2_24b_instruct_2506_awq_sym_fp16_a40:
     name: "mistral-small-3-2-24b-instruct-2506-awq-sym-a40"
     repo: "jeffcookio/Mistral-Small-3.2-24B-Instruct-2506-awq-sym"
@@ -96,6 +86,7 @@ evaluation:
   num_runs: ${NUM_RUNS:-3}                      # Runs per question
   temperature: ${TEMPERATURE:-0.0}              # Deterministic
   max_tokens: 512
+
 
 
 
