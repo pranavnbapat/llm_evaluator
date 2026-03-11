@@ -10,6 +10,7 @@ EVAL_SCRIPT="$REPO_DIR/gpu_runtime/evaluate_context_results.py"
 MODE="tmux"
 SESSION_NAME="eval_context_scores"
 ALL_RUNS=0
+ALL_RUNS_EXPLICIT=0
 
 usage() {
   cat <<USAGE
@@ -19,7 +20,9 @@ Starts gpu_runtime/evaluate_context_results.py in a persistent background run.
 Defaults:
   --mode tmux
   --session eval_context_scores
-  --all-runs disabled (scores one run via EVAL_RUN_DIR/EVAL_RUN_ID/latest)
+  auto mode:
+    - if EVAL_RUN_DIR/EVAL_RUN_ID is set: score that run
+    - otherwise: score all runs under results/runs/<detected_gpu_bucket>/
 USAGE
 }
 
@@ -35,6 +38,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --all-runs)
       ALL_RUNS=1
+      ALL_RUNS_EXPLICIT=1
       shift 1
       ;;
     -h|--help)
@@ -92,6 +96,12 @@ elif [[ -L "$REPO_DIR/results/latest/$GPU_BUCKET" || -e "$REPO_DIR/results/lates
   RUN_DIR="$(readlink -f "$REPO_DIR/results/latest/$GPU_BUCKET")"
 else
   RUN_DIR=""
+fi
+
+# Auto behavior: if user did not explicitly choose mode and no run is pinned,
+# process all runs in the detected/selected GPU bucket.
+if [[ $ALL_RUNS_EXPLICIT -eq 0 && -z "${EVAL_RUN_DIR:-}" && -z "${EVAL_RUN_ID:-}" ]]; then
+  ALL_RUNS=1
 fi
 
 if [[ $ALL_RUNS -eq 1 ]]; then

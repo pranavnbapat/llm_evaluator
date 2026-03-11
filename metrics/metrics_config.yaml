@@ -56,15 +56,15 @@ profiles:
   context:
     normalize_weights: true
     weights:
-      relevance: 0.30
-      factual_accuracy: 0.30
+      relevance: 0.28
+      factual_accuracy: 0.28
       completeness: 0.20
-      fluency: 0.15
+      fluency: 0.14
       coherence: 0.05
       prompt_alignment: 0.00
-      token_efficiency: 0.00
+      token_efficiency: 0.05
     token_efficiency:
-      enabled: false
+      enabled: true
       expected_length_default: [50, 500]
       expected_length_by_question: {}
     fluency:

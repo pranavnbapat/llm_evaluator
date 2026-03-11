@@ -77,6 +77,22 @@ By default, scoring resolves paths in this order:
 bash gpu_runtime/run_evaluate_context_results_background.sh
 ```
 
+Default behavior of background launcher:
+
+- If `EVAL_RUN_DIR` or `EVAL_RUN_ID` is set: scores that specific run.
+- If neither is set: scores all runs under `results/runs/<detected_or_forced_gpu_bucket>/`.
+
+Examples:
+
+```bash
+# Score one specific run
+EVAL_RUN_GPU=a40 EVAL_RUN_DIR="results/runs/a40/<run_id>" \
+bash gpu_runtime/run_evaluate_context_results_background.sh
+
+# Score all runs in a40 bucket (even on non-a40 hardware)
+EVAL_RUN_GPU=a40 bash gpu_runtime/run_evaluate_context_results_background.sh
+```
+
 Default tmux session name: `eval_context_scores`
 
 Useful commands:

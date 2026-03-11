@@ -2,6 +2,7 @@
   "dataset_id": "euf_context_multilingual_v1",
   "status": "active",
   "source_of_truth": "translations/eu_24_languages_euf_context.py",
+  "scope_note": "This manifest documents the active GPU context-evaluation dataset. The FastAPI app under app/ uses the older generic question set from translations/eu_24_languages.py.",
   "description": "Context-based multilingual evaluation set for EU-FarmBook style agricultural assistant benchmarking.",
   "languages": [
     "BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU",
@@ -57,12 +58,12 @@
     "metrics": [
       {
         "name": "relevance",
-        "weight": 0.30,
+        "weight": 0.28,
         "enabled": true
       },
       {
         "name": "factual_accuracy",
-        "weight": 0.30,
+        "weight": 0.28,
         "enabled": true
       },
       {
@@ -72,7 +73,7 @@
       },
       {
         "name": "fluency",
-        "weight": 0.15,
+        "weight": 0.14,
         "enabled": true
       },
       {
@@ -87,8 +88,8 @@
       },
       {
         "name": "token_efficiency",
-        "weight": 0.00,
-        "enabled": false
+        "weight": 0.05,
+        "enabled": true
       }
     ],
     "composite_metric": "overall_quality"

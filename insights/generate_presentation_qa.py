@@ -181,32 +181,32 @@ def load_context(
             ctx["fast_latency"] = f"{fast['avg_latency_ms']:.0f} ms"
             ctx["slow_model"] = str(slow["model_name"])
             ctx["slow_latency"] = f"{slow['avg_latency_ms']:.0f} ms"
-
-    defaults = {
-        "best_model": "devstral-small-2-24b-instruct-2512-b200",
-        "best_score": "0.816",
-        "worst_model": "deepseek-r1-distill-qwen-14b-b200",
-        "worst_score": "0.774",
-        "spread": "0.042",
-        "models_n": "9",
-        "top_lang": "ES",
-        "top_lang_score": "0.817",
-        "bottom_lang": "GA",
-        "bottom_lang_score": "0.679",
-        "lang_spread": "0.138",
-        "langs_n": "24",
-        "top_q": "Q1",
-        "top_q_score": "0.823",
-        "low_q": "Q2",
-        "low_q_score": "0.768",
-        "qs_n": "5",
-        "fast_model": "eurollm-9b-instruct-2512",
-        "fast_latency": "2752 ms",
-        "slow_model": "deepseek-r1-distill-qwen-32b-b200",
-        "slow_latency": "14418 ms",
-    }
-    for k, v in defaults.items():
-        ctx.setdefault(k, v)
+    required = [
+        "best_model",
+        "best_score",
+        "worst_model",
+        "worst_score",
+        "spread",
+        "models_n",
+        "top_lang",
+        "top_lang_score",
+        "bottom_lang",
+        "bottom_lang_score",
+        "lang_spread",
+        "langs_n",
+        "top_q",
+        "top_q_score",
+        "low_q",
+        "low_q_score",
+        "qs_n",
+        "fast_model",
+        "fast_latency",
+        "slow_model",
+        "slow_latency",
+    ]
+    missing = [k for k in required if k not in ctx or str(ctx[k]).strip() == ""]
+    if missing:
+        raise ValueError(f"Missing required context fields from insight summaries: {', '.join(missing)}")
     return ctx
 
 

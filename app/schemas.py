@@ -2,7 +2,7 @@
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class QuestionCategory(str, Enum):
@@ -77,13 +77,15 @@ class QualityScores(BaseModel):
 
 class EvaluationResult(BaseModel):
     """Complete result of a single evaluation run."""
+    model_config = ConfigDict(populate_by_name=True)
+
     # Identification
     run_id: str = Field(..., description="Unique identifier for this run")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     
     # Model info
     model_name: str
-    model_config: Optional[Dict[str, Any]] = None
+    model_settings: Optional[Dict[str, Any]] = Field(default=None, alias="model_config")
     
     # Question info
     question_id: str

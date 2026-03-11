@@ -135,6 +135,13 @@ def build_tables(gpu: pd.DataFrame, results_db: Path, scores_db: Path) -> Dict[s
     merged = model_gpu.merge(results[["model_name_norm", "model_name", "avg_latency_ms", "max_latency_ms"]], on="model_name_norm", how="left")
     merged = merged.merge(scores[["model_name_norm", "avg_overall_quality"]], on="model_name_norm", how="left")
     merged["display_model"] = merged["model_name"].fillna(merged["model_name_norm"])
+    # Composite KPI: quality delivered per second of average latency.
+    # Higher is better (more quality for less time).
+    merged["quality_per_second"] = np.where(
+        (merged["avg_latency_ms"].notna()) & (merged["avg_latency_ms"] > 0) & (merged["avg_overall_quality"].notna()),
+        merged["avg_overall_quality"] / (merged["avg_latency_ms"] / 1000.0),
+        np.nan,
+    )
     merged = merged.sort_values("gpu_util_mean", ascending=False)
 
     return {
@@ -269,6 +276,8 @@ def write_outputs(
     lines.append("- **`temp_max_c`**: highest GPU temperature observed.")
     lines.append("- **`avg_latency_ms`**: average end-to-end response latency per model from results DB.")
     lines.append("- **`avg_overall_quality`**: average final quality score from scores DB (0 to 1).")
+    lines.append("- **`quality_per_second`**: `avg_overall_quality / (avg_latency_ms / 1000)`.")
+    lines.append("  Higher means better quality-speed tradeoff (more quality delivered per second).")
     lines.append("")
     lines.append("### Why Percentiles (P10/P90) Matter")
     lines.append("")
@@ -323,6 +332,7 @@ def write_outputs(
     m["mem_used_max_gb"] = (m["mem_used_max_mb"] / 1024.0).map(lambda x: f"{x:.2f}")
     m["avg_latency_ms"] = m["avg_latency_ms"].map(lambda x: f"{x:.1f}" if pd.notna(x) else "NA")
     m["avg_overall_quality"] = m["avg_overall_quality"].map(lambda x: f"{x:.3f}" if pd.notna(x) else "NA")
+    m["quality_per_second"] = m["quality_per_second"].map(lambda x: f"{x:.4f}" if pd.notna(x) else "NA")
     lines.append(
         _md_table(
             m[
@@ -339,6 +349,7 @@ def write_outputs(
                     "temp_max_c",
                     "avg_latency_ms",
                     "avg_overall_quality",
+                    "quality_per_second",
                 ]
             ].rename(columns={"display_model": "model"})
         )

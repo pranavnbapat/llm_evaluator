@@ -1,7 +1,7 @@
 # LLM Evaluation Framework - Current Context Pipeline
 
 ## Scope
-This document describes the **active** evaluation and scoring framework used by the context pipeline.
+This document describes the **active GPU context-evaluation pipeline** and its scoring framework.
 
 Source of questions/context:
 - `translations/eu_24_languages_euf_context.py`
@@ -9,6 +9,10 @@ Source of questions/context:
 Execution/scoring scripts:
 - `gpu_runtime/evaluate_context.py`
 - `gpu_runtime/evaluate_context_results.py`
+
+Note:
+- This document is about the GPU context pipeline.
+- The FastAPI app under `app/` still uses the older generic question set from `translations/eu_24_languages.py`.
 
 ## Dataset Design
 
@@ -36,17 +40,17 @@ Metric outputs written to the scores DB:
 ### Composite score weights
 Using `metrics/metrics_config.yaml` profile `context`:
 
-- relevance: `0.30`
-- factual_accuracy: `0.30`
+- relevance: `0.28`
+- factual_accuracy: `0.28`
 - completeness: `0.20`
-- fluency: `0.15`
+- fluency: `0.14`
 - coherence: `0.05`
 - prompt_alignment: `0.00` (disabled in this profile)
-- token_efficiency: `0.00` (disabled in this profile)
+- token_efficiency: `0.05` (enabled in this profile)
 
 Composite formula:
 
-`overall_quality = 0.30*relevance + 0.30*factual_accuracy + 0.20*completeness + 0.15*fluency + 0.05*coherence`
+`overall_quality = 0.28*relevance + 0.28*factual_accuracy + 0.20*completeness + 0.14*fluency + 0.05*coherence + 0.05*token_efficiency`
 
 ## Storage Schema (Current)
 
@@ -85,5 +89,5 @@ Table: `scores`
 ## Important Notes
 
 - `prompt_alignment` and `token_efficiency` are still stored in outputs for schema consistency.
-- In the active context profile, both currently contribute `0.00` to `overall_quality`.
+- In the active context profile, `prompt_alignment` contributes `0.00` and `token_efficiency` contributes `0.05` to `overall_quality`.
 - The legacy `data/evaluation_questions.json` format from older generic tasks is deprecated in favor of the multilingual context source module.

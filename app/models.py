@@ -49,8 +49,8 @@ class EvaluationRun(Base):
     # Error tracking
     error = Column(Text, nullable=True)
     
-    # Additional metadata
-    metadata = Column(JSON, default=dict)
+    # Keep the DB column name as `metadata`, but avoid the reserved ORM attribute.
+    extra_metadata = Column("metadata", JSON, default=dict)
 
 
 class AggregateResult(Base):
@@ -123,7 +123,7 @@ def store_evaluation_result(session, result: Dict[str, Any]):
         score_token_efficiency=result.get("quality_scores", {}).get("token_efficiency"),
         score_overall=result.get("quality_scores", {}).get("overall_quality"),
         error=result.get("error"),
-        metadata=result.get("metadata", {}),
+        extra_metadata=result.get("metadata", {}),
     )
     session.add(db_result)
     session.commit()

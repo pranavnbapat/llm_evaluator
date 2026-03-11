@@ -67,6 +67,21 @@ Background:
 bash gpu_runtime/run_evaluate_context_results_background.sh
 ```
 
+Background scorer default behavior:
+- If `EVAL_RUN_DIR` or `EVAL_RUN_ID` is set: scores that single run.
+- If neither is set: scores all runs under `results/runs/<detected_or_forced_gpu_bucket>/`.
+
+Examples:
+
+```bash
+# Score one run
+EVAL_RUN_GPU=a40 EVAL_RUN_DIR="results/runs/a40/<run_id>" \
+bash gpu_runtime/run_evaluate_context_results_background.sh
+
+# Score all a40 runs (useful when hardware is A100 but run data is in a40 bucket)
+EVAL_RUN_GPU=a40 bash gpu_runtime/run_evaluate_context_results_background.sh
+```
+
 Scoring performance env (recommended):
 
 ```bash

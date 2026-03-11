@@ -239,7 +239,7 @@ async def evaluate(request: EvaluationRequest):
                 "run_id": result.run_id,
                 "timestamp": result.timestamp,
                 "model_name": result.model_name,
-                "model_config": result.model_config,
+                "model_config": result.model_settings,
                 "question_id": result.question_id,
                 "question_category": result.question_category,
                 "language": result.language,
