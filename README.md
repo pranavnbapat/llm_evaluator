@@ -2,6 +2,9 @@
 
 Evaluate configurable LLM sets across 24 EU languages using reproducible metrics.
 
+This repository's supported workflow is the GPU context-evaluation pipeline in `gpu_runtime/`.
+The legacy FastAPI app has been removed.
+
 ## Documentation
 
 - Deployment and execution on a GPU server:
@@ -23,12 +26,12 @@ Source of truth:
 ### 24 EU Languages
 BG, HR, CS, DA, NL, EN, ET, FI, FR, DE, EL, HU, GA, IT, LV, LT, MT, PL, PT, RO, SK, SL, ES, SV
 
-### 5 Evaluation Questions
-1. **Factual Knowledge** - Portugal facts
-2. **Logical Reasoning** - Math word problem
-3. **Instruction Following** - JSON output
-4. **Cultural Nuance** - EU multilingualism
-5. **Summarization** - CAP policy summary
+### 5 Evaluation Question Families
+1. **Organic Weed Control**
+2. **Soil Health Restoration**
+3. **Climate Adaptation**
+4. **EU Funding for Agroecology**
+5. **Integrated Pest Management**
 
 ### Quality Metrics
 - Relevance (semantic similarity)
@@ -101,15 +104,15 @@ sqlite3 results/runs/<gpu_bucket>/<run_id>/raw/evaluation_results_euf_context.db
 
 ## 🔬 Evaluation Method
 
-All metrics are computed **locally** on GPU - no external API calls needed:
+All metrics are computed **locally** on GPU after response generation:
 
 | Metric | Method |
 |--------|--------|
 | Relevance | Sentence-transformers embeddings |
-| Factual Accuracy | Rule-based + reference matching |
-| Completeness | Checklist-based scoring |
-| Fluency | Perplexity + language detection |
-| Coherence | Statistical discourse analysis |
-| Prompt Alignment | Pattern matching |
+| Factual Accuracy | NLI/context entailment |
+| Completeness | Context coverage scoring |
+| Fluency | Zero-shot classification |
+| Coherence | Zero-shot classification |
+| Prompt Alignment | Semantic alignment |
 
 ---

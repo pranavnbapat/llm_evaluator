@@ -12,7 +12,7 @@ Execution/scoring scripts:
 
 Note:
 - This document is about the GPU context pipeline.
-- The FastAPI app under `app/` still uses the older generic question set from `translations/eu_24_languages.py`.
+- The legacy FastAPI app has been removed from the supported workflow.
 
 ## Dataset Design
 

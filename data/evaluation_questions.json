@@ -2,7 +2,7 @@
   "dataset_id": "euf_context_multilingual_v1",
   "status": "active",
   "source_of_truth": "translations/eu_24_languages_euf_context.py",
-  "scope_note": "This manifest documents the active GPU context-evaluation dataset. The FastAPI app under app/ uses the older generic question set from translations/eu_24_languages.py.",
+  "scope_note": "This manifest documents the active GPU context-evaluation dataset and supported workflow.",
   "description": "Context-based multilingual evaluation set for EU-FarmBook style agricultural assistant benchmarking.",
   "languages": [
     "BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU",
