@@ -2,12 +2,27 @@
 
 Run context-based EU-FarmBook evaluation on a GPU server.
 
+Examples below use `/workspace/llm_evaluator`. If that folder does not exist yet on your machine, create `/workspace` first and then clone the repo there.
+
+Python version: use `python3`. In this project, the current validated interpreter is Python 3.12.3, and the setup examples assume that `python3` resolves to that interpreter or a compatible Python 3.12 install.
+
+Currently tuned GPU targets for config generation are:
+- `a40`
+- `l40s`
+- `3090`
+- `a100`
+- `h200_sxm`
+- `b200`
+
+Those are the GPUs with first-class sizing support in `gpu_runtime/generate_gpu_config.py` and `model_static_check.py` today.
+
 ## Quick Start
 
 ### 1. Clone on GPU server
 
 ```bash
 ssh YOUR_GPU_SERVER_IP_CONFIG
+mkdir -p /workspace
 cd /workspace
 git clone https://github.com/pranavnbapat/llm_evaluator
 cd llm_evaluator
@@ -24,8 +39,13 @@ source .venv/bin/activate
 
 ```bash
 echo "HF_TOKEN=hf_your_token" > gpu_runtime/.env
-export OPENAI_API_KEY="sk_your_key"
 ```
+
+`HF_TOKEN` is required for downloading gated Hugging Face models and configs.
+
+`OPENAI_API_KEY` is not required for the core GPU runtime flow.
+
+An LLM API key is only optional for some insight-generation helpers outside the core runtime flow, such as presentation/report generation scripts under `insights/`.
 
 ### 4. Generate GPU-specific model config
 
@@ -36,6 +56,14 @@ python gpu_runtime/generate_gpu_config.py a40 \
   --concurrent-users 50 \
   --target-max-output-tokens 512
 ```
+
+Replace `a40` with one of: `a40`, `l40s`, `3090`, `a100`, `h200_sxm`, `b200`.
+
+`h100_sxm` is detected by the runtime for run bucketing, but it does not currently have a dedicated config-generation profile.
+
+For practical sizing:
+- `l40s` currently uses the same VRAM class assumptions as `a40` (48 GB).
+- `3090` uses a 24 GB profile, so expect a much smaller model set to pass config generation.
 
 ### 5. Download models
 
@@ -85,15 +113,16 @@ EVAL_RUN_GPU=a40 bash gpu_runtime/run_evaluate_context_results_background.sh
 Scoring performance env (recommended):
 
 ```bash
-# A100 SXM profile
 export EVALUATOR_METRICS_DEVICE=cuda
-export EVALUATOR_SCORE_BATCH_SIZE=128
 export EVALUATOR_SCORE_COMMIT_EVERY=500
 export TRANSFORMERS_VERBOSITY=error
 export HF_HUB_DISABLE_PROGRESS_BARS=1
 
-# A40 alternative profile
-# export EVALUATOR_SCORE_BATCH_SIZE=96
+# Suggested batch size by GPU:
+# A100 / H200-SXM / B200: 128
+# A40 / L40S: 96
+# 3090: start lower and validate on your selected models
+export EVALUATOR_SCORE_BATCH_SIZE=96
 ```
 
 You can also put the same keys in root `.env` (copy from `.env.sample`) instead of exporting every session.
@@ -181,7 +210,7 @@ Force run folder controls:
 ```bash
 export EVAL_RUN_GPU=a40
 export EVAL_RUN_ID=2026-03-07_120000_context_eval
-export EVAL_RUN_DIR=/workspace/llm_evaluator/results/runs/a40/2026-03-07_120000_context_eval
+export EVAL_RUN_DIR="/workspace/llm_evaluator/results/runs/a40/2026-03-07_120000_context_eval"
 ```
 
 View latest evaluation log:
@@ -221,3 +250,23 @@ Configure once per server:
 ```bash
 bash gpu_runtime/git_bootstrap.sh
 ```
+
+## Adding Another GPU Target
+
+To add another GPU beyond the currently supported set, update these files:
+
+- `model_static_check.py`: add VRAM size, CLI aliases, and any fit-report text.
+- `gpu_runtime/generate_gpu_config.py`: update CLI help/error text for the new target.
+- `gpu_runtime/evaluate_context.py`
+- `gpu_runtime/evaluate_context_results.py`
+- `gpu_runtime/run_evaluate_context_background.sh`
+- `gpu_runtime/run_evaluate_context_results_background.sh`
+
+Those runtime files need a matching `nvidia-smi` name check if you want automatic run bucketing.
+
+Suggested validation flow for a new GPU:
+
+1. Start with the closest existing VRAM class.
+2. Generate config with the nearest supported profile.
+3. Force `EVAL_RUN_GPU` to the new bucket name while testing.
+4. Run a small validation pass before treating it as fully supported.

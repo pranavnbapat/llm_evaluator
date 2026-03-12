@@ -48,6 +48,8 @@ HF_HUB_DISABLE_PROGRESS_BARS=1
 Batch size by GPU:
 - A100 SXM: `EVALUATOR_SCORE_BATCH_SIZE=128`
 - A40: `EVALUATOR_SCORE_BATCH_SIZE=96`
+- L40S: start with `EVALUATOR_SCORE_BATCH_SIZE=96`
+- 3090: start lower and validate on your selected models
 
 Option B: export in current shell (non-persistent)
 
@@ -133,7 +135,7 @@ Logs:
 
 Optional overrides:
 
-- `EVAL_RUN_GPU` (force GPU bucket, e.g. `a40`, `a100`, `b200`, `h200_sxm`)
+- `EVAL_RUN_GPU` (force GPU bucket, e.g. `a40`, `l40s`, `3090`, `a100`, `b200`, `h200_sxm`)
 - `EVAL_RUN_ID` (select a specific run id under `results/runs/<gpu_bucket>/...`)
 - `EVAL_RUN_DIR` (absolute override for a specific run folder)
 
@@ -191,6 +193,8 @@ python insights/generate_context_vram_docs.py
 python insights/gpu_efficiency/generate_gpu_efficiency_report.py
 # per GPU bucket:
 python insights/generate_gpu_insights_report.py --gpu a40
+python insights/generate_gpu_insights_report.py --gpu l40s
+python insights/generate_gpu_insights_report.py --gpu 3090
 python insights/generate_gpu_insights_report.py --gpu a100
 python insights/generate_gpu_insights_report.py --gpu b200
 ```

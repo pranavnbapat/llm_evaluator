@@ -370,7 +370,7 @@ def extract_evaluation_max_tokens(config_text: str) -> Optional[int]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate GPU-specific models config block.")
-    parser.add_argument("gpu", help="Target GPU: a40|a100|a100sxm|h200|h200_sxm|b200")
+    parser.add_argument("gpu", help="Target GPU: a40|l40|l40s|3090|a100|a100sxm|h200|h200_sxm|b200")
     parser.add_argument(
         "--repos-file",
         default="gpu_runtime/model_repos.txt",
@@ -410,7 +410,7 @@ def main() -> int:
 
     target_gpu = normalize_target_gpu(args.gpu)
     if not target_gpu or target_gpu not in TARGET_GPU_VRAM_GB:
-        print("Error: invalid GPU. Use one of: a40, a100, h200_sxm, b200")
+        print("Error: invalid GPU. Use one of: a40, l40s, 3090, a100, h200_sxm, b200")
         return 2
 
     seq_lens = parse_seq_lens(args.seq_lens)

@@ -80,6 +80,8 @@ detect_gpu_bucket() {
     if [[ "$name" == *"b200"* || "$name" == *"gb200"* ]]; then echo "b200"; return; fi
     if [[ "$name" == *"h200"* ]]; then echo "h200_sxm"; return; fi
     if [[ "$name" == *"h100"* ]]; then echo "h100_sxm"; return; fi
+    if [[ "$name" == *"l40s"* || "$name" == *"l40"* ]]; then echo "l40s"; return; fi
+    if [[ "$name" == *"3090"* ]]; then echo "3090"; return; fi
     if [[ "$name" == *"a100"* ]]; then echo "a100"; return; fi
     if [[ "$name" == *"a40"* ]]; then echo "a40"; return; fi
   fi

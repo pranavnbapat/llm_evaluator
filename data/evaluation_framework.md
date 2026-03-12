@@ -88,6 +88,6 @@ Table: `scores`
 
 ## Important Notes
 
-- `prompt_alignment` and `token_efficiency` are still stored in outputs for schema consistency.
+- `prompt_alignment` and `token_efficiency` are both stored in outputs.
 - In the active context profile, `prompt_alignment` contributes `0.00` and `token_efficiency` contributes `0.05` to `overall_quality`.
-- The legacy `data/evaluation_questions.json` format from older generic tasks is deprecated in favor of the multilingual context source module.
+- `data/evaluation_questions.json` is a documentation manifest for the active dataset; the executable source of truth remains `translations/eu_24_languages_euf_context.py`.

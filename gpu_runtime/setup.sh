@@ -68,7 +68,9 @@ if [[ "$GPU_NAME" == *"B200"* || "$GPU_NAME" == *"GB200"* || "$GPU_NAME" == *"Bl
     GPU_ARCH_FAMILY="blackwell"
 elif [[ "$GPU_NAME" == *"H200"* || "$GPU_NAME" == *"H100"* || "$GPU_NAME" == *"H20"* ]]; then
     GPU_ARCH_FAMILY="hopper"
-elif [[ "$GPU_NAME" == *"A100"* || "$GPU_NAME" == *"A40"* ]]; then
+elif [[ "$GPU_NAME" == *"L40S"* || "$GPU_NAME" == *"L40"* ]]; then
+    GPU_ARCH_FAMILY="ada"
+elif [[ "$GPU_NAME" == *"A100"* || "$GPU_NAME" == *"A40"* || "$GPU_NAME" == *"3090"* ]]; then
     GPU_ARCH_FAMILY="ampere"
 fi
 echo "✓ GPU family detected: $GPU_ARCH_FAMILY"

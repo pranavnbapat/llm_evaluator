@@ -25,8 +25,7 @@ generation_profile:
   target_max_output_tokens: 512
   seq_lens: "4096,8192,16384"
   allow_fits: "comfortable"
-  generated_at: "2026-03-08 11:16:14"
-
+  generated_at: "2026-03-12 12:23:40"
 models:
   deepseek_r1_distill_qwen_7b_fp16_a40:
     name: "deepseek-r1-distill-qwen-7b-a40"

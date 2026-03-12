@@ -17,6 +17,8 @@ import requests
 
 TARGET_GPU_VRAM_GB = {
     "a40": 48,
+    "l40s": 48,
+    "3090": 24,
     "a100": 80,
     "h200_sxm": 141,
     "b200": 180,
@@ -29,6 +31,14 @@ def normalize_target_gpu(value: Optional[str]) -> Optional[str]:
     v = value.strip().lower().replace("-", "_")
     aliases = {
         "a40": "a40",
+        "l40": "l40s",
+        "l40s": "l40s",
+        "l40_s": "l40s",
+        "l40_sxm": "l40s",
+        "3090": "3090",
+        "rtx_3090": "3090",
+        "rtx3090": "3090",
+        "geforce_rtx_3090": "3090",
         "a100": "a100",
         "a100_sxm": "a100",
         "a100sxm": "a100",
@@ -46,6 +56,10 @@ def detect_target_from_name(name: str, fallback: str) -> str:
         return "h200_sxm"
     if "b200" in n or "gb200" in n or "blackwell" in n:
         return "b200"
+    if "l40s" in n or "l40" in n:
+        return "l40s"
+    if "3090" in n:
+        return "3090"
     if "a40" in n:
         return "a40"
     if "a100" in n:
@@ -194,7 +208,7 @@ def main() -> int:
         "target_gpu_pos",
         nargs="?",
         default=None,
-        help="Optional target GPU (a40|a100|h200_sxm|b200). "
+        help="Optional target GPU (a40|l40s|3090|a100|h200_sxm|b200). "
              "Allows: model_static_check.py <model> a100 --llm-optimize",
     )
     parser.add_argument("--dtype-bytes", type=int, default=2, help="Bytes per element (fp16/bf16=2)")
@@ -203,7 +217,7 @@ def main() -> int:
     parser.add_argument(
         "--target-gpu",
         default=None,
-        help="Tune config for target GPU (a40|a100|a100sxm|h200|h200_sxm|b200)",
+        help="Tune config for target GPU (a40|l40|l40s|3090|a100|a100sxm|h200|h200_sxm|b200)",
     )
     parser.add_argument("--quant", default=None, help="Quantization mode for stub (e.g., compressed-tensors, awq)")
     parser.add_argument("--llm-optimize", action="store_true", help="Use LLM to suggest optimal settings")
@@ -214,7 +228,7 @@ def main() -> int:
         print("Error: --target-gpu and positional target GPU disagree. Use only one or make them match.")
         return 2
     if (args.target_gpu or args.target_gpu_pos) and target_gpu is None:
-        print("Error: invalid target GPU. Use one of: a40, a100, h200_sxm, b200")
+        print("Error: invalid target GPU. Use one of: a40, l40s, 3090, a100, h200_sxm, b200")
         return 2
 
     repo_id = normalize_model_ref(args.model)
@@ -330,12 +344,15 @@ def main() -> int:
             )
             total_mb = weights_mb + kv_mb
             a40 = classify_fit(total_mb, 48)
+            l40s = classify_fit(total_mb, 48)
+            rtx_3090 = classify_fit(total_mb, 24)
             a100 = classify_fit(total_mb, 80)
             h200_sxm = classify_fit(total_mb, 141)
             b200 = classify_fit(total_mb, 180)
             print(
                 f"  seq_len {seq_len}: total ~{total_mb:,.1f} MB | "
-                f"A40: {a40} | A100: {a100} | H200-SXM: {h200_sxm} | B200: {b200}"
+                f"A40: {a40} | L40S: {l40s} | 3090: {rtx_3090} | "
+                f"A100: {a100} | H200-SXM: {h200_sxm} | B200: {b200}"
             )
     else:
         print("\nHeuristic fit estimate: unavailable (insufficient config fields)")
@@ -500,6 +517,8 @@ def build_llm_prompt(
                 totals_by_seq[seq_len] = {
                     "total_mb": weights_mb + kv_mb,
                     "a40_ratio": (weights_mb + kv_mb) / (48 * 1024),
+                    "l40s_ratio": (weights_mb + kv_mb) / (48 * 1024),
+                    "3090_ratio": (weights_mb + kv_mb) / (24 * 1024),
                     "a100_ratio": (weights_mb + kv_mb) / (80 * 1024),
                     "h200_sxm_ratio": (weights_mb + kv_mb) / (141 * 1024),
                     "b200_ratio": (weights_mb + kv_mb) / (180 * 1024),
@@ -511,7 +530,7 @@ def build_llm_prompt(
         "1) max_model_len",
         "2) gpu_memory_util",
         "3) Whether the model should run comfortably, tight, or unlikely on A40 (48GB), "
-        "A100 (80GB), H200-SXM (141GB), and B200 (180GB).",
+        "L40S (48GB), RTX 3090 (24GB), A100 (80GB), H200-SXM (141GB), and B200 (180GB).",
         "",
         "Use these heuristics:",
         "- KV cache grows with seq_len, layers, hidden_size, kv_heads, head_dim.",
@@ -543,6 +562,8 @@ def build_llm_prompt(
                 lines.append(
                     f"    total_mb={totals['total_mb']:.1f}, "
                     f"a40_ratio={totals['a40_ratio']:.3f}, "
+                    f"l40s_ratio={totals['l40s_ratio']:.3f}, "
+                    f"3090_ratio={totals['3090_ratio']:.3f}, "
                     f"a100_ratio={totals['a100_ratio']:.3f}, "
                     f"h200_sxm_ratio={totals['h200_sxm_ratio']:.3f}, "
                     f"b200_ratio={totals['b200_ratio']:.3f}"

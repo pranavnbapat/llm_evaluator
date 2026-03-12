@@ -69,6 +69,10 @@ def detect_gpu_bucket() -> tuple[str, str]:
             return "h200_sxm", f"nvidia-smi:{name}"
         if "h100" in name:
             return "h100_sxm", f"nvidia-smi:{name}"
+        if "l40s" in name or "l40" in name:
+            return "l40s", f"nvidia-smi:{name}"
+        if "3090" in name:
+            return "3090", f"nvidia-smi:{name}"
         if "a100" in name:
             return "a100", f"nvidia-smi:{name}"
         if "a40" in name:

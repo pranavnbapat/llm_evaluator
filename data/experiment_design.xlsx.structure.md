@@ -35,8 +35,8 @@ Single sheet: `scores`
 | completeness | float [0,1] | Context coverage/completeness |
 | fluency | float [0,1] | Fluency score |
 | coherence | float [0,1] | Coherence score |
-| prompt_alignment | float [0,1] | Prompt alignment (stored for schema consistency) |
-| token_efficiency | float [0,1] | Token efficiency (stored for schema consistency) |
+| prompt_alignment | float [0,1] | Prompt alignment score |
+| token_efficiency | float [0,1] | Token efficiency score |
 | overall_quality | float [0,1] | Weighted composite score |
 | timestamp | datetime/text | Scoring timestamp |
 

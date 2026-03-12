@@ -1,5 +1,5 @@
 #!/bin/bash
-# One-time Git identity + PAT credential setup for RunPod
+# One-time Git identity + PAT credential setup
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,10 +14,15 @@ fi
 DEFAULT_NAME="$(git config user.name || true)"
 DEFAULT_EMAIL="$(git config user.email || true)"
 
-read -r -p "Git user.name [${DEFAULT_NAME:-pranav}]: " INPUT_NAME
-read -r -p "Git user.email [${DEFAULT_EMAIL:-pranav.g33k@gmail.com}]: " INPUT_EMAIL
-GIT_NAME="${INPUT_NAME:-${DEFAULT_NAME:-pranav}}"
-GIT_EMAIL="${INPUT_EMAIL:-${DEFAULT_EMAIL:-pranav.g33k@gmail.com}}"
+read -r -p "Git user.name${DEFAULT_NAME:+ [${DEFAULT_NAME}]}: " INPUT_NAME
+read -r -p "Git user.email${DEFAULT_EMAIL:+ [${DEFAULT_EMAIL}]}: " INPUT_EMAIL
+GIT_NAME="${INPUT_NAME:-$DEFAULT_NAME}"
+GIT_EMAIL="${INPUT_EMAIL:-$DEFAULT_EMAIL}"
+
+if [[ -z "$GIT_NAME" || -z "$GIT_EMAIL" ]]; then
+  echo "❌ Git user.name and user.email are required."
+  exit 1
+fi
 
 git config user.name "$GIT_NAME"
 git config user.email "$GIT_EMAIL"
@@ -45,7 +50,7 @@ if [[ -z "${GITHUB_TOKEN:-}" ]]; then
   exit 1
 fi
 
-CRED_FILE="/workspace/.git-credentials"
+CRED_FILE="${HOME}/.git-credentials"
 git config credential.helper "store --file ${CRED_FILE}"
 printf "https://%s:%s@github.com\n" "$GH_USER" "$GITHUB_TOKEN" > "${CRED_FILE}"
 chmod 600 "${CRED_FILE}"
