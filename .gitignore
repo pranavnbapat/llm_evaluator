@@ -53,9 +53,8 @@ venv.bak/
 .env
 .env.sample
 !.env.sample
-!.env.runpod.example
 
-# RunPod setup specific env file
+# Setup specific env file
 gpu_runtime/.env
 secrets/
 *.pem
@@ -83,8 +82,7 @@ credentials/
 #results/logs/
 #evaluation_results/
 
-# RunPod downloaded results (local copies)
-#runpod_results_*/
+# Downloaded results (local copies)
 *.tar.gz
 *.zip
 

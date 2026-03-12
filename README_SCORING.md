@@ -1,4 +1,4 @@
-# Scoring Run Guide (RunPod)
+# Scoring Run Guide
 
 This guide runs only the scoring step (`gpu_runtime/evaluate_context_results.py`) from an existing context-evaluation database.
 

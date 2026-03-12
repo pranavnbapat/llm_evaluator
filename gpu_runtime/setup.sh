@@ -1,8 +1,8 @@
 #!/bin/bash
 # ============================================================================
-# Setup Script for RunPod LLM Evaluation
+# Setup Script for LLM Evaluation
 # ============================================================================
-# Run this once on a fresh RunPod instance
+# Run this once on a fresh instance
 #
 # Usage:
 #   cd /workspace/llm_evaluator/gpu_runtime
@@ -39,7 +39,7 @@ step_end() {
 }
 
 echo "========================================"
-echo "  RunPod LLM Evaluator Setup"
+echo " LLM Evaluator Setup"
 echo "========================================"
 echo "Started at: $SCRIPT_START_HUMAN"
 echo ""
@@ -49,7 +49,7 @@ echo ""
 # ----------------------------------------------------------------------------
 
 if [[ ! -d "/workspace" ]]; then
-    echo "❌ Error: /workspace not found. Are you on RunPod?"
+    echo "❌ Error: /workspace not found."
     exit 1
 fi
 

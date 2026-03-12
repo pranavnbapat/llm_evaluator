@@ -13,8 +13,8 @@
 # HuggingFace token - set HF_TOKEN in .env file
 hf_token: "${HF_TOKEN}"
 
-# vLLM API key - set VLLM_API_KEY in .env file (defaults to "sk-runpod-eval")
-vllm_api_key: "${VLLM_API_KEY:-sk-runpod-eval}"
+# vLLM API key - set VLLM_API_KEY in .env file
+vllm_api_key: "${VLLM_API_KEY:-sk-your-key-eval}"
 
 # ----------------------------------------------------------------------------
 # Model Configuration
