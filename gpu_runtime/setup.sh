@@ -138,6 +138,19 @@ fi
 # Note: to keep it active in your shell, run: source setup.sh
 source .venv/bin/activate
 
+PYTHON_BIN="$REPO_DIR/.venv/bin/python"
+if command -v uv >/dev/null 2>&1; then
+    echo "✓ Using uv for Python package installation"
+    py_install() {
+        uv pip install --python "$PYTHON_BIN" "$@"
+    }
+else
+    echo "✓ uv not found; falling back to pip"
+    py_install() {
+        pip install "$@"
+    }
+fi
+
 # Install project dependencies
 if [[ ! -f ".venv/.deps_installed" ]]; then
     echo "  Installing project dependencies..."
@@ -146,7 +159,7 @@ if [[ ! -f ".venv/.deps_installed" ]]; then
     grep -vE '^[[:space:]]*(torch|torchaudio|torchvision|vllm|flashinfer-python|compressed-tensors)([<>=!~].*)?$' requirements.txt > "$TMP_REQ_FILE"
     CORE_DEPS_START_EPOCH="$(date +%s)"
     echo "  ⏱️  [Core dependencies] installing..."
-    pip install -q -r "$TMP_REQ_FILE"
+    py_install -q -r "$TMP_REQ_FILE"
     CORE_DEPS_END_EPOCH="$(date +%s)"
     echo "  ⏱️  [Core dependencies] finished in $(format_duration "$((CORE_DEPS_END_EPOCH - CORE_DEPS_START_EPOCH))")"
     rm -f "$TMP_REQ_FILE"
@@ -160,18 +173,18 @@ if [[ ! -f ".venv/.vllm_installed" ]]; then
     echo "  Installing vLLM (this may take a few minutes)..."
     VLLM_DEPS_START_EPOCH="$(date +%s)"
     if [[ -n "${VLLM_PIP_SPEC}" ]]; then
-        pip install -q ${VLLM_PIP_SPEC}
+        py_install -q ${VLLM_PIP_SPEC}
     else
         if [[ "$GPU_ARCH_FAMILY" == "blackwell" ]]; then
             echo "  Detected Blackwell GPU. Installing CUDA 12.8 wheels for PyTorch + vLLM..."
-            pip install -q --upgrade torch --index-url https://download.pytorch.org/whl/cu128
-            pip install -q --upgrade vllm --extra-index-url https://download.pytorch.org/whl/cu128
+            py_install -q --upgrade torch --index-url https://download.pytorch.org/whl/cu128
+            py_install -q --upgrade vllm --extra-index-url https://download.pytorch.org/whl/cu128
         else
-            pip install -q torch==2.9.1
-            pip install -q vllm==0.17.0
+            py_install -q torch==2.9.1
+            py_install -q vllm==0.17.0
         fi
     fi
-    pip install -q huggingface-hub hf_transfer pyyaml tqdm
+    py_install -q huggingface-hub hf_transfer pyyaml tqdm
     VLLM_DEPS_END_EPOCH="$(date +%s)"
     echo "  ⏱️  [vLLM/runtime dependencies] finished in $(format_duration "$((VLLM_DEPS_END_EPOCH - VLLM_DEPS_START_EPOCH))")"
     touch .venv/.vllm_installed

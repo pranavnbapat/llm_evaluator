@@ -162,7 +162,7 @@ def export_scores_to_excel(scores_db_path: Path, out_xlsx_path: Path) -> bool:
         import pandas as pd
     except ImportError:
         print("\n⚠️ Skipping Excel export: pandas/openpyxl not installed.")
-        print("   Install with: pip install pandas openpyxl")
+        print("   Install with: uv pip install --python .venv/bin/python pandas openpyxl")
         return False
 
     conn = sqlite3.connect(scores_db_path)
