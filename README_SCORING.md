@@ -7,12 +7,12 @@ This guide runs only the scoring step (`gpu_runtime/evaluate_context_results.py`
 ```bash
 git clone <repo>
 cd llm_evaluator
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
 uv venv .venv
 source .venv/bin/activate
 uv pip install --python .venv/bin/python -r requirements_scoring.txt
 ```
-
-If `uv` is not installed on the machine, use `python3 -m venv .venv` plus `pip install -r requirements_scoring.txt` instead.
 
 ## 2) Install tmux (for detached/background runs)
 

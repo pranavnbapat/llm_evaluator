@@ -120,6 +120,28 @@ step_end
 echo ""
 
 # ----------------------------------------------------------------------------
+# Install uv
+# ----------------------------------------------------------------------------
+
+step_start "uv install"
+if command -v uv >/dev/null 2>&1; then
+    echo "✓ uv already installed"
+else
+    echo "📦 Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
+    if command -v uv >/dev/null 2>&1; then
+        echo "✓ uv installed"
+    else
+        echo "❌ uv installation finished but uv is not on PATH."
+        echo "   Expected location: $HOME/.local/bin/uv"
+        exit 1
+    fi
+fi
+step_end
+echo ""
+
+# ----------------------------------------------------------------------------
 # Setup Project Virtual Environment
 # ----------------------------------------------------------------------------
 
@@ -139,17 +161,10 @@ fi
 source .venv/bin/activate
 
 PYTHON_BIN="$REPO_DIR/.venv/bin/python"
-if command -v uv >/dev/null 2>&1; then
-    echo "✓ Using uv for Python package installation"
-    py_install() {
-        uv pip install --python "$PYTHON_BIN" "$@"
-    }
-else
-    echo "✓ uv not found; falling back to pip"
-    py_install() {
-        pip install "$@"
-    }
-fi
+echo "✓ Using uv for Python package installation"
+py_install() {
+    uv pip install --python "$PYTHON_BIN" "$@"
+}
 
 # Install project dependencies
 if [[ ! -f ".venv/.deps_installed" ]]; then
