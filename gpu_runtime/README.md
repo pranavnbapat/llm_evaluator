@@ -28,14 +28,22 @@ git clone https://github.com/pranavnbapat/llm_evaluator
 cd llm_evaluator
 ```
 
-### 2. Setup
+### 2. Configure Git Push Auth Once
+
+```bash
+bash gpu_runtime/git_bootstrap.sh
+```
+
+This stores your GitHub PAT in your home directory credential store so `git push` does not keep prompting for username and password on that server.
+
+### 3. Setup
 
 ```bash
 bash gpu_runtime/setup.sh
 source .venv/bin/activate
 ```
 
-### 3. Configure tokens
+### 4. Configure tokens
 
 ```bash
 echo "HF_TOKEN=hf_your_token" > gpu_runtime/.env
@@ -47,7 +55,7 @@ echo "HF_TOKEN=hf_your_token" > gpu_runtime/.env
 
 An LLM API key is only optional for some insight-generation helpers outside the core runtime flow, such as presentation/report generation scripts under `insights/`.
 
-### 4. Generate GPU-specific model config
+### 5. Generate GPU-specific model config
 
 ```bash
 python gpu_runtime/generate_gpu_config.py a40 \
@@ -65,13 +73,13 @@ For practical sizing:
 - `l40s` currently uses the same VRAM class assumptions as `a40` (48 GB).
 - `3090` uses a 24 GB profile, so expect a much smaller model set to pass config generation.
 
-### 5. Download models
+### 6. Download models
 
 ```bash
 python gpu_runtime/download_models.py
 ```
 
-### 6. Run evaluation
+### 7. Run evaluation
 
 Foreground:
 ```bash
@@ -83,7 +91,7 @@ Background:
 bash gpu_runtime/run_evaluate_context_background.sh
 ```
 
-### 7. Run scoring
+### 8. Run scoring
 
 Foreground:
 ```bash
@@ -127,7 +135,7 @@ export EVALUATOR_SCORE_BATCH_SIZE=96
 
 You can also put the same keys in root `.env` (copy from `.env.sample`) instead of exporting every session.
 
-### 8. Generate insights (run after scoring)
+### 9. Generate insights (run after scoring)
 
 Recommended (single command):
 
