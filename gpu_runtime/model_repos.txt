@@ -16,13 +16,14 @@
 #Qwen/Qwen3.5-27B
 #Qwen/Qwen3.5-35B-A3B
 #Qwen/Qwen3.5-9B
-#moonshotai/Kimi-K2.5
-#moonshotai/Kimi-K2-Instruct-0905
 
 #new evaluation
-unsloth/NVIDIA-Nemotron-3-Nano-Omni-30B-A3B-Reasoning-GGUF
-lordx64/Qwen3.6-35B-A3B-Kimi-K2.6-Reasoning-Distilled
+Valdemardi/DeepSeek-R1-Distill-Qwen-32B-AWQ
 ibm-granite/granite-4.1-8b
-Qwen/Qwen3.5-35B-A3B
-z-lab/Qwen3.5-35B-A3B-DFlash
-z-lab/Qwen3.5-9B-DFlash
+moonshotai/Kimi-Linear-48B-A3B-Instruct
+moonshotai/Kimi-VL-A3B-Instruct
+cyankiwi/Kimi-Dev-72B-AWQ-8bit
+cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
+QuantTrio/Qwen3.6-35B-A3B-AWQ
+mistralai/Ministral-3-14B-Instruct-2512
+pranavbapat/granite-4.1-8b-awq
