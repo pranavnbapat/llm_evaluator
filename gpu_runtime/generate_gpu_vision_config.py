@@ -427,7 +427,11 @@ def main() -> int:
     parser.add_argument("--concurrent-users", type=int, default=1, help="Target number of concurrently served users.")
     parser.add_argument("--target-max-output-tokens", type=int, default=None, help="Override evaluation.max_tokens in config.yaml.")
     parser.add_argument("--image-token-reserve", type=int, default=1024, help="Reserve token budget for one image embedding block.")
-    parser.add_argument("--limit-mm-per-prompt", default="image=1", help="Value for vLLM --limit-mm-per-prompt.")
+    parser.add_argument(
+        "--limit-mm-per-prompt",
+        default='{"image": 1}',
+        help='Value for vLLM --limit-mm-per-prompt. vLLM expects JSON, for example \'{"image": 1}\'.',
+    )
     parser.add_argument("--mm-processor-kwargs", default=None, help="Optional JSON-ish string passed to --mm-processor-kwargs.")
     parser.add_argument("--allow-fits", default="comfortable", help="Comma-separated fit labels to include.")
     parser.add_argument("--allow-empty", action="store_true", help="Allow writing an empty `models:` block.")

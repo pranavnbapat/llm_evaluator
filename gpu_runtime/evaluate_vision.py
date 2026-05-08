@@ -175,7 +175,7 @@ class VLlmManager:
             cmd.extend(["--quantization", model_config["quant"]])
 
         # Per-model multimodal flags (e.g. --limit-mm-per-prompt image=1).
-        extra_args = model_config.get("vllm_extra_args") or []
+        extra_args = self._normalize_vllm_extra_args(model_config.get("vllm_extra_args") or [])
         for arg in extra_args:
             cmd.append(str(arg))
 
@@ -199,6 +199,33 @@ class VLlmManager:
             start_new_session=True
         )
         return self._wait_for_ready(model_name, expected_model_id=model_config["name"])
+
+    @staticmethod
+    def _normalize_vllm_extra_args(extra_args: list) -> list:
+        normalized: list[str] = []
+        i = 0
+        while i < len(extra_args):
+            arg = str(extra_args[i])
+            if arg == "--limit-mm-per-prompt" and i + 1 < len(extra_args):
+                value = str(extra_args[i + 1]).strip()
+                if "=" in value and not value.startswith("{"):
+                    key, raw_val = value.split("=", 1)
+                    key = key.strip()
+                    raw_val = raw_val.strip()
+                    try:
+                        parsed = int(raw_val)
+                    except ValueError:
+                        try:
+                            parsed = float(raw_val)
+                        except ValueError:
+                            parsed = raw_val
+                    value = json.dumps({key: parsed})
+                normalized.extend([arg, value])
+                i += 2
+                continue
+            normalized.append(arg)
+            i += 1
+        return normalized
 
     def _wait_for_ready(self, model_name: str, expected_model_id: Optional[str] = None, timeout: int = 1800) -> bool:
         url = f"http://{self.client_host}:{self.port}/health"
