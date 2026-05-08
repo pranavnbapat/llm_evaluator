@@ -124,7 +124,7 @@
         "SL": "Povzemite ta PDF, pri čemer zajemite namen dokumenta, njegovo strukturo ter glavna dejstva, ugotovitve ali priporočila.",
         "SV": "Sammanfatta denna PDF och täck dokumentets syfte, struktur och de viktigaste fakta, resultaten eller rekommendationerna."
       },
-      "pages_per_chunk": 2,
+      "pages_per_chunk": 1,
       "max_sentences": 8,
       "expected_elements": [
         "captures main purpose of the document",
@@ -138,7 +138,7 @@
       "modality": "pdf",
       "task_type": "qa",
       "pdf_filename": "PT_09-PA_EN.pdf",
-      "pages_per_chunk": 2,
+      "pages_per_chunk": 1,
       "questions": [
         {
           "question_id": "PDF_QA_1",
@@ -244,7 +244,7 @@
         "SL": "Povzemite ta PDF s poudarkom na problemu, ki ga obravnava, predlagani rešitvi ter glavnih tehničnih ali praktičnih ugotovitvah.",
         "SV": "Sammanfatta denna PDF med fokus på problemet den behandlar, den föreslagna lösningen och de viktigaste tekniska eller praktiska slutsatserna."
       },
-      "pages_per_chunk": 2,
+      "pages_per_chunk": 1,
       "max_sentences": 8,
       "expected_elements": [
         "captures the document objective",
@@ -258,7 +258,7 @@
       "modality": "pdf",
       "task_type": "qa",
       "pdf_filename": "A BIO-INSPIRED MULTI-LAYER FILTER.pdf",
-      "pages_per_chunk": 2,
+      "pages_per_chunk": 1,
       "questions": [
         {
           "question_id": "PDF_QA_3",
@@ -364,7 +364,7 @@
         "SL": "Povzemite ta PDF s poudarkom na namenu študije, metodi ter glavnih vidnih rezultatih ali zaključkih.",
         "SV": "Sammanfatta denna PDF med fokus på studiens syfte, metod och de viktigaste synliga resultaten eller slutsatserna."
       },
-      "pages_per_chunk": 2,
+      "pages_per_chunk": 1,
       "max_sentences": 8,
       "expected_elements": [
         "captures the study or document purpose",
@@ -378,7 +378,7 @@
       "modality": "pdf",
       "task_type": "qa",
       "pdf_filename": "1-s2.0-S0039914021006421-main.pdf",
-      "pages_per_chunk": 2,
+      "pages_per_chunk": 1,
       "questions": [
         {
           "question_id": "PDF_QA_5",

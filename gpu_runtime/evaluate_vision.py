@@ -134,6 +134,7 @@ class VLlmManager:
         self.host = config["vllm"]["host"]
         self.client_host = "127.0.0.1" if self.host in ("0.0.0.0", "::") else self.host
         self.api_key = config.get("vllm_api_key", "")
+        self.last_error_message: str = ""
 
     def _is_port_open(self) -> bool:
         try:
@@ -315,13 +316,18 @@ class VLlmManager:
         try:
             r = requests.post(chat_url, json=payload, headers=headers, timeout=300)
             if r.status_code == 200:
+                self.last_error_message = ""
                 return r.json()["choices"][0]["message"]["content"]
             print(f"   ❌ Chat API error: HTTP {r.status_code}")
             try:
-                print(f"   ❌ Body: {r.json()}")
+                body = r.json()
+                self.last_error_message = json.dumps(body)
+                print(f"   ❌ Body: {body}")
             except Exception:
+                self.last_error_message = r.text[:1000]
                 print(f"   ❌ Body (text): {r.text[:1000]}")
         except Exception as e:
+            self.last_error_message = f"{type(e).__name__}: {e}"
             print(f"   ❌ Chat API exception: {type(e).__name__}: {e}")
         return None
 
@@ -820,7 +826,7 @@ class Evaluator:
             eval_input_mode=input_mode,
         )
 
-    def _call_multimodal(self, content_parts: list, *, max_tokens: Optional[int] = None) -> tuple[Optional[str], float]:
+    def _call_multimodal(self, content_parts: list, *, max_tokens: Optional[int] = None) -> tuple[Optional[str], float, str]:
         started = time.time()
         response = self.vllm.chat_completion_multimodal(
             content_parts=content_parts,
@@ -828,7 +834,7 @@ class Evaluator:
             max_tokens=max_tokens or self.max_tokens,
         )
         latency_ms = (time.time() - started) * 1000
-        return response, latency_ms
+        return response, latency_ms, self.vllm.last_error_message
 
     def _build_media_question_prompt(self, task: dict) -> str:
         context_block = self._format_context(task.get("context") or [])
@@ -912,8 +918,9 @@ class Evaluator:
             return None, 0.0, "", 0, {"status": "missing_media"}
         content_parts = [{"type": "image_url", "image_url": {"url": url}} for url in image_urls]
         content_parts.append({"type": "text", "text": self._build_media_question_prompt(task)})
-        response, latency_ms = self._call_multimodal(content_parts)
-        return response, latency_ms, "\n".join(display_refs), len(image_urls), {"status": "ok", "chunks": 1}
+        response, latency_ms, error_message = self._call_multimodal(content_parts)
+        status = "ok" if response else "request_failed"
+        return response, latency_ms, "\n".join(display_refs), len(image_urls), {"status": status, "chunks": 1, "error": error_message}
 
     def _run_pdf_task(self, task: dict) -> tuple[Optional[str], float, str, int, dict]:
         pdf_path = resolve_pdf_ref(task, self.asset_roots["pdf_root"])
@@ -925,13 +932,15 @@ class Evaluator:
         if not page_paths:
             return None, 0.0, str(pdf_path), 0, {"status": "no_pages"}
 
-        chunks = chunk_list(page_paths, task.get("pages_per_chunk", 3))
+        requested_chunk_size = task.get("pages_per_chunk", 3)
+        chunk_size = max(1, requested_chunk_size)
+        chunks = chunk_list(page_paths, chunk_size)
         snippets: list[str] = []
         steps: list[dict] = []
         total_latency = 0.0
 
         for chunk_index, chunk_paths in enumerate(chunks, start=1):
-            page_start = ((chunk_index - 1) * task.get("pages_per_chunk", 3)) + 1
+            page_start = ((chunk_index - 1) * chunk_size) + 1
             page_end = min(page_start + len(chunk_paths) - 1, len(page_paths))
             content_parts = []
             for p in chunk_paths:
@@ -944,10 +953,17 @@ class Evaluator:
                 "type": "text",
                 "text": self._build_pdf_map_prompt(task, page_start, page_end, len(page_paths)),
             })
-            response, latency_ms = self._call_multimodal(content_parts)
+            response, latency_ms, error_message = self._call_multimodal(content_parts)
             total_latency += latency_ms
             clean_response = (response or "").strip()
             status = "ok" if clean_response else "empty"
+            if not clean_response and error_message and "max_tokens must be at least 1" in error_message and chunk_size > 1:
+                retry_task = dict(task)
+                retry_task["pages_per_chunk"] = 1
+                retry_response, retry_latency, retry_media_ref, retry_media_count, retry_meta = self._run_pdf_task(retry_task)
+                retry_meta["fallback_reason"] = "pdf_chunk_too_large_for_model_context"
+                retry_meta["fallback_from_pages_per_chunk"] = chunk_size
+                return retry_response, total_latency + retry_latency, retry_media_ref, retry_media_count, retry_meta
             steps.append({
                 "step_type": "map",
                 "chunk_index": chunk_index,
@@ -957,6 +973,7 @@ class Evaluator:
                 "response_text": clean_response,
                 "latency_ms": latency_ms,
                 "status": status,
+                "error": error_message,
             })
             if clean_response and clean_response != "NO_EVIDENCE":
                 snippets.append(clean_response)
@@ -968,9 +985,9 @@ class Evaluator:
             final_response = snippets[0]
         else:
             reduce_prompt = self._build_pdf_reduce_prompt(task, snippets, len(page_paths))
-            reduce_response, reduce_latency_ms = self._call_multimodal(
+            reduce_response, reduce_latency_ms, reduce_error = self._call_multimodal(
                 [{"type": "text", "text": reduce_prompt}],
-                max_tokens=self.max_tokens,
+                max_tokens=min(self.max_tokens, max(128, task.get("max_sentences", 8) * 32)),
             )
             total_latency += reduce_latency_ms
             final_response = (reduce_response or "").strip()
@@ -983,6 +1000,7 @@ class Evaluator:
                 "response_text": final_response,
                 "latency_ms": reduce_latency_ms,
                 "status": "ok" if final_response else "empty",
+                "error": reduce_error,
             })
 
         return final_response or None, total_latency, str(pdf_path), len(page_paths), {
@@ -990,6 +1008,7 @@ class Evaluator:
             "steps": steps,
             "page_count": len(page_paths),
             "chunk_count": len(chunks),
+            "pages_per_chunk": chunk_size,
         }
 
     def evaluate_model(self, model_name: str, model_config: dict) -> dict:
