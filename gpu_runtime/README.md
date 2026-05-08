@@ -2,6 +2,10 @@
 
 Run context-based EU-FarmBook evaluation on a GPU server.
 
+This folder now supports two GPU evaluation paths:
+- text/context evaluation: `generate_gpu_config.py` + `evaluate_context.py`
+- multimodal image/PDF evaluation: `generate_gpu_vision_config.py` + `evaluate_vision.py`
+
 Examples below use `/workspace/llm_evaluator`. If that folder does not exist yet on your machine, create `/workspace` first and then clone the repo there.
 
 Python version: use `python3`. In this project, the current validated interpreter is Python 3.12.3, and the setup examples assume that `python3` resolves to that interpreter or a compatible Python 3.12 install.
@@ -57,12 +61,25 @@ An LLM API key is only optional for some insight-generation helpers outside the 
 
 ### 5. Generate GPU-specific model config
 
+Text/context models:
+
 ```bash
 python gpu_runtime/generate_gpu_config.py a40 \
   --repos-file gpu_runtime/model_repos.txt \
   --config-file gpu_runtime/config.yaml \
   --concurrent-users 50 \
   --target-max-output-tokens 512
+```
+
+Vision / multimodal models:
+
+```bash
+python gpu_runtime/generate_gpu_vision_config.py l40s \
+  --repos-file gpu_runtime/model_repos.txt \
+  --config-file gpu_runtime/config.yaml \
+  --concurrent-users 25 \
+  --target-max-output-tokens 512 \
+  --allow-fits "comfortable,tight"
 ```
 
 Replace `a40` with one of: `a40`, `l40s`, `3090`, `a100`, `h200_sxm`, `b200`.
@@ -81,6 +98,8 @@ python gpu_runtime/download_models.py
 
 ### 7. Run evaluation
 
+Text/context path
+
 Foreground:
 ```bash
 python gpu_runtime/evaluate_context.py
@@ -91,7 +110,21 @@ Background:
 bash gpu_runtime/run_evaluate_context_background.sh
 ```
 
+Multimodal image/PDF path
+
+Foreground:
+```bash
+python gpu_runtime/evaluate_vision.py
+```
+
+Background:
+```bash
+bash gpu_runtime/run_evaluate_vision_background.sh
+```
+
 ### 8. Run scoring
+
+Text/context path
 
 Foreground:
 ```bash
@@ -101,6 +134,19 @@ python gpu_runtime/evaluate_context_results.py
 Background:
 ```bash
 bash gpu_runtime/run_evaluate_context_results_background.sh
+```
+
+Multimodal image/PDF path
+
+Foreground:
+```bash
+python gpu_runtime/evaluate_vision_results.py
+```
+
+Background:
+```bash
+EVAL_RUN_DIR="results/runs/<gpu_bucket>/<run_id>" \
+bash gpu_runtime/run_evaluate_vision_results_background.sh
 ```
 
 Background scorer default behavior:
@@ -184,6 +230,51 @@ Notes:
 - Insights scripts are not auto-triggered by evaluation/scoring.
 - Most scripts support bulk mode without `--run-dir`.
 - Run `gpu_efficiency` after evaluation has produced `logs/gpu_metrics.csv`.
+- Post-scoring insights are currently context-oriented. The multimodal path has raw results and scores, but it does not yet use the same report-generation stack.
+
+## Multimodal Dataset
+
+The multimodal runner reads:
+
+`data/evaluation_vision_questions.json`
+
+Supported task types:
+- `image` + `qa`
+- `image` + `summary`
+- `pdf` + `qa`
+- `pdf` + `summary`
+
+Supported media roots:
+- `image_root`
+- `pdf_root`
+
+Current behavior:
+- the same images/PDFs can be reused across all 24 EU languages
+- prompts can be localized with `question_translations` and `summary_prompt_translations`
+- PDF evaluation renders pages to PNGs with `pdftoppm`, then runs chunked map/reduce prompts through the VLM
+
+Current starter dataset points at files under:
+
+`files/`
+
+If you add your own media, update the filenames in `data/evaluation_vision_questions.json`.
+
+For first validation runs:
+- keep `evaluation.num_runs: 1`
+- keep the model set small
+- start with one or two models before scaling up to the full dataset
+
+The current starter multimodal dataset expands to `264` tasks per model:
+- `11` base tasks
+- `24` EU languages
+
+PDF prerequisite:
+
+```bash
+command -v pdftoppm
+```
+
+If `pdftoppm` is missing, PDF tasks will not run correctly.
 
 ## Output Layout
 
@@ -198,6 +289,12 @@ Subfolders:
 - `insights/` generated plots/reports
 - `metadata/` run metadata and model status
 
+Typical DB names:
+- text/context eval: `raw/evaluation_results_euf_context.db`
+- text/context scores: `scores/evaluation_scores_euf_context.db`
+- multimodal eval: `raw/evaluation_results_euf_vision.db`
+- multimodal scores: `scores/evaluation_scores_euf_vision.db`
+
 Latest symlink:
 
 `results/latest/<gpu_bucket> -> ../runs/<gpu_bucket>/<run_id>`
@@ -207,6 +304,11 @@ Latest symlink:
 Generate only (no file write):
 ```bash
 python gpu_runtime/generate_gpu_config.py a40 --dry-run
+```
+
+Multimodal generate only:
+```bash
+python gpu_runtime/generate_gpu_vision_config.py l40s --dry-run
 ```
 
 Include tighter fits:
@@ -242,6 +344,26 @@ Check model-specific logs:
 tail -n 120 /tmp/vllm_<model_name>.log
 ```
 
+### PDF/media issues
+
+Check that the dataset points at real files:
+
+```bash
+python - <<'PY'
+import json
+from pathlib import Path
+data = json.load(open("data/evaluation_vision_questions.json"))
+print("image_root:", data.get("image_root"))
+print("pdf_root:", data.get("pdf_root"))
+PY
+```
+
+Check PDF rendering dependency:
+
+```bash
+command -v pdftoppm
+```
+
 ### Database/path issues
 
 Check status file and run metadata:
@@ -265,10 +387,15 @@ To add another GPU beyond the currently supported set, update these files:
 
 - `model_static_check.py`: add VRAM size, CLI aliases, and any fit-report text.
 - `gpu_runtime/generate_gpu_config.py`: update CLI help/error text for the new target.
+- `gpu_runtime/generate_gpu_vision_config.py`: update multimodal sizing/help text for the new target.
 - `gpu_runtime/evaluate_context.py`
 - `gpu_runtime/evaluate_context_results.py`
+- `gpu_runtime/evaluate_vision.py`
+- `gpu_runtime/evaluate_vision_results.py`
 - `gpu_runtime/run_evaluate_context_background.sh`
 - `gpu_runtime/run_evaluate_context_results_background.sh`
+- `gpu_runtime/run_evaluate_vision_background.sh`
+- `gpu_runtime/run_evaluate_vision_results_background.sh`
 
 Those runtime files need a matching `nvidia-smi` name check if you want automatic run bucketing.
 
