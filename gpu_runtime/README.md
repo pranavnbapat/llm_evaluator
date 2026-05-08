@@ -276,6 +276,12 @@ command -v pdftoppm
 
 If `pdftoppm` is missing, PDF tasks will not run correctly.
 
+Install it with:
+
+```bash
+apt-get update && apt-get install -y poppler-utils
+```
+
 ## Output Layout
 
 Evaluation and scoring write to:

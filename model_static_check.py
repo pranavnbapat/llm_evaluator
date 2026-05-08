@@ -420,7 +420,8 @@ def main() -> int:
         print(f"  name: \"{repo_id}-{'FP16' if not quant else quant.upper()}\"")
         print(f"  repo: \"{repo_id}\"")
         print(f"  local_path: \"/workspace/models/{model_key}_{suffix}_{target_gpu or 'default'}\"")
-        print(f"  quant: {('null' if not quant else '\"' + quant + '\"')}")
+        quant_value = "null" if not quant else f'"{quant}"'
+        print(f"  quant: {quant_value}")
         print(f"  dtype: \"float16\"")
         print(f"  max_model_len: {max_len}")
         print(f"  gpu_memory_util: {gpu_mem}")
@@ -776,7 +777,8 @@ def normalize_llm_yaml(
             out_lines.append(f"  name: \"{name}\"")
             out_lines.append(f"  repo: \"{repo}\"")
             out_lines.append(f"  local_path: \"{local_path}\"")
-            out_lines.append(f"  quant: {('null' if quant in {'null','none'} else '\"' + quant + '\"')}")
+            quant_value = "null" if quant in {"null", "none"} else f'"{quant}"'
+            out_lines.append(f"  quant: {quant_value}")
             out_lines.append(f"  dtype: \"{dtype}\"")
             out_lines.append(f"  max_model_len: {max_model_len}")
             out_lines.append(f"  gpu_memory_util: {gpu_memory_util:.2f}")
