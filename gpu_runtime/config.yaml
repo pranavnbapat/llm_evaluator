@@ -21,71 +21,85 @@ vllm_api_key: "${VLLM_API_KEY:-sk-your-key-eval}"
 # ----------------------------------------------------------------------------
 generation_profile:
   gpu: "a40"
-  concurrent_users: 10
+  concurrent_users: 1
   target_max_output_tokens: 512
+  image_token_reserve: 1024
   seq_lens: "4096,8192,16384"
-  allow_fits: "comfortable"
-  generated_at: "2026-05-04 07:45:17"
+  allow_fits: "comfortable,tight"
+  generated_at: "2026-05-05 15:24:51"
 models:
-  deepseek_r1_distill_qwen_32b_awq_fp16_a40:
-    name: "deepseek-r1-distill-qwen-32b-awq-a40"
-    repo: "Valdemardi/DeepSeek-R1-Distill-Qwen-32B-AWQ"
-    local_path: "/workspace/models/deepseek_r1_distill_qwen_32b_awq_fp16_a40"
-    quant: null
-    dtype: "float16"
-    max_model_len: 4096
-    usable_input_tokens: 3584
-    gpu_memory_util: 0.90
-
-  granite_4_1_8b_awq_fp16_a40:
-    name: "granite-4-1-8b-awq-a40"
-    repo: "pranavbapat/granite-4.1-8b-awq"
-    local_path: "/workspace/models/granite_4_1_8b_awq_fp16_a40"
-    quant: null
-    dtype: "float16"
-    max_model_len: 8192
-    usable_input_tokens: 7680
-    gpu_memory_util: 0.90
-
-  granite_4_1_8b_fp16_a40:
-    name: "granite-4-1-8b-a40"
-    repo: "ibm-granite/granite-4.1-8b"
-    local_path: "/workspace/models/granite_4_1_8b_fp16_a40"
-    quant: null
-    dtype: "float16"
-    max_model_len: 8192
-    usable_input_tokens: 7680
-    gpu_memory_util: 0.90
-
-  ministral_3_14b_instruct_2512_fp16_a40:
-    name: "ministral-3-14b-instruct-2512-a40"
-    repo: "mistralai/Ministral-3-14B-Instruct-2512"
-    local_path: "/workspace/models/ministral_3_14b_instruct_2512_fp16_a40"
-    quant: null
-    dtype: "float16"
-    max_model_len: 8192
-    usable_input_tokens: 7680
-    gpu_memory_util: 0.90
-
-  qwen3_6_35b_a3b_awq_4bit_fp16_a40:
-    name: "qwen3-6-35b-a3b-awq-4bit-a40"
-    repo: "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit"
-    local_path: "/workspace/models/qwen3_6_35b_a3b_awq_4bit_fp16_a40"
+  granite_vision_4_1_4b_fp16_a40:
+    name: "granite-vision-4-1-4b-a40"
+    repo: "ibm-granite/granite-vision-4.1-4b"
+    local_path: "/workspace/models/granite_vision_4_1_4b_fp16_a40"
     quant: null
     dtype: "float16"
     max_model_len: 16384
-    usable_input_tokens: 15872
+    usable_input_tokens: 14848
+    image_token_reserve: 1024
     gpu_memory_util: 0.90
+    trust_remote_code: true
+    vllm_extra_args:
+      - "--limit-mm-per-prompt"
+      - "image=1"
 
-  qwen3_6_35b_a3b_awq_fp16_a40:
-    name: "qwen3-6-35b-a3b-awq-a40"
-    repo: "QuantTrio/Qwen3.6-35B-A3B-AWQ"
-    local_path: "/workspace/models/qwen3_6_35b_a3b_awq_fp16_a40"
+  internvl3_5_14b_fp16_a40:
+    name: "internvl3-5-14b-a40"
+    repo: "OpenGVLab/InternVL3_5-14B"
+    local_path: "/workspace/models/internvl3_5_14b_fp16_a40"
+    quant: null
+    dtype: "bfloat16"
+    max_model_len: 16384
+    usable_input_tokens: 14848
+    image_token_reserve: 1024
+    gpu_memory_util: 0.85
+    trust_remote_code: true
+    vllm_extra_args:
+      - "--limit-mm-per-prompt"
+      - "image=1"
+
+  internvl3_5_38b_awq_4bit_fp16_a40:
+    name: "internvl3-5-38b-awq-4bit-a40"
+    repo: "cyankiwi/InternVL3_5-38B-AWQ-4bit"
+    local_path: "/workspace/models/internvl3_5_38b_awq_4bit_fp16_a40"
     quant: null
     dtype: "float16"
     max_model_len: 16384
-    usable_input_tokens: 15872
+    usable_input_tokens: 14848
+    image_token_reserve: 1024
+    gpu_memory_util: 0.85
+    trust_remote_code: true
+    vllm_extra_args:
+      - "--limit-mm-per-prompt"
+      - "image=1"
+
+  internvl3_5_4b_instruct_fp16_a40:
+    name: "internvl3-5-4b-instruct-a40"
+    repo: "OpenGVLab/InternVL3_5-4B-Instruct"
+    local_path: "/workspace/models/internvl3_5_4b_instruct_fp16_a40"
+    quant: null
+    dtype: "bfloat16"
+    max_model_len: 16384
+    usable_input_tokens: 14848
+    image_token_reserve: 1024
     gpu_memory_util: 0.90
+    trust_remote_code: true
+    vllm_extra_args:
+      - "--limit-mm-per-prompt"
+      - "image=1"
+
+  phi_3_5_vision_instruct_fp16_a40:
+    name: "phi-3-5-vision-instruct-a40"
+    repo: "microsoft/Phi-3.5-vision-instruct"
+    local_path: "/workspace/models/phi_3_5_vision_instruct_fp16_a40"
+    quant: null
+    dtype: "bfloat16"
+    max_model_len: 16384
+    usable_input_tokens: 14848
+    image_token_reserve: 1024
+    gpu_memory_util: 0.90
+    trust_remote_code: true
+
 evaluation:
   # All 24 EU languages
   languages: ["BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU", "GA", "IT", "LV", "LT", "MT", "PL", "PT", "RO", "SK", "SL", "ES", "SV"]

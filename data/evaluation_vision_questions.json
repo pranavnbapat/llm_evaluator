@@ -1,0 +1,50 @@
+{
+  "dataset_id": "euf_vision_v1",
+  "version": 1,
+  "status": "active",
+  "description": "Starter multimodal evaluation set for VLM benchmarking on EU-FarmBook style agricultural imagery. Drop image files into image_root and reference by image_filename.",
+  "image_root": "data/vision_images",
+  "languages": ["EN"],
+  "items": [
+    {
+      "item_id": "V1",
+      "question_id": "Q1",
+      "language": "EN",
+      "image_filename": "weed_in_cereal.jpg",
+      "question": "What weed species are visible in this cereal field, and what non-chemical control options would you recommend?",
+      "context": []
+    },
+    {
+      "item_id": "V2",
+      "question_id": "Q2",
+      "language": "EN",
+      "image_filename": "soil_surface.jpg",
+      "question": "Looking at the soil surface in this image, what indicators of soil health or degradation can you identify, and what restoration steps would you suggest?",
+      "context": []
+    },
+    {
+      "item_id": "V3",
+      "question_id": "Q3",
+      "language": "EN",
+      "image_filename": "drought_stressed_crop.jpg",
+      "question": "What signs of drought or heat stress can you see in this crop, and what climate adaptation practices could mitigate them in a Mediterranean context?",
+      "context": []
+    },
+    {
+      "item_id": "V4",
+      "question_id": "Q4",
+      "language": "EN",
+      "image_filename": "leaf_disease.jpg",
+      "question": "Identify the symptoms visible on these leaves and suggest an integrated pest management response.",
+      "context": []
+    },
+    {
+      "item_id": "V5",
+      "question_id": "Q5",
+      "language": "EN",
+      "image_filename": "maize_pest_damage.jpg",
+      "question": "What kind of pest damage is visible on this maize, and which IPM steps would you take to manage it?",
+      "context": []
+    }
+  ]
+}
