@@ -30,14 +30,14 @@
 #AI71ai/agrillm-Qwen3-30B-A3B
 
 #Not yet tested
-#OpenGVLab/InternVL3_5-14B
-#OpenGVLab/InternVL3_5-4B-Instruct
-#Qwen/Qwen3-VL-32B-Instruct
-#Qwen/Qwen3-VL-30B-A3B-Instruct
-#cyankiwi/InternVL3_5-38B-AWQ-4bit
-#ibm-granite/granite-vision-4.1-4b
-#microsoft/Phi-3.5-vision-instruct
+OpenGVLab/InternVL3_5-14B
+OpenGVLab/InternVL3_5-4B-Instruct
+Qwen/Qwen3-VL-32B-Instruct
+Qwen/Qwen3-VL-30B-A3B-Instruct
+cyankiwi/InternVL3_5-38B-AWQ-4bit
+ibm-granite/granite-vision-4.1-4b
+microsoft/Phi-3.5-vision-instruct
 
-Qwen/Qwen3.6-35B-A3B
-Qwen/Qwen3.6-27B
-google/gemma-4-31B-it
+#Qwen/Qwen3.6-35B-A3B
+#Qwen/Qwen3.6-27B
+#google/gemma-4-31B-it

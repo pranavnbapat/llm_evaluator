@@ -20,22 +20,22 @@ vllm_api_key: "${VLLM_API_KEY:-sk-your-key-eval}"
 # Model Configuration
 # ----------------------------------------------------------------------------
 generation_profile:
-  gpu: "a40"
-  concurrent_users: 1
+  gpu: "l40s"
+  concurrent_users: 25
   target_max_output_tokens: 512
   image_token_reserve: 1024
   seq_lens: "4096,8192,16384"
   allow_fits: "comfortable,tight"
-  generated_at: "2026-05-05 15:24:51"
+  generated_at: "2026-05-08 23:05:13"
 models:
-  granite_vision_4_1_4b_fp16_a40:
-    name: "granite-vision-4-1-4b-a40"
+  granite_vision_4_1_4b_fp16_l40s:
+    name: "granite-vision-4-1-4b-l40s"
     repo: "ibm-granite/granite-vision-4.1-4b"
-    local_path: "/workspace/models/granite_vision_4_1_4b_fp16_a40"
+    local_path: "/workspace/models/granite_vision_4_1_4b_fp16_l40s"
     quant: null
     dtype: "float16"
-    max_model_len: 16384
-    usable_input_tokens: 14848
+    max_model_len: 8192
+    usable_input_tokens: 6656
     image_token_reserve: 1024
     gpu_memory_util: 0.90
     trust_remote_code: true
@@ -43,14 +43,14 @@ models:
       - "--limit-mm-per-prompt"
       - "image=1"
 
-  internvl3_5_14b_fp16_a40:
-    name: "internvl3-5-14b-a40"
+  internvl3_5_14b_fp16_l40s:
+    name: "internvl3-5-14b-l40s"
     repo: "OpenGVLab/InternVL3_5-14B"
-    local_path: "/workspace/models/internvl3_5_14b_fp16_a40"
+    local_path: "/workspace/models/internvl3_5_14b_fp16_l40s"
     quant: null
     dtype: "bfloat16"
-    max_model_len: 16384
-    usable_input_tokens: 14848
+    max_model_len: 1792
+    usable_input_tokens: 256
     image_token_reserve: 1024
     gpu_memory_util: 0.85
     trust_remote_code: true
@@ -58,29 +58,14 @@ models:
       - "--limit-mm-per-prompt"
       - "image=1"
 
-  internvl3_5_38b_awq_4bit_fp16_a40:
-    name: "internvl3-5-38b-awq-4bit-a40"
-    repo: "cyankiwi/InternVL3_5-38B-AWQ-4bit"
-    local_path: "/workspace/models/internvl3_5_38b_awq_4bit_fp16_a40"
-    quant: null
-    dtype: "float16"
-    max_model_len: 16384
-    usable_input_tokens: 14848
-    image_token_reserve: 1024
-    gpu_memory_util: 0.85
-    trust_remote_code: true
-    vllm_extra_args:
-      - "--limit-mm-per-prompt"
-      - "image=1"
-
-  internvl3_5_4b_instruct_fp16_a40:
-    name: "internvl3-5-4b-instruct-a40"
+  internvl3_5_4b_instruct_fp16_l40s:
+    name: "internvl3-5-4b-instruct-l40s"
     repo: "OpenGVLab/InternVL3_5-4B-Instruct"
-    local_path: "/workspace/models/internvl3_5_4b_instruct_fp16_a40"
+    local_path: "/workspace/models/internvl3_5_4b_instruct_fp16_l40s"
     quant: null
     dtype: "bfloat16"
-    max_model_len: 16384
-    usable_input_tokens: 14848
+    max_model_len: 8192
+    usable_input_tokens: 6656
     image_token_reserve: 1024
     gpu_memory_util: 0.90
     trust_remote_code: true
@@ -88,18 +73,17 @@ models:
       - "--limit-mm-per-prompt"
       - "image=1"
 
-  phi_3_5_vision_instruct_fp16_a40:
-    name: "phi-3-5-vision-instruct-a40"
+  phi_3_5_vision_instruct_fp16_l40s:
+    name: "phi-3-5-vision-instruct-l40s"
     repo: "microsoft/Phi-3.5-vision-instruct"
-    local_path: "/workspace/models/phi_3_5_vision_instruct_fp16_a40"
+    local_path: "/workspace/models/phi_3_5_vision_instruct_fp16_l40s"
     quant: null
     dtype: "bfloat16"
-    max_model_len: 16384
-    usable_input_tokens: 14848
+    max_model_len: 2304
+    usable_input_tokens: 768
     image_token_reserve: 1024
     gpu_memory_util: 0.90
     trust_remote_code: true
-
 evaluation:
   # All 24 EU languages
   languages: ["BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU", "GA", "IT", "LV", "LT", "MT", "PL", "PT", "RO", "SK", "SL", "ES", "SV"]

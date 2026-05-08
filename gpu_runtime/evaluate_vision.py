@@ -2,10 +2,10 @@
 
 #!/workspace/llm_evaluator/.venv/bin/python3
 """
-Vision evaluation script - VLM benchmarking with image+question prompts.
+Multimodal evaluation script for image and PDF tasks.
 
 Forks evaluate_context.py: VLlmManager / GPUMonitor / DB scaffolding are kept,
-but the prompt is multimodal (text + image_url) and the dataset is loaded from
+but prompts are multimodal and the dataset is loaded from
 data/evaluation_vision_questions.json.
 
 Per-model vLLM CLI flags (e.g. --limit-mm-per-prompt) can be supplied via the
@@ -30,7 +30,7 @@ import socket
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, Any, Union
+from typing import Optional, Any
 import requests
 from tqdm import tqdm
 
@@ -93,7 +93,8 @@ def resolve_run_paths(base_results_dir: Path) -> dict:
     logs_dir = run_dir / "logs"
     insights_dir = run_dir / "insights"
     metadata_dir = run_dir / "metadata"
-    for p in [raw_dir, scores_dir, logs_dir, insights_dir, metadata_dir]:
+    pages_dir = run_dir / "media_pages"
+    for p in [raw_dir, scores_dir, logs_dir, insights_dir, metadata_dir, pages_dir]:
         p.mkdir(parents=True, exist_ok=True)
 
     latest_root = (base_results_dir / "latest").resolve()
@@ -115,6 +116,7 @@ def resolve_run_paths(base_results_dir: Path) -> dict:
         "logs_dir": logs_dir,
         "insights_dir": insights_dir,
         "metadata_dir": metadata_dir,
+        "pages_dir": pages_dir,
         "run_id": run_id,
         "gpu_bucket": gpu_bucket,
         "gpu_source": gpu_source,
@@ -436,19 +438,6 @@ class GPUMonitor:
         )
 
 
-def load_vision_dataset(dataset_path: Path) -> tuple[list, Path]:
-    """Load the vision dataset JSON. Returns (items, image_root_abs_path)."""
-    with open(dataset_path) as f:
-        data = json.load(f)
-    items = data.get("items", [])
-    image_root_raw = data.get("image_root", "data/vision_images")
-    image_root = Path(image_root_raw)
-    if not image_root.is_absolute():
-        image_root = (REPO_ROOT / image_root).resolve()
-    image_root.mkdir(parents=True, exist_ok=True)
-    return items, image_root
-
-
 def encode_image_as_data_url(path: Path) -> Optional[str]:
     """Read a local image and return a data: URL with detected MIME type."""
     if not path.exists():
@@ -464,29 +453,230 @@ def encode_image_as_data_url(path: Path) -> Optional[str]:
     return f"data:{mime};base64,{b64}"
 
 
-def resolve_image_ref(item: dict, image_root: Path) -> tuple[Optional[str], str]:
-    """Resolve item -> (data_url_or_http_url, displayable_ref)."""
-    ref = item.get("image_url") or item.get("image_filename") or item.get("image_path")
+EU24_LANGUAGES = [
+    "BG", "CS", "DA", "DE", "EL", "EN", "ES", "ET", "FI", "FR", "GA", "HR",
+    "HU", "IT", "LT", "LV", "MT", "NL", "PL", "PT", "RO", "SK", "SL", "SV",
+]
+
+
+def _resolve_dataset_root(dataset_path: Path, raw_value: str, default_relative: str) -> Path:
+    base = Path(raw_value or default_relative)
+    if base.is_absolute():
+        return base.resolve()
+    candidate = (dataset_path.parent / base).resolve()
+    if candidate.exists():
+        return candidate
+    return (REPO_ROOT / base).resolve()
+
+
+def _normalize_languages(*language_sources) -> list[str]:
+    normalized = []
+    for source in language_sources:
+        if not source:
+            continue
+        values = source if isinstance(source, list) else [source]
+        for value in values:
+            token = str(value).strip()
+            if not token:
+                continue
+            up = token.upper()
+            if up not in normalized:
+                normalized.append(up)
+    return normalized or ["EN"]
+
+
+def _normalize_context(raw_context) -> list:
+    if raw_context is None:
+        return []
+    if isinstance(raw_context, list):
+        return raw_context
+    return [raw_context]
+
+
+def _localized_text(item: dict, base_key: str, language: str) -> str:
+    direct_key = f"{base_key}_translations"
+    translations = item.get(direct_key) or {}
+    if isinstance(translations, dict):
+        if language in translations:
+            return str(translations[language]).strip()
+        if language.upper() in translations:
+            return str(translations[language.upper()]).strip()
+        if "EN" in translations:
+            return str(translations["EN"]).strip()
+    value = item.get(base_key, "")
+    return str(value).strip()
+
+
+def _collect_media_refs(item: dict) -> list[str]:
+    refs = []
+    for key in ("image_url", "image_filename", "image_path"):
+        value = item.get(key)
+        if value:
+            refs.append(str(value))
+    for key in ("image_urls", "image_paths", "image_filenames"):
+        values = item.get(key) or []
+        if isinstance(values, list):
+            refs.extend([str(v) for v in values if v])
+    deduped = []
+    for ref in refs:
+        if ref not in deduped:
+            deduped.append(ref)
+    return deduped
+
+
+def load_vision_dataset(dataset_path: Path) -> tuple[list[dict], dict]:
+    """Load and normalize multimodal tasks from JSON."""
+    with open(dataset_path) as f:
+        data = json.load(f)
+
+    dataset_languages = _normalize_languages(
+        data.get("default_languages"),
+        data.get("languages"),
+    )
+    image_root = _resolve_dataset_root(dataset_path, data.get("image_root", ""), "data/vision_images")
+    pdf_root = _resolve_dataset_root(dataset_path, data.get("pdf_root", ""), "files")
+    image_root.mkdir(parents=True, exist_ok=True)
+    pdf_root.mkdir(parents=True, exist_ok=True)
+
+    tasks: list[dict] = []
+    for item in data.get("items", []):
+        item_id = str(item.get("item_id") or item.get("document_id") or item.get("question_id") or f"item_{len(tasks)+1}")
+        modality = str(item.get("modality") or ("pdf" if item.get("pdf_path") or item.get("pdf_filename") else "image")).strip().lower()
+        task_type = str(item.get("task_type") or ("summary" if item.get("summary_prompt") else "qa")).strip().lower()
+        item_context = _normalize_context(item.get("context"))
+        item_expected_elements = item.get("expected_elements") or []
+        item_reference_texts = item.get("reference_texts") or []
+        item_reference_facts = item.get("reference_facts") or item.get("reference_answer") or []
+        item_source_text = item.get("source_text", "") or ""
+        item_max_sentences = int(item.get("max_sentences", 8 if task_type == "summary" else 6))
+        item_pages_per_chunk = int(item.get("pages_per_chunk", item.get("page_batch_size", 3)))
+
+        base_task = {
+            "item_id": item_id,
+            "modality": modality,
+            "task_type": task_type,
+            "context": item_context,
+            "expected_elements": item_expected_elements,
+            "reference_texts": item_reference_texts,
+            "reference_facts": item_reference_facts,
+            "source_text": item_source_text,
+            "max_sentences": item_max_sentences,
+            "pages_per_chunk": max(1, item_pages_per_chunk),
+            "summary_prompt": item.get("summary_prompt") or item.get("prompt") or "",
+            "media_refs": _collect_media_refs(item),
+            "pdf_ref": item.get("pdf_path") or item.get("pdf_filename") or item.get("file_path") or "",
+            "metadata": item.get("metadata") or {},
+        }
+
+        if item.get("questions"):
+            for q in item["questions"]:
+                question_id = str(q.get("question_id") or item.get("question_id") or f"{item_id}_qa")
+                languages = _normalize_languages(
+                    q.get("languages"),
+                    q.get("language"),
+                    item.get("languages"),
+                    item.get("language"),
+                    dataset_languages,
+                )
+                for language in languages:
+                    question_text = (
+                        _localized_text(q, "question", language)
+                        or _localized_text(q, "prompt", language)
+                    )
+                    tasks.append({
+                        **base_task,
+                        "question_id": question_id,
+                        "question_text": question_text,
+                        "language": language,
+                        "task_type": str(q.get("task_type") or task_type or "qa").lower(),
+                        "expected_elements": q.get("expected_elements") or item_expected_elements,
+                        "reference_texts": q.get("reference_texts") or item_reference_texts,
+                        "reference_facts": q.get("reference_facts") or q.get("reference_answer") or item_reference_facts,
+                        "source_text": q.get("source_text") or item_source_text,
+                        "max_sentences": int(q.get("max_sentences", item_max_sentences)),
+                    })
+            continue
+
+        languages = _normalize_languages(
+            item.get("languages"),
+            item.get("language"),
+            dataset_languages,
+        )
+        question_id = str(item.get("question_id") or ("MM_SUMMARY" if task_type == "summary" else "MM_QA"))
+        for language in languages:
+            question_text = (
+                _localized_text(item, "question", language)
+                or _localized_text(item, "prompt", language)
+                or _localized_text(item, "summary_prompt", language)
+            )
+            tasks.append({
+                **base_task,
+                "question_id": question_id,
+                "question_text": question_text,
+                "language": language,
+            })
+
+    return tasks, {
+        "dataset": data,
+        "dataset_path": dataset_path.resolve(),
+        "image_root": image_root,
+        "pdf_root": pdf_root,
+    }
+
+
+def resolve_image_refs(item: dict, image_root: Path) -> tuple[list[str], list[str]]:
+    data_urls: list[str] = []
+    display_refs: list[str] = []
+    for ref in item.get("media_refs") or []:
+        if ref.startswith(("http://", "https://", "data:")):
+            data_urls.append(ref)
+            display_refs.append(ref)
+            continue
+        p = Path(ref)
+        if not p.is_absolute():
+            p = (image_root / p).resolve()
+        data_url = encode_image_as_data_url(p)
+        if data_url:
+            data_urls.append(data_url)
+            display_refs.append(str(p))
+    return data_urls, display_refs
+
+
+def render_pdf_to_pngs(pdf_path: Path, out_dir: Path, dpi: int = 150) -> list[Path]:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    prefix = out_dir / "page"
+    existing = sorted(out_dir.glob("page-*.png"))
+    if existing:
+        return existing
+    subprocess.run(["pdftoppm", "-png", "-r", str(dpi), str(pdf_path), str(prefix)], check=True)
+    return sorted(out_dir.glob("page-*.png"))
+
+
+def resolve_pdf_ref(item: dict, pdf_root: Path) -> Path:
+    ref = str(item.get("pdf_ref") or "").strip()
     if not ref:
-        return None, ""
-    if isinstance(ref, str) and ref.startswith(("http://", "https://", "data:")):
-        return ref, ref
+        raise FileNotFoundError("missing pdf_path/pdf_filename")
     p = Path(ref)
     if not p.is_absolute():
-        p = (image_root / p).resolve()
-    return encode_image_as_data_url(p), str(p)
+        p = (pdf_root / p).resolve()
+    return p
+
+
+def chunk_list(values: list, size: int) -> list[list]:
+    return [values[i:i + size] for i in range(0, len(values), size)]
 
 
 class Evaluator:
-    """Vision evaluation: text + image multimodal prompt."""
+    """Multimodal evaluator for image QA/summarization and PDF QA/summarization."""
 
-    def __init__(self, vllm: VLlmManager, config: dict, items: list, image_root: Path,
-                 gpu_monitor: Optional[GPUMonitor] = None):
+    def __init__(self, vllm: VLlmManager, config: dict, tasks: list[dict], asset_roots: dict,
+                 pages_dir: Path, gpu_monitor: Optional[GPUMonitor] = None):
         self.vllm = vllm
         self.config = config
         self.gpu_monitor = gpu_monitor
-        self.items = items
-        self.image_root = image_root
+        self.tasks = tasks
+        self.asset_roots = asset_roots
+        self.pages_dir = pages_dir
         self.results_dir = Path(config["paths"]["results_dir"])
         self.results_dir.mkdir(parents=True, exist_ok=True)
 
@@ -495,6 +685,8 @@ class Evaluator:
         self._init_db()
 
         self.num_runs = int(config["evaluation"]["num_runs"])
+        self.max_tokens = int(config["evaluation"]["max_tokens"])
+        self.temperature = float(config["evaluation"]["temperature"])
 
     def _init_db(self):
         cursor = self._conn.cursor()
@@ -505,17 +697,46 @@ class Evaluator:
                 language TEXT,
                 question_id TEXT,
                 item_id TEXT,
+                task_type TEXT,
+                modality TEXT,
                 run_number INTEGER,
                 question_text TEXT,
                 context TEXT,
-                image_ref TEXT,
-                image_count INTEGER,
+                media_ref TEXT,
+                media_count INTEGER,
                 response TEXT,
                 timestamp TEXT,
-                latency_ms REAL
+                latency_ms REAL,
+                metadata_json TEXT
             )
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS evaluation_steps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                evaluation_id INTEGER,
+                step_type TEXT,
+                chunk_index INTEGER,
+                page_start INTEGER,
+                page_end INTEGER,
+                prompt_text TEXT,
+                response_text TEXT,
+                latency_ms REAL,
+                status TEXT,
+                created_at TEXT
+            )
+        """)
+        self._ensure_column("evaluations", "task_type", "TEXT")
+        self._ensure_column("evaluations", "modality", "TEXT")
+        self._ensure_column("evaluations", "media_ref", "TEXT")
+        self._ensure_column("evaluations", "media_count", "INTEGER")
+        self._ensure_column("evaluations", "metadata_json", "TEXT")
         self._conn.commit()
+
+    def _ensure_column(self, table_name: str, column_name: str, column_type: str) -> None:
+        cursor = self._conn.cursor()
+        columns = {row[1] for row in cursor.execute(f"PRAGMA table_info({table_name})").fetchall()}
+        if column_name not in columns:
+            cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
 
     def _open_db_connection(self) -> sqlite3.Connection:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -545,33 +766,208 @@ class Evaluator:
             return ""
         parts = []
         for i, entry in enumerate(context, 1):
+            if isinstance(entry, str):
+                parts.append(f"[{i}] {entry[:500]}")
+                continue
+            if not isinstance(entry, dict):
+                continue
             title = entry.get("title", "")
             description = entry.get("description", "")
-            if title and description:
-                parts.append(f"[{i}] {title}: {description[:300]}...")
-            elif title:
-                parts.append(f"[{i}] {title}")
+            subtitle = entry.get("subtitle", "")
+            body = entry.get("text") or entry.get("content") or ""
+            merged = ". ".join([p for p in [title, subtitle, description, body] if p]).strip()
+            if merged:
+                parts.append(f"[{i}] {merged[:700]}")
         return "\n\n".join(parts)
 
-    @staticmethod
-    def _compose_text(question_text: str, language: str, context_str: str) -> str:
-        context_block = f"SEARCH RESULTS (in English):\n{context_str}\n\n" if context_str else ""
-        return f"""You are an expert agriculture advisor. The farmer has shared an image and a question. Use what you can see in the image (and the optional search results) to give a helpful, accurate response.
+    def _set_monitor_context(self, *, phase: str, task: dict, run_number: int, media_ref: str, media_count: int, input_mode: str) -> None:
+        if not self.gpu_monitor:
+            return
+        self.gpu_monitor.set_context(
+            phase=phase,
+            eval_language=task["language"],
+            eval_question_id=task["question_id"],
+            eval_run_number=run_number,
+            eval_image_ref=media_ref,
+            eval_image_count=media_count,
+            eval_input_mode=input_mode,
+        )
 
-{context_block}FARMER'S QUESTION (in {language}):
-{question_text}
+    def _call_multimodal(self, content_parts: list, *, max_tokens: Optional[int] = None) -> tuple[Optional[str], float]:
+        started = time.time()
+        response = self.vllm.chat_completion_multimodal(
+            content_parts=content_parts,
+            temperature=self.temperature,
+            max_tokens=max_tokens or self.max_tokens,
+        )
+        latency_ms = (time.time() - started) * 1000
+        return response, latency_ms
 
-INSTRUCTIONS:
-1. Answer in the SAME LANGUAGE as the question ({language}).
-2. Reference what is visible in the image when relevant.
-3. Provide PRACTICAL, actionable advice.
-4. Be COMPREHENSIVE but CONCISE (2-4 paragraphs).
+    def _build_media_question_prompt(self, task: dict) -> str:
+        context_block = self._format_context(task.get("context") or [])
+        context_text = f"OPTIONAL SUPPORTING CONTEXT:\n{context_block}\n\n" if context_block else ""
+        modality_name = "document pages" if task["modality"] == "pdf" else "image"
+        if task["task_type"] == "summary":
+            custom = task.get("question_text") or task.get("summary_prompt") or "Summarize the attached content."
+            return (
+                f"You are reviewing attached {modality_name}. {context_text}"
+                f"TASK ({task['language']}):\n{custom}\n\n"
+                f"INSTRUCTIONS:\n"
+                f"1. Answer in {task['language']}.\n"
+                f"2. Summarize only what is supported by the visible content.\n"
+                f"3. Do not invent details not visible in the media.\n"
+                f"4. Keep the answer to {task.get('max_sentences', 8)} sentences or fewer.\n\n"
+                f"Your summary:"
+            )
+        return (
+            f"You are an expert agriculture advisor reviewing attached {modality_name}. {context_text}"
+            f"QUESTION ({task['language']}):\n{task['question_text']}\n\n"
+            f"INSTRUCTIONS:\n"
+            f"1. Answer in {task['language']}.\n"
+            f"2. Use only what is visible in the media plus the optional supporting context.\n"
+            f"3. If the media does not support a claim, say so plainly instead of guessing.\n"
+            f"4. Be practical and concise.\n\n"
+            f"Your answer:"
+        )
 
-Your response:"""
+    def _build_pdf_map_prompt(self, task: dict, page_start: int, page_end: int, total_pages: int) -> str:
+        if task["task_type"] == "summary":
+            base = task.get("question_text") or task.get("summary_prompt") or "Summarize the attached document pages."
+            return (
+                f"You are reading pages {page_start}-{page_end} of {total_pages} of a PDF document.\n"
+                f"TASK ({task['language']}): {base}\n\n"
+                f"Write a faithful partial summary of only these pages in {task['language']}. "
+                f"Capture headings, figures, facts, recommendations, and any structured sections. "
+                f"Do not speculate about pages you have not seen."
+            )
+        return (
+            f"You are reading pages {page_start}-{page_end} of {total_pages} of a PDF document.\n"
+            f"QUESTION ({task['language']}): {task['question_text']}\n\n"
+            f"Extract only the evidence from these pages that helps answer the question. "
+            f"If the pages do not contain useful evidence, reply exactly NO_EVIDENCE. "
+            f"Keep the result concise and factual in {task['language']}."
+        )
+
+    def _build_pdf_reduce_prompt(self, task: dict, snippets: list[str], total_pages: int) -> str:
+        joined = "\n\n".join(f"[chunk {i+1}] {text}" for i, text in enumerate(snippets))
+        context_block = self._format_context(task.get("context") or [])
+        optional_context = f"\n\nOPTIONAL SUPPORTING CONTEXT:\n{context_block}" if context_block else ""
+        if task["task_type"] == "summary":
+            return (
+                f"You have partial summaries for a {total_pages}-page PDF document.{optional_context}\n\n"
+                f"PARTIAL SUMMARIES:\n{joined}\n\n"
+                f"Synthesize them into one coherent summary in {task['language']}. "
+                f"Keep the output within {task.get('max_sentences', 8)} sentences. "
+                f"Do not invent any content that is not supported by the partial summaries."
+            )
+        return (
+            f"You have extracted evidence snippets from a {total_pages}-page PDF document.{optional_context}\n\n"
+            f"QUESTION ({task['language']}): {task['question_text']}\n\n"
+            f"EVIDENCE SNIPPETS:\n{joined}\n\n"
+            f"Write the final answer in {task['language']}. "
+            f"Use only the evidence above plus the optional supporting context. "
+            f"If the evidence is insufficient, say that clearly."
+        )
+
+    def _task_run(self, task: dict) -> tuple[Optional[str], float, str, int, dict]:
+        try:
+            if task["modality"] == "pdf":
+                return self._run_pdf_task(task)
+            return self._run_image_task(task)
+        except FileNotFoundError as e:
+            return None, 0.0, str(e), 0, {"status": "missing_media"}
+        except subprocess.CalledProcessError as e:
+            return None, 0.0, str(e), 0, {"status": "media_processing_failed"}
+
+    def _run_image_task(self, task: dict) -> tuple[Optional[str], float, str, int, dict]:
+        image_urls, display_refs = resolve_image_refs(task, self.asset_roots["image_root"])
+        if not image_urls:
+            return None, 0.0, "", 0, {"status": "missing_media"}
+        content_parts = [{"type": "image_url", "image_url": {"url": url}} for url in image_urls]
+        content_parts.append({"type": "text", "text": self._build_media_question_prompt(task)})
+        response, latency_ms = self._call_multimodal(content_parts)
+        return response, latency_ms, "\n".join(display_refs), len(image_urls), {"status": "ok", "chunks": 1}
+
+    def _run_pdf_task(self, task: dict) -> tuple[Optional[str], float, str, int, dict]:
+        pdf_path = resolve_pdf_ref(task, self.asset_roots["pdf_root"])
+        if not pdf_path.exists():
+            return None, 0.0, str(pdf_path), 0, {"status": "missing_media"}
+
+        pages_cache = self.pages_dir / task["item_id"] / task["language"]
+        page_paths = render_pdf_to_pngs(pdf_path, pages_cache)
+        if not page_paths:
+            return None, 0.0, str(pdf_path), 0, {"status": "no_pages"}
+
+        chunks = chunk_list(page_paths, task.get("pages_per_chunk", 3))
+        snippets: list[str] = []
+        steps: list[dict] = []
+        total_latency = 0.0
+
+        for chunk_index, chunk_paths in enumerate(chunks, start=1):
+            page_start = ((chunk_index - 1) * task.get("pages_per_chunk", 3)) + 1
+            page_end = min(page_start + len(chunk_paths) - 1, len(page_paths))
+            content_parts = []
+            for p in chunk_paths:
+                data_url = encode_image_as_data_url(p)
+                if data_url:
+                    content_parts.append({"type": "image_url", "image_url": {"url": data_url}})
+            if not content_parts:
+                continue
+            content_parts.append({
+                "type": "text",
+                "text": self._build_pdf_map_prompt(task, page_start, page_end, len(page_paths)),
+            })
+            response, latency_ms = self._call_multimodal(content_parts)
+            total_latency += latency_ms
+            clean_response = (response or "").strip()
+            status = "ok" if clean_response else "empty"
+            steps.append({
+                "step_type": "map",
+                "chunk_index": chunk_index,
+                "page_start": page_start,
+                "page_end": page_end,
+                "prompt_text": content_parts[-1]["text"],
+                "response_text": clean_response,
+                "latency_ms": latency_ms,
+                "status": status,
+            })
+            if clean_response and clean_response != "NO_EVIDENCE":
+                snippets.append(clean_response)
+
+        if not snippets:
+            return None, total_latency, str(pdf_path), len(page_paths), {"status": "no_evidence", "steps": steps}
+
+        if len(snippets) == 1:
+            final_response = snippets[0]
+        else:
+            reduce_prompt = self._build_pdf_reduce_prompt(task, snippets, len(page_paths))
+            reduce_response, reduce_latency_ms = self._call_multimodal(
+                [{"type": "text", "text": reduce_prompt}],
+                max_tokens=self.max_tokens,
+            )
+            total_latency += reduce_latency_ms
+            final_response = (reduce_response or "").strip()
+            steps.append({
+                "step_type": "reduce",
+                "chunk_index": len(chunks) + 1,
+                "page_start": 1,
+                "page_end": len(page_paths),
+                "prompt_text": reduce_prompt,
+                "response_text": final_response,
+                "latency_ms": reduce_latency_ms,
+                "status": "ok" if final_response else "empty",
+            })
+
+        return final_response or None, total_latency, str(pdf_path), len(page_paths), {
+            "status": "ok" if final_response else "empty",
+            "steps": steps,
+            "page_count": len(page_paths),
+            "chunk_count": len(chunks),
+        }
 
     def evaluate_model(self, model_name: str, model_config: dict) -> dict:
         print(f"\n{'='*60}")
-        print(f"  Evaluating (vision): {model_config['name']}")
+        print(f"  Evaluating (multimodal): {model_config['name']}")
         print(f"  Database: evaluation_results_euf_vision.db")
         print(f"{'='*60}")
 
@@ -579,69 +975,49 @@ Your response:"""
             "model_name": model_name,
             "model_display_name": model_config["name"],
             "timestamp": datetime.now().isoformat(),
-            "total_questions": 0,
+            "total_tasks": 0,
             "successful_responses": 0,
-            "skipped_missing_image": 0,
+            "skipped_missing_media": 0,
         }
 
-        for item in tqdm(self.items, desc="Items"):
-            lang = item.get("language", "EN")
-            qid = item.get("question_id", "")
-            item_id = item.get("item_id", qid)
-            question_text = item.get("question", "")
-            context = item.get("context", []) or []
-
-            image_data_url, image_ref_display = resolve_image_ref(item, self.image_root)
-            if image_data_url is None:
-                print(f"   ⚠️ Skipping {item_id}: image not found ({image_ref_display or 'no image_filename'})")
-                results["skipped_missing_image"] += 1
-                continue
-
-            text_part = self._compose_text(
-                question_text=question_text,
-                language=lang,
-                context_str=self._format_context(context),
-            )
-            content_parts = [
-                {"type": "image_url", "image_url": {"url": image_data_url}},
-                {"type": "text", "text": text_part},
-            ]
-
+        for task in tqdm(self.tasks, desc="Tasks"):
             for run in range(1, self.num_runs + 1):
-                if self.gpu_monitor:
-                    self.gpu_monitor.set_context(
-                        phase="evaluating",
-                        eval_language=lang,
-                        eval_question_id=qid,
-                        eval_run_number=run,
-                        eval_image_ref=image_ref_display,
-                        eval_image_count=1,
-                        eval_input_mode="image+text",
-                    )
-                start_time = time.time()
-                response = self.vllm.chat_completion_multimodal(
-                    content_parts=content_parts,
-                    temperature=self.config["evaluation"]["temperature"],
-                    max_tokens=self.config["evaluation"]["max_tokens"],
+                input_mode = f"{task['modality']}+text"
+                media_hint = task.get("pdf_ref") or "\n".join(task.get("media_refs") or [])
+                self._set_monitor_context(
+                    phase="evaluating",
+                    task=task,
+                    run_number=run,
+                    media_ref=media_hint,
+                    media_count=0,
+                    input_mode=input_mode,
                 )
-                latency = (time.time() - start_time) * 1000
-
+                response, latency_ms, media_ref, media_count, metadata = self._task_run(task)
+                if metadata.get("status") in {"missing_media", "media_processing_failed"}:
+                    print(f"   ⚠️ Skipping {task['item_id']}:{task['question_id']}:{task['language']}: {metadata['status']}")
+                    results["skipped_missing_media"] += 1
+                    results["total_tasks"] += 1
+                    continue
                 if response:
-                    results["successful_responses"] += 1
-                    self._save_result(
+                    evaluation_id = self._save_result(
                         model_name=model_name,
-                        language=lang,
-                        question_id=qid,
-                        item_id=item_id,
+                        language=task["language"],
+                        question_id=task["question_id"],
+                        item_id=task["item_id"],
+                        task_type=task["task_type"],
+                        modality=task["modality"],
                         run_number=run,
-                        question_text=question_text,
-                        context=context,
-                        image_ref=image_ref_display,
-                        image_count=1,
+                        question_text=task["question_text"],
+                        context=task.get("context") or [],
+                        media_ref=media_ref,
+                        media_count=media_count,
                         response=response,
-                        latency_ms=latency,
+                        latency_ms=latency_ms,
+                        metadata_json=metadata,
                     )
-                results["total_questions"] += 1
+                    self._save_steps(evaluation_id, metadata.get("steps") or [])
+                    results["successful_responses"] += 1
+                results["total_tasks"] += 1
 
         if self.gpu_monitor:
             self.gpu_monitor.set_context(
@@ -653,31 +1029,33 @@ Your response:"""
         with open(json_path, "w") as f:
             json.dump(results, f, indent=2)
 
-        print(f"\n📊 Results: {results['successful_responses']}/{results['total_questions']} successful")
-        if results["skipped_missing_image"]:
-            print(f"🖼️  Skipped (missing image): {results['skipped_missing_image']}")
+        print(f"\n📊 Results: {results['successful_responses']}/{results['total_tasks']} successful")
+        if results["skipped_missing_media"]:
+            print(f"🖼️  Skipped (missing media): {results['skipped_missing_media']}")
         print(f"💾 Saved to: {self.db_path}")
         print(f"📄 JSON: {json_path}")
         return results
 
-    def _save_result(self, *, model_name, language, question_id, item_id, run_number,
-                     question_text, context, image_ref, image_count, response, latency_ms):
+    def _save_result(self, *, model_name, language, question_id, item_id, task_type, modality, run_number,
+                     question_text, context, media_ref, media_count, response, latency_ms, metadata_json):
         context_json = json.dumps(context) if context else ""
+        metadata_text = json.dumps(metadata_json) if metadata_json else ""
         for attempt in range(3):
             try:
                 self.db_path.parent.mkdir(parents=True, exist_ok=True)
-                self._conn.execute("""
+                cursor = self._conn.cursor()
+                cursor.execute("""
                     INSERT INTO evaluations
-                    (model_name, language, question_id, item_id, run_number, question_text, context,
-                     image_ref, image_count, response, timestamp, latency_ms)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (model_name, language, question_id, item_id, task_type, modality, run_number, question_text, context,
+                     media_ref, media_count, response, timestamp, latency_ms, metadata_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    model_name, language, question_id, item_id, run_number,
-                    question_text, context_json, image_ref, image_count,
-                    response, datetime.now().isoformat(), latency_ms,
+                    model_name, language, question_id, item_id, task_type, modality, run_number,
+                    question_text, context_json, media_ref, media_count, response,
+                    datetime.now().isoformat(), latency_ms, metadata_text,
                 ))
                 self._conn.commit()
-                return
+                return int(cursor.lastrowid)
             except sqlite3.OperationalError as e:
                 if "unable to open database file" in str(e).lower() and attempt < 2:
                     print(f"⚠️ SQLite open failure ({self.db_path}), retrying {attempt + 1}/2...")
@@ -685,6 +1063,30 @@ Your response:"""
                     self._reconnect_db()
                     continue
                 raise
+
+    def _save_steps(self, evaluation_id: int, steps: list[dict]) -> None:
+        if not steps:
+            return
+        cursor = self._conn.cursor()
+        for step in steps:
+            cursor.execute("""
+                INSERT INTO evaluation_steps
+                (evaluation_id, step_type, chunk_index, page_start, page_end, prompt_text, response_text,
+                 latency_ms, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                evaluation_id,
+                step.get("step_type", ""),
+                step.get("chunk_index"),
+                step.get("page_start"),
+                step.get("page_end"),
+                step.get("prompt_text", ""),
+                step.get("response_text", ""),
+                step.get("latency_ms"),
+                step.get("status", ""),
+                datetime.now().isoformat(),
+            ))
+        self._conn.commit()
 
 
 def load_env_file(env_path: Path) -> None:
@@ -769,8 +1171,8 @@ def export_results_to_excel(db_path: Path) -> Optional[Path]:
 
 def main():
     print("="*60)
-    print("EU-FarmBook Vision Evaluation")
-    print("VLM Benchmarking with Image+Question Prompts")
+    print("EU-FarmBook Multimodal Evaluation")
+    print("VLM Benchmarking with Image and PDF Tasks")
     print("="*60)
 
     config = load_config()
@@ -784,14 +1186,16 @@ def main():
         run_paths = resolve_run_paths(fallback_base)
     config["paths"]["results_dir"] = str(run_paths["raw_dir"])
 
-    dataset_path = Path(os.getenv("EVAL_VISION_DATASET", "")).expanduser()
-    if not dataset_path or not str(dataset_path):
-        dataset_path = REPO_ROOT / "data" / "evaluation_vision_questions.json"
+    dataset_env = os.getenv("EVAL_VISION_DATASET", "").strip()
+    dataset_path = Path(dataset_env).expanduser() if dataset_env else (REPO_ROOT / "data" / "evaluation_vision_questions.json")
     if not dataset_path.exists():
         print(f"❌ Vision dataset not found: {dataset_path}")
         sys.exit(2)
-    items, image_root = load_vision_dataset(dataset_path)
-    print(f"📚 Dataset: {dataset_path}  ({len(items)} items, image_root={image_root})")
+    tasks, asset_roots = load_vision_dataset(dataset_path)
+    print(
+        f"📚 Dataset: {dataset_path}  ({len(tasks)} tasks, "
+        f"image_root={asset_roots['image_root']}, pdf_root={asset_roots['pdf_root']})"
+    )
 
     run_meta = {
         "created_at": datetime.now().isoformat(),
@@ -804,8 +1208,9 @@ def main():
         "gpu_detected_from": run_paths["gpu_source"],
         "run_path_source": run_paths["run_source"],
         "dataset_path": str(dataset_path),
-        "image_root": str(image_root),
-        "evaluation_mode": "vision",
+        "image_root": str(asset_roots["image_root"]),
+        "pdf_root": str(asset_roots["pdf_root"]),
+        "evaluation_mode": "multimodal",
     }
     with open(run_paths["metadata_dir"] / "run_info.json", "w", encoding="utf-8") as f:
         json.dump(run_meta, f, indent=2)
@@ -819,7 +1224,7 @@ def main():
         extra = m.get("vllm_extra_args") or []
         suffix = f"  (+{len(extra)} extra args)" if extra else ""
         print(f"   - {m['name']}{suffix}")
-    print(f"\n🖼️  Items: {len(items)}  ×  runs: {config['evaluation']['num_runs']}")
+    print(f"\n🧪 Tasks: {len(tasks)}  ×  runs: {config['evaluation']['num_runs']}")
     print(f"🧭 Run ID: {run_paths['run_id']}")
     print(f"🖥️  GPU bucket: {run_paths['gpu_bucket']} ({run_paths['gpu_source']})")
     print(f"📁 Run dir: {run_paths['run_dir']}")
@@ -866,15 +1271,22 @@ def main():
 
             evaluator: Optional[Evaluator] = None
             try:
-                evaluator = Evaluator(vllm, config, items, image_root, gpu_monitor=gpu_monitor)
+                evaluator = Evaluator(
+                    vllm,
+                    config,
+                    tasks,
+                    asset_roots,
+                    run_paths["pages_dir"],
+                    gpu_monitor=gpu_monitor,
+                )
                 results = evaluator.evaluate_model(model_name, model_config)
                 all_results.append(results)
                 model_status["status"] = "evaluated"
                 model_status["finished_at"] = datetime.now().isoformat()
                 model_status["details"] = (
                     f"successful_responses={results['successful_responses']}/"
-                    f"{results['total_questions']} "
-                    f"(skipped_missing_image={results['skipped_missing_image']})"
+                    f"{results['total_tasks']} "
+                    f"(skipped_missing_media={results['skipped_missing_media']})"
                 )
                 model_statuses.append(model_status)
             except Exception as e:
@@ -895,7 +1307,7 @@ def main():
         print("="*60)
         print(f"\n📊 Summary:")
         for r in all_results:
-            print(f"   {r['model_display_name']}: {r['successful_responses']}/{r['total_questions']}")
+            print(f"   {r['model_display_name']}: {r['successful_responses']}/{r['total_tasks']}")
 
         failed = [m for m in model_statuses if m["status"] != "evaluated"]
         if failed:
