@@ -284,14 +284,18 @@ def estimate_seq_cap_for_concurrency(
 
 
 def render_models_yaml(models: List[Dict[str, object]]) -> str:
+    def yaml_quote(value: object) -> str:
+        text = str(value)
+        return "'" + text.replace("'", "''") + "'"
+
     lines = ["models:"]
     for m in models:
         lines.append(f"  {m['key']}:")
-        lines.append(f"    name: \"{m['name']}\"")
-        lines.append(f"    repo: \"{m['repo']}\"")
-        lines.append(f"    local_path: \"{m['local_path']}\"")
+        lines.append(f"    name: {yaml_quote(m['name'])}")
+        lines.append(f"    repo: {yaml_quote(m['repo'])}")
+        lines.append(f"    local_path: {yaml_quote(m['local_path'])}")
         lines.append("    quant: null")
-        lines.append(f"    dtype: \"{m['dtype']}\"")
+        lines.append(f"    dtype: {yaml_quote(m['dtype'])}")
         lines.append(f"    max_model_len: {m['max_model_len']}")
         lines.append(f"    usable_input_tokens: {m['usable_input_tokens']}")
         lines.append(f"    image_token_reserve: {m['image_token_reserve']}")
@@ -302,7 +306,7 @@ def render_models_yaml(models: List[Dict[str, object]]) -> str:
         if extra_args:
             lines.append("    vllm_extra_args:")
             for arg in extra_args:
-                lines.append(f"      - \"{arg}\"")
+                lines.append(f"      - {yaml_quote(arg)}")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
