@@ -21,75 +21,80 @@ vllm_api_key: "${VLLM_API_KEY:-sk-your-key-eval}"
 # ----------------------------------------------------------------------------
 generation_profile:
   gpu: "l40s"
-  concurrent_users: 25
-  target_max_output_tokens: 512
-  image_token_reserve: 1024
+  concurrent_users: 15
+  target_max_output_tokens: 1024
   seq_lens: "4096,8192,16384"
-  allow_fits: "comfortable,tight"
-  generated_at: "2026-05-08 23:05:13"
+  allow_fits: "comfortable"
+  generated_at: "2026-05-09 18:53:12"
 models:
-  granite_vision_4_1_4b_fp16_l40s:
-    name: "granite-vision-4-1-4b-l40s"
-    repo: "ibm-granite/granite-vision-4.1-4b"
-    local_path: "/workspace/models/granite_vision_4_1_4b_fp16_l40s"
+  eurollm_9b_instruct_2512_fp16_l40s:
+    name: "eurollm-9b-instruct-2512-l40s"
+    repo: "utter-project/EuroLLM-9B-Instruct-2512"
+    local_path: "/workspace/models/eurollm_9b_instruct_2512_fp16_l40s"
+    quant: null
+    dtype: "float16"
+    max_model_len: 4096
+    usable_input_tokens: 3072
+    gpu_memory_util: 0.90
+
+  granite_4_1_8b_awq_fp16_l40s:
+    name: "granite-4-1-8b-awq-l40s"
+    repo: "pranavbapat/granite-4.1-8b-awq"
+    local_path: "/workspace/models/granite_4_1_8b_awq_fp16_l40s"
     quant: null
     dtype: "float16"
     max_model_len: 8192
-    usable_input_tokens: 6656
-    image_token_reserve: 1024
+    usable_input_tokens: 7168
     gpu_memory_util: 0.90
-    trust_remote_code: true
-    vllm_extra_args:
-      - "--limit-mm-per-prompt"
-      - "image=1"
 
-  internvl3_5_14b_fp16_l40s:
-    name: "internvl3-5-14b-l40s"
-    repo: "OpenGVLab/InternVL3_5-14B"
-    local_path: "/workspace/models/internvl3_5_14b_fp16_l40s"
+  granite_4_1_8b_fp16_l40s:
+    name: "granite-4-1-8b-l40s"
+    repo: "ibm-granite/granite-4.1-8b"
+    local_path: "/workspace/models/granite_4_1_8b_fp16_l40s"
     quant: null
-    dtype: "bfloat16"
-    max_model_len: 1792
-    usable_input_tokens: 256
-    image_token_reserve: 1024
-    gpu_memory_util: 0.85
-    trust_remote_code: true
-    vllm_extra_args:
-      - "--limit-mm-per-prompt"
-      - "image=1"
-
-  internvl3_5_4b_instruct_fp16_l40s:
-    name: "internvl3-5-4b-instruct-l40s"
-    repo: "OpenGVLab/InternVL3_5-4B-Instruct"
-    local_path: "/workspace/models/internvl3_5_4b_instruct_fp16_l40s"
-    quant: null
-    dtype: "bfloat16"
-    max_model_len: 8192
-    usable_input_tokens: 6656
-    image_token_reserve: 1024
+    dtype: "float16"
+    max_model_len: 4096
+    usable_input_tokens: 3072
     gpu_memory_util: 0.90
-    trust_remote_code: true
-    vllm_extra_args:
-      - "--limit-mm-per-prompt"
-      - "image=1"
 
-  phi_3_5_vision_instruct_fp16_l40s:
-    name: "phi-3-5-vision-instruct-l40s"
-    repo: "microsoft/Phi-3.5-vision-instruct"
-    local_path: "/workspace/models/phi_3_5_vision_instruct_fp16_l40s"
+  ministral_3_14b_instruct_2512_fp16_l40s:
+    name: "ministral-3-14b-instruct-2512-l40s"
+    repo: "mistralai/Ministral-3-14B-Instruct-2512"
+    local_path: "/workspace/models/ministral_3_14b_instruct_2512_fp16_l40s"
     quant: null
-    dtype: "bfloat16"
-    max_model_len: 2304
-    usable_input_tokens: 768
-    image_token_reserve: 1024
+    dtype: "float16"
+    max_model_len: 4096
+    usable_input_tokens: 3072
     gpu_memory_util: 0.90
-    trust_remote_code: true
+
+  qwen3_6_35b_a3b_awq_4bit_fp16_l40s:
+    name: "qwen3-6-35b-a3b-awq-4bit-l40s"
+    repo: "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit"
+    local_path: "/workspace/models/qwen3_6_35b_a3b_awq_4bit_fp16_l40s"
+    quant: null
+    dtype: "float16"
+    max_model_len: 16384
+    usable_input_tokens: 15360
+    gpu_memory_util: 0.90
+
+  qwen3_6_35b_a3b_awq_fp16_l40s:
+    name: "qwen3-6-35b-a3b-awq-l40s"
+    repo: "QuantTrio/Qwen3.6-35B-A3B-AWQ"
+    local_path: "/workspace/models/qwen3_6_35b_a3b_awq_fp16_l40s"
+    quant: null
+    dtype: "float16"
+    max_model_len: 16384
+    usable_input_tokens: 15360
+    gpu_memory_util: 0.90
 evaluation:
   # All 24 EU languages
   languages: ["BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU", "GA", "IT", "LV", "LT", "MT", "PL", "PT", "RO", "SK", "SL", "ES", "SV"]
   num_runs: ${NUM_RUNS:-3}                      # Runs per question
   temperature: ${TEMPERATURE:-0.0}              # Deterministic
-  max_tokens: 512
+  max_tokens: 1024
+
+
+
 
 
 # ----------------------------------------------------------------------------
