@@ -20,20 +20,91 @@ sglang_api_key: "${SGLANG_API_KEY:-sk-your-key-eval}"
 # Model Configuration
 # ----------------------------------------------------------------------------
 generation_profile:
-  gpu: "a40"
-  concurrent_users: 1
+  gpu: "l40s"
+  concurrent_users: 15
   target_max_output_tokens: 512
   seq_lens: "4096,8192,16384"
   allow_fits: "comfortable"
-  generated_at: ""
-models: {}
+  generated_at: "2026-05-09 09:26:29"
+models:
+  deepseek_r1_distill_qwen_32b_awq_fp16_l40s:
+    name: "deepseek-r1-distill-qwen-32b-awq-l40s"
+    repo: "Valdemardi/DeepSeek-R1-Distill-Qwen-32B-AWQ"
+    local_path: "/workspace/models/deepseek_r1_distill_qwen_32b_awq_fp16_l40s"
+    quant: null
+    dtype: "float16"
+    max_model_len: 4096
+    usable_input_tokens: 3584
+    gpu_memory_util: 0.90
 
+  eurollm_9b_instruct_2512_fp16_l40s:
+    name: "eurollm-9b-instruct-2512-l40s"
+    repo: "utter-project/EuroLLM-9B-Instruct-2512"
+    local_path: "/workspace/models/eurollm_9b_instruct_2512_fp16_l40s"
+    quant: null
+    dtype: "float16"
+    max_model_len: 4096
+    usable_input_tokens: 3584
+    gpu_memory_util: 0.90
+
+  granite_4_1_8b_awq_fp16_l40s:
+    name: "granite-4-1-8b-awq-l40s"
+    repo: "pranavbapat/granite-4.1-8b-awq"
+    local_path: "/workspace/models/granite_4_1_8b_awq_fp16_l40s"
+    quant: null
+    dtype: "float16"
+    max_model_len: 8192
+    usable_input_tokens: 7680
+    gpu_memory_util: 0.90
+
+  granite_4_1_8b_fp16_l40s:
+    name: "granite-4-1-8b-l40s"
+    repo: "ibm-granite/granite-4.1-8b"
+    local_path: "/workspace/models/granite_4_1_8b_fp16_l40s"
+    quant: null
+    dtype: "float16"
+    max_model_len: 4096
+    usable_input_tokens: 3584
+    gpu_memory_util: 0.90
+
+  ministral_3_14b_instruct_2512_fp16_l40s:
+    name: "ministral-3-14b-instruct-2512-l40s"
+    repo: "mistralai/Ministral-3-14B-Instruct-2512"
+    local_path: "/workspace/models/ministral_3_14b_instruct_2512_fp16_l40s"
+    quant: null
+    dtype: "float16"
+    max_model_len: 4096
+    usable_input_tokens: 3584
+    gpu_memory_util: 0.90
+
+  qwen3_6_35b_a3b_awq_4bit_fp16_l40s:
+    name: "qwen3-6-35b-a3b-awq-4bit-l40s"
+    repo: "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit"
+    local_path: "/workspace/models/qwen3_6_35b_a3b_awq_4bit_fp16_l40s"
+    quant: null
+    dtype: "float16"
+    max_model_len: 16384
+    usable_input_tokens: 15872
+    gpu_memory_util: 0.90
+
+  qwen3_6_35b_a3b_awq_fp16_l40s:
+    name: "qwen3-6-35b-a3b-awq-l40s"
+    repo: "QuantTrio/Qwen3.6-35B-A3B-AWQ"
+    local_path: "/workspace/models/qwen3_6_35b_a3b_awq_fp16_l40s"
+    quant: null
+    dtype: "float16"
+    max_model_len: 16384
+    usable_input_tokens: 15872
+    gpu_memory_util: 0.90
 evaluation:
   # All 24 EU languages
   languages: ["BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU", "GA", "IT", "LV", "LT", "MT", "PL", "PT", "RO", "SK", "SL", "ES", "SV"]
   num_runs: ${NUM_RUNS:-3}                      # Runs per question
   temperature: ${TEMPERATURE:-0.0}              # Deterministic
   max_tokens: 512
+
+
+
 
 
 # ----------------------------------------------------------------------------
