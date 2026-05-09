@@ -103,6 +103,45 @@ def detect_required_dtype(cfg: Dict) -> str:
     return "float16"
 
 
+def detect_quant_override(cfg: Dict) -> Optional[str]:
+    """Return value for SGLang's --quantization flag, or None for auto-detect.
+
+    Why we override at all:
+      SGLang 0.4.10's compressed-tensors handler does not match the W4A16_ASYM
+      scheme that llm-compressor's AWQModifier emits, so AWQ checkpoints
+      packaged in compressed-tensors format die at load with
+      `NotImplementedError: No compressed-tensors compatible scheme was found`.
+      Forcing --quantization awq_marlin routes weights through SGLang's
+      AWQ-Marlin loader instead, mirroring `vllm serve --quantization awq_marlin`.
+
+    Detection:
+      - quant_method == "awq" or "awq_marlin"  -> awq_marlin
+      - quant_method == "compressed-tensors" with a 4-bit grouped/channel
+        weight scheme -> awq_marlin (AWQ-style W4A16)
+      - quant_method == "gptq" or "gptq_marlin" -> gptq_marlin
+      - everything else -> None (let SGLang auto-detect, e.g. fp8, mxfp4, W8A8)
+    """
+    quant_cfg = cfg.get("quantization_config") or {}
+    quant_method = str(quant_cfg.get("quant_method", "")).lower()
+
+    if quant_method in ("awq", "awq_marlin"):
+        return "awq_marlin"
+    if quant_method in ("gptq", "gptq_marlin"):
+        return "gptq_marlin"
+
+    if quant_method in ("compressed-tensors", "compressed_tensors"):
+        config_groups = quant_cfg.get("config_groups") or {}
+        for group in config_groups.values():
+            weights = (group or {}).get("weights") or {}
+            num_bits = weights.get("num_bits")
+            strategy = str(weights.get("strategy", "")).lower()
+            if num_bits == 4 and strategy in ("group", "channel"):
+                return "awq_marlin"
+        return None
+
+    return None
+
+
 def fetch_checkpoint_total_size_mb(repo_id: str, hf_token: Optional[str] = None) -> Optional[float]:
     """Fetch total checkpoint size (MB) from HF shard index metadata, if available."""
     headers = {}
@@ -228,7 +267,10 @@ def render_models_yaml(models: List[Dict[str, str]]) -> str:
         lines.append(f"    name: \"{m['name']}\"")
         lines.append(f"    repo: \"{m['repo']}\"")
         lines.append(f"    local_path: \"{m['local_path']}\"")
-        lines.append("    quant: null")
+        if m.get("quant"):
+            lines.append(f"    quant: \"{m['quant']}\"")
+        else:
+            lines.append("    quant: null")
         lines.append(f"    dtype: \"{m['dtype']}\"")
         lines.append(f"    max_model_len: {m['max_model_len']}")
         lines.append(f"    usable_input_tokens: {m['usable_input_tokens']}")
@@ -458,6 +500,7 @@ def main() -> int:
         hidden_size, num_layers, _, num_kv_heads, head_dim = extract_model_dims(cfg)
         max_supported_len = extract_max_position_embeddings(cfg)
         dtype = detect_required_dtype(cfg)
+        quant_override = detect_quant_override(cfg)
         text_cfg = cfg.get("text_config") or {}
         weights_mb = fetch_checkpoint_total_size_mb(repo, hf_token=hf_token)
         if weights_mb is None:
@@ -528,6 +571,7 @@ def main() -> int:
                 "repo": repo,
                 "local_path": f"/workspace/models/{top_key}",
                 "dtype": dtype,
+                "quant": quant_override or "",
                 "max_model_len": str(max_model_len),
                 "usable_input_tokens": str(usable_input_tokens),
                 "gpu_memory_util": f"{choose_gpu_mem_util(ratio):.2f}",
@@ -575,10 +619,12 @@ def main() -> int:
     if generated:
         print("Included models:")
         for m in generated:
+            quant_label = m.get("quant") or "auto"
             print(
                 "  - "
                 f"{m['repo']} | max_model_len={m['max_model_len']} | "
-                f"usable_input_tokens={m['usable_input_tokens']} | fit={m['fit']}"
+                f"usable_input_tokens={m['usable_input_tokens']} | fit={m['fit']} | "
+                f"quant={quant_label}"
             )
     if skipped:
         print("Skipped models:")

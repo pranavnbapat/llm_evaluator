@@ -111,6 +111,24 @@ The generator writes the same field names used by the vLLM flow
 flags (`--context-length`, `--mem-fraction-static`, `--dtype`,
 `--trust-remote-code`).
 
+The generator also auto-fills the `quant:` field by reading each repo's
+`quantization_config`:
+
+- AWQ (`quant_method: awq` or `awq_marlin`) → `quant: "awq_marlin"`
+- GPTQ (`quant_method: gptq` or `gptq_marlin`) → `quant: "gptq_marlin"`
+- compressed-tensors with a 4-bit grouped/channel weight scheme (what
+  `llm-compressor`'s `AWQModifier` emits) → `quant: "awq_marlin"`
+- everything else (fp8, MXFP4, unquantized, W8A8) → `quant: null` (SGLang
+  auto-detects)
+
+Why: SGLang 0.4.10's compressed-tensors handler does not match the
+`W4A16_ASYM` scheme that `llm-compressor` emits, so AWQ checkpoints in
+compressed-tensors format die at load with
+`NotImplementedError: No compressed-tensors compatible scheme was found`.
+Forcing `--quantization awq_marlin` routes the weights through SGLang's
+AWQ-Marlin loader instead, the same way `vllm serve --quantization
+awq_marlin` works in vLLM.
+
 ### 6. Download models
 
 ```bash
