@@ -188,16 +188,17 @@ fi
 if [[ ! -f ".venv/.sglang_installed" ]]; then
     echo "  Installing SGLang (this may take a few minutes)..."
     SGLANG_DEPS_START_EPOCH="$(date +%s)"
+    # SGLang pulls flashinfer pre-releases on some pinned versions; allow them.
     if [[ -n "${SGLANG_PIP_SPEC}" ]]; then
-        py_install -q ${SGLANG_PIP_SPEC}
+        py_install -q --prerelease=allow ${SGLANG_PIP_SPEC}
     else
         if [[ "$GPU_ARCH_FAMILY" == "blackwell" ]]; then
             echo "  Detected Blackwell GPU. Installing CUDA 12.8 wheels for PyTorch + SGLang..."
             py_install -q --upgrade torch --index-url https://download.pytorch.org/whl/cu128
-            py_install -q --upgrade "sglang[all]" --extra-index-url https://download.pytorch.org/whl/cu128
+            py_install -q --upgrade --prerelease=allow "sglang[all]" --extra-index-url https://download.pytorch.org/whl/cu128
         else
             py_install -q torch==2.9.1
-            py_install -q "sglang[all]"
+            py_install -q --prerelease=allow "sglang[all]"
         fi
     fi
     py_install -q huggingface-hub hf_transfer pyyaml tqdm
