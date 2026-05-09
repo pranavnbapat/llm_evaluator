@@ -25,18 +25,8 @@ generation_profile:
   target_max_output_tokens: 512
   seq_lens: "4096,8192,16384"
   allow_fits: "comfortable"
-  generated_at: "2026-05-09 09:26:29"
+  generated_at: "2026-05-09 10:09:48"
 models:
-  deepseek_r1_distill_qwen_32b_awq_fp16_l40s:
-    name: "deepseek-r1-distill-qwen-32b-awq-l40s"
-    repo: "Valdemardi/DeepSeek-R1-Distill-Qwen-32B-AWQ"
-    local_path: "/workspace/models/deepseek_r1_distill_qwen_32b_awq_fp16_l40s"
-    quant: null
-    dtype: "float16"
-    max_model_len: 4096
-    usable_input_tokens: 3584
-    gpu_memory_util: 0.90
-
   eurollm_9b_instruct_2512_fp16_l40s:
     name: "eurollm-9b-instruct-2512-l40s"
     repo: "utter-project/EuroLLM-9B-Instruct-2512"
@@ -102,6 +92,7 @@ evaluation:
   num_runs: ${NUM_RUNS:-3}                      # Runs per question
   temperature: ${TEMPERATURE:-0.0}              # Deterministic
   max_tokens: 512
+
 
 
 

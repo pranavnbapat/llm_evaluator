@@ -19,7 +19,7 @@
 
 #new evaluation
 utter-project/EuroLLM-9B-Instruct-2512
-Valdemardi/DeepSeek-R1-Distill-Qwen-32B-AWQ
+#Valdemardi/DeepSeek-R1-Distill-Qwen-32B-AWQ
 ibm-granite/granite-4.1-8b
 moonshotai/Kimi-Linear-48B-A3B-Instruct
 cyankiwi/Kimi-Dev-72B-AWQ-8bit
