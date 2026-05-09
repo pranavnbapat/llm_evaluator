@@ -1,0 +1,54 @@
+# ============================================================================
+# LLM Evaluator (SGLang) Configuration
+# ============================================================================
+# This file uses environment variable substitution for sensitive values.
+# Set your actual tokens in the .env file in this directory.
+#
+# Format: ${ENV_VAR_NAME} or ${ENV_VAR_NAME:-default_value}
+# ----------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+# API Keys (loaded from environment variables)
+# ----------------------------------------------------------------------------
+# HuggingFace token - set HF_TOKEN in .env file
+hf_token: "${HF_TOKEN}"
+
+# SGLang API key - set SGLANG_API_KEY in .env file
+sglang_api_key: "${SGLANG_API_KEY:-sk-your-key-eval}"
+
+# ----------------------------------------------------------------------------
+# Model Configuration
+# ----------------------------------------------------------------------------
+generation_profile:
+  gpu: "a40"
+  concurrent_users: 1
+  target_max_output_tokens: 512
+  seq_lens: "4096,8192,16384"
+  allow_fits: "comfortable"
+  generated_at: ""
+models: {}
+
+evaluation:
+  # All 24 EU languages
+  languages: ["BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU", "GA", "IT", "LV", "LT", "MT", "PL", "PT", "RO", "SK", "SL", "ES", "SV"]
+  num_runs: ${NUM_RUNS:-3}                      # Runs per question
+  temperature: ${TEMPERATURE:-0.0}              # Deterministic
+  max_tokens: 512
+
+
+# ----------------------------------------------------------------------------
+# SGLang Configuration
+# ----------------------------------------------------------------------------
+sglang:
+  port: ${SGLANG_PORT:-30000}
+  host: "${SGLANG_HOST:-0.0.0.0}"
+  timeout: ${SGLANG_TIMEOUT:-1800}              # Seconds to wait for startup
+
+
+# ----------------------------------------------------------------------------
+# Paths
+# ----------------------------------------------------------------------------
+paths:
+  models_dir: "${MODELS_DIR:-/workspace/models}"
+  results_dir: "${RESULTS_DIR:-/workspace/llm_evaluator/results_sglang}"
+  cache_dir: "${CACHE_DIR:-/workspace/.cache/huggingface}"
