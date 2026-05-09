@@ -54,13 +54,24 @@ bash gpu_runtime_sglang/setup.sh
 source .venv/bin/activate
 ```
 
-This installs project dependencies plus `sglang[all]` (and a matching `torch`).
-On Blackwell GPUs the script automatically swaps to CUDA 12.8 wheels. To pin a
-specific SGLang build, set `SGLANG_PIP_SPEC` before invoking setup, e.g.:
+This installs project dependencies plus `sglang[all]` (and a matching `torch`),
+along with `libnuma1`/`numactl` (which `sgl_kernel` dynamically links against).
+
+On non-Blackwell GPUs the script pins `sglang[all]==0.4.10`. This is deliberate:
+recent SGLang releases ship an `sgl_kernel` wheel containing only the SM100
+(Blackwell) `common_ops` binary, which fails to load on Ada Lovelace (L40/L40S),
+Hopper (H100/H200), and Ampere (A100/A40/3090). 0.4.10 still ships SM89/SM90/SM80
+binaries. On Blackwell GPUs the script installs the latest `sglang[all]` against
+CUDA 12.8 wheels.
+
+To pin a specific SGLang build, set `SGLANG_PIP_SPEC` before invoking setup, e.g.:
 
 ```bash
-SGLANG_PIP_SPEC='sglang[all]==0.4.5' bash gpu_runtime_sglang/setup.sh
+SGLANG_PIP_SPEC='sglang[all]==0.4.10' bash gpu_runtime_sglang/setup.sh
 ```
+
+The `--prerelease=allow` flag is always passed to `uv pip install` because some
+pinned SGLang versions depend on a `flashinfer-python` pre-release wheel.
 
 ### 4. Configure tokens
 
@@ -271,6 +282,55 @@ less "$LOG"
 nvidia-smi
 pkill -f "sglang.launch_server" || true
 ```
+
+If the per-model log under `/tmp/sglang_*.log` shows `libnuma.so.1: cannot
+open shared object file`, install the missing system library:
+
+```bash
+apt-get update && apt-get install -y libnuma1 numactl
+```
+
+If it shows `[sgl_kernel] CRITICAL: Could not load any common_ops library!`
+with `Architecture-specific pattern: .../sgl_kernel/sm100/common_ops.* - found
+files: [...]` and your GPU is *not* Blackwell, the installed `sgl_kernel`
+wheel only contains the SM100 binary. Reinstall with the pinned 0.4.10 build:
+
+```bash
+/root/.local/bin/uv pip install --python /workspace/llm_evaluator/.venv/bin/python \
+  --prerelease=allow --force-reinstall 'sglang[all]==0.4.10'
+ls /workspace/llm_evaluator/.venv/lib/python3.11/site-packages/sgl_kernel/
+```
+
+A working install for non-Blackwell GPUs has `common_ops.abi3.so` directly in
+the `sgl_kernel/` directory (no `sm100/` subdirectory).
+
+If a model fails at load with
+`ValueError: awq_marlin quantization requires some operators from vllm`, the
+SGLang install needs vLLM as a kernel source. `setup.sh` installs
+`vllm==0.9.0.1` automatically for this; if you skipped it
+(`SGLANG_SKIP_VLLM_KERNELS=1`) or installed SGLang outside the script:
+
+```bash
+/root/.local/bin/uv pip install --python /workspace/llm_evaluator/.venv/bin/python \
+  --prerelease=allow 'vllm==0.9.0.1'
+```
+
+Only AWQ-quantized models hit this; unquantized models load without vLLM.
+
+If `sglang.launch_server` import fails with
+`FileNotFoundError: ... hf3fs_utils.cpp`, the wheel is missing a JIT-compiled
+source. `setup.sh` patches this automatically; if you installed SGLang outside
+the script, fetch it from upstream:
+
+```bash
+SGLANG_VERSION=$(/workspace/llm_evaluator/.venv/bin/python -c 'import sglang; print(sglang.__version__)')
+HF3FS_DIR=$(/workspace/llm_evaluator/.venv/bin/python -c 'import sglang, os; print(os.path.join(os.path.dirname(sglang.__file__), "srt/mem_cache/storage/hf3fs"))')
+curl -fsSL -o "$HF3FS_DIR/hf3fs_utils.cpp" \
+  "https://raw.githubusercontent.com/sgl-project/sglang/v${SGLANG_VERSION}/python/sglang/srt/mem_cache/storage/hf3fs/hf3fs_utils.cpp"
+```
+
+The first SGLang launch JIT-compiles this `.cpp`, which needs `g++`
+(`apt-get install -y build-essential` if missing).
 
 Check model-specific logs:
 

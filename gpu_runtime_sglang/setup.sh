@@ -96,6 +96,9 @@ PACKAGES=(
     unzip
     zip
     tree
+    libnuma1
+    numactl
+    build-essential
 )
 
 NEED_INSTALL=0
@@ -189,6 +192,10 @@ if [[ ! -f ".venv/.sglang_installed" ]]; then
     echo "  Installing SGLang (this may take a few minutes)..."
     SGLANG_DEPS_START_EPOCH="$(date +%s)"
     # SGLang pulls flashinfer pre-releases on some pinned versions; allow them.
+    # The 0.4.10 pin on non-Blackwell paths is deliberate: latest SGLang ships an
+    # sgl_kernel that only contains the SM100 (Blackwell) common_ops binary, which
+    # fails to load on Ada/Hopper/Ampere (SM89/90/80). 0.4.10 still ships SM89.
+    # Override with SGLANG_PIP_SPEC if you need a different version.
     if [[ -n "${SGLANG_PIP_SPEC}" ]]; then
         py_install -q --prerelease=allow ${SGLANG_PIP_SPEC}
     else
@@ -198,10 +205,43 @@ if [[ ! -f ".venv/.sglang_installed" ]]; then
             py_install -q --upgrade --prerelease=allow "sglang[all]" --extra-index-url https://download.pytorch.org/whl/cu128
         else
             py_install -q torch==2.9.1
-            py_install -q --prerelease=allow "sglang[all]"
+            py_install -q --prerelease=allow "sglang[all]==0.4.10"
         fi
     fi
     py_install -q huggingface-hub hf_transfer pyyaml tqdm
+
+    # SGLang 0.4.x reuses vLLM's CUDA kernels for awq_marlin (and a few other
+    # quantization paths). Without vllm installed, AWQ models fail at load with
+    # "awq_marlin quantization requires some operators from vllm". The pinned
+    # version below matches what the SGLang error message prescribes for 0.4.10.
+    # Skip with SGLANG_SKIP_VLLM_KERNELS=1 if you only run unquantized models.
+    if [[ -z "${SGLANG_SKIP_VLLM_KERNELS:-}" ]]; then
+        echo "  Installing vllm (used by SGLang for awq_marlin kernels)..."
+        py_install -q --prerelease=allow "vllm==0.9.0.1"
+    fi
+
+    # SGLang 0.4.10 ships a buggy hf3fs cache backend whose hf3fs_utils.cpp is
+    # not bundled in the wheel; module-level imports JIT-compile it on first
+    # use, so without the .cpp the server cannot start. Fetch from upstream
+    # tag matching the installed version. Idempotent: skip if already present.
+    SGLANG_VERSION="$("$PYTHON_BIN" -c 'import sglang; print(sglang.__version__)' 2>/dev/null || echo "")"
+    if [[ -n "$SGLANG_VERSION" ]]; then
+        HF3FS_DIR="$("$PYTHON_BIN" -c 'import sglang, os; print(os.path.join(os.path.dirname(sglang.__file__), "srt/mem_cache/storage/hf3fs"))' 2>/dev/null || echo "")"
+        HF3FS_CPP="$HF3FS_DIR/hf3fs_utils.cpp"
+        if [[ -d "$HF3FS_DIR" && ! -s "$HF3FS_CPP" ]]; then
+            echo "  Patching missing hf3fs_utils.cpp from upstream tag v${SGLANG_VERSION}..."
+            HF3FS_URL="https://raw.githubusercontent.com/sgl-project/sglang/v${SGLANG_VERSION}/python/sglang/srt/mem_cache/storage/hf3fs/hf3fs_utils.cpp"
+            if curl -fsSL -o "$HF3FS_CPP" "$HF3FS_URL"; then
+                echo "  ✓ hf3fs_utils.cpp installed ($(wc -c <"$HF3FS_CPP") bytes)"
+            else
+                echo "  ⚠️ Failed to fetch $HF3FS_URL"
+                echo "     If SGLang fails to import with FileNotFoundError on hf3fs_utils.cpp,"
+                echo "     fetch it manually or pin a different SGLang version with SGLANG_PIP_SPEC."
+                rm -f "$HF3FS_CPP"
+            fi
+        fi
+    fi
+
     SGLANG_DEPS_END_EPOCH="$(date +%s)"
     echo "  ⏱️  [SGLang/runtime dependencies] finished in $(format_duration "$((SGLANG_DEPS_END_EPOCH - SGLANG_DEPS_START_EPOCH))")"
     touch .venv/.sglang_installed
