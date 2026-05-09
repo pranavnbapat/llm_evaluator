@@ -317,6 +317,16 @@ SGLang install needs vLLM as a kernel source. `setup.sh` installs
 
 Only AWQ-quantized models hit this; unquantized models load without vLLM.
 
+If `import vllm` itself dies with
+`ValueError: 'aimv2' is already used by a Transformers config`, vLLM 0.9.0.1
+re-registers a config that newer `transformers` already ships. `setup.sh`
+patches this in place; manual fix:
+
+```bash
+sed -i 's/AutoConfig.register("aimv2", AIMv2Config)$/AutoConfig.register("aimv2", AIMv2Config, exist_ok=True)/' \
+  /workspace/llm_evaluator/.venv/lib/python3.11/site-packages/vllm/transformers_utils/configs/ovis.py
+```
+
 If `sglang.launch_server` import fails with
 `FileNotFoundError: ... hf3fs_utils.cpp`, the wheel is missing a JIT-compiled
 source. `setup.sh` patches this automatically; if you installed SGLang outside

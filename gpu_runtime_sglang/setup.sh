@@ -218,6 +218,18 @@ if [[ ! -f ".venv/.sglang_installed" ]]; then
     if [[ -z "${SGLANG_SKIP_VLLM_KERNELS:-}" ]]; then
         echo "  Installing vllm (used by SGLang for awq_marlin kernels)..."
         py_install -q --prerelease=allow "vllm==0.9.0.1"
+
+        # vllm 0.9.0.1 re-registers the "aimv2" AutoConfig without exist_ok=True.
+        # transformers >= 4.55 ships native aimv2 support, so vllm import dies
+        # with `ValueError: 'aimv2' is already used by a Transformers config`.
+        # Patch ovis.py in place. Idempotent (sed no-ops if already patched).
+        OVIS_PATH="$("$PYTHON_BIN" -c 'import vllm, os; print(os.path.join(os.path.dirname(vllm.__file__), "transformers_utils/configs/ovis.py"))' 2>/dev/null || echo "")"
+        if [[ -n "$OVIS_PATH" && -f "$OVIS_PATH" ]]; then
+            if grep -q 'AutoConfig.register("aimv2", AIMv2Config)$' "$OVIS_PATH"; then
+                sed -i 's/AutoConfig.register("aimv2", AIMv2Config)$/AutoConfig.register("aimv2", AIMv2Config, exist_ok=True)/' "$OVIS_PATH"
+                echo "  ✓ Patched vllm ovis.py aimv2 registration (exist_ok=True)"
+            fi
+        fi
     fi
 
     # SGLang 0.4.10 ships a buggy hf3fs cache backend whose hf3fs_utils.cpp is
