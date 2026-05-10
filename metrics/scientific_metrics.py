@@ -642,39 +642,51 @@ class ResponseEvaluator:
         context_documents: List[str],
     ) -> float:
         """
-        Calculate context coverage: fraction of context docs with similarity above threshold.
+        Continuous context coverage = aggregated cosine similarity between the
+        response embedding and each context-doc embedding.
+
+        Aggregation honors `utilization_aggregation` from the context config:
+          - "mean_top_k" (default): mean cosine over top-k most-similar docs
+          - "max": single best doc similarity
+          - "mean": mean over all docs
+        Returned value is clipped to [0, 1].
         """
         if not context_documents or not response.strip():
             return 0.0
-        
+
         try:
+            import numpy as np
+
             response_embedding = self._get_text_embedding(response)
-            threshold = float(self.context_cfg.get("coverage_threshold", 0.35))
-            
-            covered = 0
-            total = 0
+            norm_resp = np.linalg.norm(response_embedding)
+            if norm_resp == 0:
+                return float(self.context_cfg.get("fallback_score", 0.0))
+
+            sims: List[float] = []
             for doc in context_documents:
                 if not doc or not doc.strip():
                     continue
                 doc_embedding = self._get_text_embedding(doc)
-                
-                import numpy as np
-                dot_product = np.dot(response_embedding, doc_embedding)
-                norm_a = np.linalg.norm(response_embedding)
-                norm_b = np.linalg.norm(doc_embedding)
-                
-                if norm_a == 0 or norm_b == 0:
+                norm_doc = np.linalg.norm(doc_embedding)
+                if norm_doc == 0:
                     continue
-                
-                similarity = dot_product / (norm_a * norm_b)
-                total += 1
-                if similarity >= threshold:
-                    covered += 1
-            
-            if total == 0:
+                similarity = float(np.dot(response_embedding, doc_embedding) / (norm_resp * norm_doc))
+                sims.append(similarity)
+
+            if not sims:
                 return float(self.context_cfg.get("fallback_score", 0.0))
-            
-            return float(covered / total)
+
+            agg = str(self.context_cfg.get("utilization_aggregation", "mean_top_k"))
+            top_k = int(self.context_cfg.get("top_k", 3))
+            sims.sort(reverse=True)
+            if agg == "max":
+                score = sims[0]
+            elif agg == "mean":
+                score = float(np.mean(sims))
+            else:  # "mean_top_k" and any unknown value
+                score = float(np.mean(sims[: max(1, top_k)]))
+
+            return float(max(0.0, min(1.0, score)))
         except Exception as e:
             print(f"   ⚠️ Context coverage error: {e}")
             return float(self.context_cfg.get("fallback_score", 0.0))

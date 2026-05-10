@@ -11,18 +11,24 @@ MODE="tmux"
 SESSION_NAME="eval_context_scores"
 ALL_RUNS=0
 ALL_RUNS_EXPLICIT=0
+RUN_DIR_ARG=""
 
 usage() {
   cat <<USAGE
-Usage: $(basename "$0") [--mode tmux|nohup] [--session NAME] [--all-runs]
+Usage: $(basename "$0") [--mode tmux|nohup] [--session NAME] [--run-dir PATH] [--all-runs]
 
 Starts gpu_runtime/evaluate_context_results.py in a persistent background run.
 Defaults:
   --mode tmux
   --session eval_context_scores
-  auto mode:
-    - if EVAL_RUN_DIR/EVAL_RUN_ID is set: score that run
-    - otherwise: score all runs under results/runs/<detected_gpu_bucket>/
+  auto mode (when neither --run-dir, --all-runs, EVAL_RUN_DIR nor EVAL_RUN_ID is set):
+    score every run under results/runs/<detected_gpu_bucket>/
+
+Single-run resolution order:
+  1. --run-dir CLI flag
+  2. EVAL_RUN_DIR env
+  3. EVAL_RUN_ID env (joined with detected GPU bucket)
+  4. results/latest/<gpu_bucket> symlink
 USAGE
 }
 
@@ -34,6 +40,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --session)
       SESSION_NAME="${2:-}"
+      shift 2
+      ;;
+    --run-dir)
+      RUN_DIR_ARG="${2:-}"
       shift 2
       ;;
     --all-runs)
@@ -52,6 +62,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ -n "$RUN_DIR_ARG" && $ALL_RUNS_EXPLICIT -eq 1 ]]; then
+  echo "❌ --run-dir and --all-runs are mutually exclusive."
+  exit 2
+fi
 
 if [[ "$MODE" != "tmux" && "$MODE" != "nohup" ]]; then
   echo "Invalid --mode '$MODE'. Use tmux or nohup."
@@ -90,7 +105,9 @@ detect_gpu_bucket() {
 
 GPU_BUCKET="$(detect_gpu_bucket)"
 RUNS_BASE="$REPO_DIR/results/runs/$GPU_BUCKET"
-if [[ -n "${EVAL_RUN_DIR:-}" ]]; then
+if [[ -n "$RUN_DIR_ARG" ]]; then
+  RUN_DIR="$RUN_DIR_ARG"
+elif [[ -n "${EVAL_RUN_DIR:-}" ]]; then
   RUN_DIR="$EVAL_RUN_DIR"
 elif [[ -n "${EVAL_RUN_ID:-}" ]]; then
   RUN_DIR="$REPO_DIR/results/runs/$GPU_BUCKET/$EVAL_RUN_ID"
@@ -100,9 +117,9 @@ else
   RUN_DIR=""
 fi
 
-# Auto behavior: if user did not explicitly choose mode and no run is pinned,
-# process all runs in the detected/selected GPU bucket.
-if [[ $ALL_RUNS_EXPLICIT -eq 0 && -z "${EVAL_RUN_DIR:-}" && -z "${EVAL_RUN_ID:-}" ]]; then
+# Auto behavior: if no run is pinned (CLI/env) and --all-runs was not set
+# explicitly, score every run in the detected GPU bucket.
+if [[ $ALL_RUNS_EXPLICIT -eq 0 && -z "$RUN_DIR_ARG" && -z "${EVAL_RUN_DIR:-}" && -z "${EVAL_RUN_ID:-}" ]]; then
   ALL_RUNS=1
 fi
 
@@ -166,7 +183,9 @@ else
   EVAL_RUN_GPU="$GPU_BUCKET" nohup "$PYTHON_BIN" "$EVAL_SCRIPT" >"$LOG_FILE" 2>&1 &
 fi
 PID=$!
-echo "$PID" > "$LOG_DIR/evaluate_context_results.pid"
+PID_FILE="$LOG_DIR/evaluate_context_results_${TS}.pid"
+echo "$PID" > "$PID_FILE"
+ln -sfn "$(basename "$PID_FILE")" "$LOG_DIR/evaluate_context_results.pid"
 
 echo "Started with nohup (pid: $PID)"
 if [[ $ALL_RUNS -eq 1 ]]; then
@@ -177,6 +196,6 @@ elif [[ -n "$RUN_DIR" ]]; then
 fi
 echo "GPU bucket: $GPU_BUCKET"
 echo "Log file: $LOG_FILE"
-echo "PID file: $LOG_DIR/evaluate_context_results.pid"
+echo "PID file: $PID_FILE  (symlinked: $LOG_DIR/evaluate_context_results.pid)"
 echo "Tail logs: tail -f '$LOG_FILE'"
 echo "Stop: kill $PID"

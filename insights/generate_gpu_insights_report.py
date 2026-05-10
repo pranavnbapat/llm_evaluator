@@ -265,49 +265,56 @@ def _iter_run_dirs(gpu_runs_dir: Path) -> list[Path]:
 
 
 def _read_scores(scores_db: Path) -> pd.DataFrame:
+    cols = [
+        "model_name",
+        "language",
+        "question_id",
+        "run_number",
+        "relevance",
+        "factual_accuracy",
+        "completeness",
+        "fluency",
+        "coherence",
+        "prompt_alignment",
+        "token_efficiency",
+        "overall_quality",
+    ]
     if not scores_db.exists():
+        return pd.DataFrame(columns=cols)
+    with sqlite3.connect(scores_db) as con:
+        present = {row[1] for row in con.execute("PRAGMA table_info(scores)").fetchall()}
+        select_cols = [c for c in cols if c in present]
+        df = pd.read_sql_query(f"SELECT {', '.join(select_cols)} FROM scores", con)
+        for c in cols:
+            if c not in df.columns:
+                df[c] = pd.NA
+        return df[cols]
+
+
+def _read_results(results_db: Path) -> pd.DataFrame:
+    if not results_db.exists():
         return pd.DataFrame(
             columns=[
                 "model_name",
                 "language",
                 "question_id",
-                "relevance",
-                "factual_accuracy",
-                "completeness",
-                "fluency",
-                "coherence",
-                "prompt_alignment",
-                "token_efficiency",
-                "overall_quality",
+                "run_number",
+                "latency_ms",
+                "response",
             ]
         )
-    with sqlite3.connect(scores_db) as con:
+    with sqlite3.connect(results_db) as con:
         return pd.read_sql_query(
             """
             SELECT
                 model_name,
                 language,
                 question_id,
-                relevance,
-                factual_accuracy,
-                completeness,
-                fluency,
-                coherence,
-                prompt_alignment,
-                token_efficiency,
-                overall_quality
-            FROM scores
+                run_number,
+                latency_ms,
+                response
+            FROM evaluations
             """,
-            con,
-        )
-
-
-def _read_results(results_db: Path) -> pd.DataFrame:
-    if not results_db.exists():
-        return pd.DataFrame(columns=["model_name", "latency_ms", "response"])
-    with sqlite3.connect(results_db) as con:
-        return pd.read_sql_query(
-            "SELECT model_name, latency_ms, response FROM evaluations",
             con,
         )
 
@@ -420,6 +427,436 @@ def _parse_generation_profile(config_path: Path) -> dict:
     return out
 
 
+def _load_metrics_profile(profile: str = "context") -> dict:
+    """Read the named profile from metrics/metrics_config.yaml.
+
+    Returns {"weights": {...}, "token_efficiency_enabled": bool, "found": bool}.
+    Falls back gracefully if PyYAML or the file is missing.
+    """
+    out = {"weights": {}, "token_efficiency_enabled": True, "found": False}
+    cfg_path = ROOT / "metrics" / "metrics_config.yaml"
+    if not cfg_path.exists():
+        return out
+    try:
+        import yaml  # type: ignore
+    except Exception:
+        return out
+    try:
+        data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return out
+    profiles = (data.get("profiles") or {}) if isinstance(data, dict) else {}
+    p = profiles.get(profile) or {}
+    weights = p.get("weights") or {}
+    if isinstance(weights, dict):
+        out["weights"] = {str(k): float(v) for k, v in weights.items()}
+        out["found"] = True
+    te_cfg = p.get("token_efficiency") or {}
+    if isinstance(te_cfg, dict) and "enabled" in te_cfg:
+        out["token_efficiency_enabled"] = bool(te_cfg.get("enabled"))
+    return out
+
+
+SCORE_INTEGRITY_METRICS = [
+    "relevance",
+    "factual_accuracy",
+    "completeness",
+    "fluency",
+    "coherence",
+    "overall_quality",
+]
+
+CONSTANT_ROW_METRICS = [
+    "relevance",
+    "factual_accuracy",
+    "completeness",
+    "fluency",
+    "coherence",
+]
+
+BOUNDARY_SATURATION_FLAG_PCT = 5.0
+COLLINEARITY_THRESHOLD = 0.999
+
+
+def _score_integrity_checks(scores: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, float]:
+    """Return (per_metric_df, suspicious_pairs_df, constant_row_pct).
+
+    per_metric_df columns: metric, boundary_saturation_pct, null_pct, flag.
+    suspicious_pairs_df columns: metric_a, metric_b, pearson_r.
+    """
+    if scores.empty:
+        return (
+            pd.DataFrame(columns=["metric", "boundary_saturation_pct", "null_pct", "flag"]),
+            pd.DataFrame(columns=["metric_a", "metric_b", "pearson_r"]),
+            0.0,
+        )
+
+    rows = []
+    n = len(scores)
+    for c in SCORE_INTEGRITY_METRICS:
+        if c not in scores.columns or n == 0:
+            continue
+        col = scores[c]
+        nulls = int(col.isna().sum())
+        boundary = int(((col == 0.0) | (col == 1.0)).sum())
+        boundary_pct = (boundary / n) * 100.0 if n else 0.0
+        null_pct = (nulls / n) * 100.0 if n else 0.0
+        flag = "FLAG" if boundary_pct > BOUNDARY_SATURATION_FLAG_PCT else ""
+        rows.append(
+            {
+                "metric": c,
+                "boundary_saturation_pct": boundary_pct,
+                "null_pct": null_pct,
+                "flag": flag,
+            }
+        )
+    per_metric = pd.DataFrame(rows)
+
+    metrics_present = [c for c in CONSTANT_ROW_METRICS if c in scores.columns]
+    if len(metrics_present) >= 2 and not scores.empty:
+        first = scores[metrics_present[0]]
+        constant_mask = pd.Series([True] * len(scores), index=scores.index)
+        for c in metrics_present[1:]:
+            constant_mask &= scores[c] == first
+        constant_pct = float(constant_mask.sum()) / len(scores) * 100.0
+    else:
+        constant_pct = 0.0
+
+    pair_rows = []
+    cols = [c for c in CONSTANT_ROW_METRICS + ["prompt_alignment", "token_efficiency"] if c in scores.columns]
+    for i, a in enumerate(cols):
+        for b in cols[i + 1 :]:
+            sa = scores[a].dropna()
+            sb = scores[b].dropna()
+            common_idx = sa.index.intersection(sb.index)
+            if len(common_idx) < 3:
+                continue
+            x = scores.loc[common_idx, a].astype(float)
+            y = scores.loc[common_idx, b].astype(float)
+            if x.std() == 0 or y.std() == 0:
+                continue
+            r = float(np.corrcoef(x, y)[0, 1])
+            if abs(r) >= COLLINEARITY_THRESHOLD:
+                pair_rows.append({"metric_a": a, "metric_b": b, "pearson_r": r})
+    pairs_df = pd.DataFrame(pair_rows).sort_values("pearson_r", ascending=False) if pair_rows else pd.DataFrame(
+        columns=["metric_a", "metric_b", "pearson_r"]
+    )
+    return per_metric, pairs_df, constant_pct
+
+
+def _output_cap_saturation(token_rows: pd.DataFrame, target_cap: int | None) -> tuple[pd.DataFrame, pd.DataFrame, float]:
+    """Return (per_lang_df, per_model_lang_df, overall_pct).
+
+    Saturation is rate of rows where response_tokens >= target_cap.
+    """
+    empty_lang = pd.DataFrame(columns=["language", "n", "saturated", "saturation_pct"])
+    empty_ml = pd.DataFrame(columns=["model_name", "language", "n", "saturated", "saturation_pct"])
+    if token_rows.empty or not target_cap or "response_tokens" not in token_rows.columns:
+        return empty_lang, empty_ml, 0.0
+
+    df = token_rows.copy()
+    df["response_tokens"] = pd.to_numeric(df["response_tokens"], errors="coerce")
+    df = df.dropna(subset=["response_tokens"])
+    df["saturated"] = (df["response_tokens"] >= target_cap).astype(int)
+
+    overall_pct = float(df["saturated"].mean()) * 100.0 if not df.empty else 0.0
+
+    if "language" in df.columns:
+        per_lang = (
+            df.groupby("language")
+            .agg(n=("saturated", "size"), saturated=("saturated", "sum"))
+            .reset_index()
+        )
+        per_lang["saturation_pct"] = per_lang["saturated"] / per_lang["n"] * 100.0
+        per_lang = per_lang.sort_values("saturation_pct", ascending=False)
+    else:
+        per_lang = empty_lang
+
+    if {"model_name", "language"}.issubset(df.columns):
+        per_ml = (
+            df.groupby(["model_name", "language"])
+            .agg(n=("saturated", "size"), saturated=("saturated", "sum"))
+            .reset_index()
+        )
+        per_ml["saturation_pct"] = per_ml["saturated"] / per_ml["n"] * 100.0
+        per_ml = per_ml[per_ml["saturation_pct"] >= 10.0].sort_values(
+            ["saturation_pct", "model_name", "language"], ascending=[False, True, True]
+        )
+    else:
+        per_ml = empty_ml
+
+    return per_lang, per_ml, overall_pct
+
+
+def _truncation_matrix(token_rows: pd.DataFrame, target_cap: int | None) -> pd.DataFrame:
+    """% of responses hitting the output cap, model rows × language columns."""
+    if token_rows.empty or not target_cap or not {"model_name", "language", "response_tokens"}.issubset(
+        token_rows.columns
+    ):
+        return pd.DataFrame()
+    df = token_rows.copy()
+    df["response_tokens"] = pd.to_numeric(df["response_tokens"], errors="coerce")
+    df = df.dropna(subset=["response_tokens"])
+    df["saturated"] = (df["response_tokens"] >= target_cap).astype(int)
+    matrix = (
+        df.groupby(["model_name", "language"])["saturated"]
+        .mean()
+        .mul(100.0)
+        .unstack("language")
+        .round(1)
+        .reset_index()
+    )
+    return matrix
+
+
+def _quality_latency_pareto(
+    model_ranking: pd.DataFrame, latency_model: pd.DataFrame
+) -> pd.DataFrame:
+    """Mark Pareto-optimal models on (higher quality, lower latency)."""
+    if model_ranking.empty or latency_model.empty:
+        return pd.DataFrame()
+    merged = model_ranking[["model_name", "avg_overall"]].merge(
+        latency_model[["model_name", "avg_latency_ms"]],
+        on="model_name",
+        how="inner",
+    )
+    if merged.empty:
+        return merged
+    merged = merged.sort_values("avg_latency_ms", ascending=True).reset_index(drop=True)
+    pareto_flags = []
+    best_q_so_far = -np.inf
+    for _, row in merged.iterrows():
+        q = float(row["avg_overall"])
+        if q > best_q_so_far:
+            pareto_flags.append("YES")
+            best_q_so_far = q
+        else:
+            pareto_flags.append("")
+    merged["pareto_optimal"] = pareto_flags
+    return merged
+
+
+def _context_utilisation(token_rows: pd.DataFrame) -> pd.DataFrame:
+    if token_rows.empty or not {"model_name", "input_tokens", "max_model_len"}.issubset(token_rows.columns):
+        return pd.DataFrame()
+    df = token_rows.copy()
+    df["input_tokens"] = pd.to_numeric(df["input_tokens"], errors="coerce")
+    df["max_model_len"] = pd.to_numeric(df["max_model_len"], errors="coerce")
+    out = (
+        df.groupby("model_name")
+        .agg(
+            input_tokens_mean=("input_tokens", "mean"),
+            input_tokens_p90=("input_tokens", lambda x: np.nanpercentile(x.dropna(), 90) if len(x.dropna()) else np.nan),
+            max_model_len=("max_model_len", "max"),
+        )
+        .reset_index()
+    )
+    out["used_pct"] = (out["input_tokens_mean"] / out["max_model_len"]) * 100.0
+    out["headroom_pct"] = 100.0 - out["used_pct"]
+    return out.sort_values("used_pct", ascending=False)
+
+
+def _paired_bootstrap_ci(
+    scores: pd.DataFrame,
+    n_iter: int = 1000,
+    seed: int = 42,
+) -> pd.DataFrame:
+    """Paired bootstrap of mean overall_quality difference between every pair of models.
+
+    Pairs are formed on (language, question_id, run_number-equivalent ordering within cell).
+    Output: model_a, model_b, mean_diff, ci_low, ci_high, p_zero_inside.
+    """
+    needed = {"model_name", "language", "question_id", "overall_quality"}
+    if scores.empty or not needed.issubset(scores.columns):
+        return pd.DataFrame()
+    df = scores[list(needed)].copy()
+    df = df.dropna(subset=["overall_quality"])
+    if df.empty:
+        return pd.DataFrame()
+
+    df["pair_idx"] = df.groupby(["model_name", "language", "question_id"]).cumcount()
+    pivot = df.pivot_table(
+        index=["language", "question_id", "pair_idx"],
+        columns="model_name",
+        values="overall_quality",
+        aggfunc="first",
+    )
+
+    models = list(pivot.columns)
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i, a in enumerate(models):
+        for b in models[i + 1 :]:
+            paired = pivot[[a, b]].dropna()
+            if len(paired) < 5:
+                continue
+            diffs = (paired[a] - paired[b]).to_numpy()
+            n = len(diffs)
+            mean_diff = float(diffs.mean())
+            samples = rng.choice(diffs, size=(n_iter, n), replace=True).mean(axis=1)
+            ci_low = float(np.percentile(samples, 2.5))
+            ci_high = float(np.percentile(samples, 97.5))
+            zero_inside = (ci_low <= 0.0 <= ci_high)
+            rows.append(
+                {
+                    "model_a": a,
+                    "model_b": b,
+                    "n_pairs": n,
+                    "mean_diff": mean_diff,
+                    "ci_low": ci_low,
+                    "ci_high": ci_high,
+                    "significant": "" if zero_inside else "YES",
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def _detect_lang(text: str) -> str | None:
+    try:
+        from langdetect import detect, DetectorFactory  # type: ignore
+
+        DetectorFactory.seed = 0
+        if not text or len(text.strip()) < 20:
+            return None
+        return str(detect(text)).upper()
+    except Exception:
+        return None
+
+
+def _failure_mode_breakdown(
+    scores: pd.DataFrame,
+    results: pd.DataFrame,
+    token_rows: pd.DataFrame,
+    target_cap: int | None,
+    bottom_n_languages: int = 2,
+) -> pd.DataFrame:
+    """For the lowest-scoring languages, count truncation / very-short / lang-mismatch failures."""
+    if scores.empty or "language" not in scores.columns:
+        return pd.DataFrame()
+    lang_avg = scores.groupby("language")["overall_quality"].mean().sort_values()
+    target_langs = list(lang_avg.head(bottom_n_languages).index)
+    if not target_langs or results.empty:
+        return pd.DataFrame()
+
+    res = results[results["language"].isin(target_langs)].copy() if "language" in results.columns else pd.DataFrame()
+    if res.empty:
+        return pd.DataFrame()
+    res["response"] = res["response"].fillna("").astype(str)
+
+    tok = pd.DataFrame()
+    if not token_rows.empty and {"model_name", "language", "question_id", "run_number", "response_tokens"}.issubset(
+        token_rows.columns
+    ):
+        tok = token_rows[token_rows["language"].isin(target_langs)][
+            ["model_name", "language", "question_id", "run_number", "response_tokens"]
+        ].copy()
+
+    rows = []
+    for lang in target_langs:
+        sub = res[res["language"] == lang]
+        n = len(sub)
+        if n == 0:
+            continue
+        tok_sub = tok[tok["language"] == lang] if not tok.empty else pd.DataFrame()
+        if not tok_sub.empty and target_cap:
+            truncated = int((pd.to_numeric(tok_sub["response_tokens"], errors="coerce") >= target_cap).sum())
+            truncated_pct = truncated / len(tok_sub) * 100.0
+        else:
+            truncated = 0
+            truncated_pct = 0.0
+
+        lengths = sub["response"].str.len()
+        very_short = int((lengths < 200).sum())
+        very_short_pct = very_short / n * 100.0
+
+        sample = sub.sample(min(30, n), random_state=42) if n > 30 else sub
+        mismatches = 0
+        detected = 0
+        for txt in sample["response"]:
+            d = _detect_lang(txt)
+            if d is None:
+                continue
+            detected += 1
+            expected = lang.upper()
+            if expected == "EL":
+                expected = "EL"
+            if d != expected and not (lang == "EN" and d == "EN"):
+                mismatches += 1
+        mismatch_pct = (mismatches / detected * 100.0) if detected else float("nan")
+
+        rows.append(
+            {
+                "language": lang,
+                "n": n,
+                "avg_overall": float(lang_avg[lang]),
+                "truncated_at_cap_pct": truncated_pct,
+                "very_short_lt200chars_pct": very_short_pct,
+                "lang_mismatch_pct_sample30": mismatch_pct,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _diagnostic_top_bottom(
+    scores: pd.DataFrame,
+    results: pd.DataFrame,
+    n: int = 10,
+    excerpt_chars: int = 200,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Aggregate triplicates per (model, lang, qid) and join response excerpts."""
+    needed = {"model_name", "language", "question_id", "overall_quality"}
+    if scores.empty or not needed.issubset(scores.columns):
+        cols = ["model_name", "language", "question_id", "n_runs", "mean_overall", "std_overall", "response_excerpt"]
+        return pd.DataFrame(columns=cols), pd.DataFrame(columns=cols)
+
+    agg = (
+        scores.groupby(["model_name", "language", "question_id"])
+        .agg(
+            n_runs=("overall_quality", "count"),
+            mean_overall=("overall_quality", "mean"),
+            std_overall=("overall_quality", "std"),
+            mean_factual=("factual_accuracy", "mean") if "factual_accuracy" in scores.columns else ("overall_quality", "mean"),
+            mean_fluency=("fluency", "mean") if "fluency" in scores.columns else ("overall_quality", "mean"),
+        )
+        .reset_index()
+    )
+
+    excerpt_lookup: dict[tuple[str, str, str], str] = {}
+    if not results.empty and {"model_name", "language", "question_id", "response"}.issubset(results.columns):
+        first_per_cell = (
+            results.dropna(subset=["response"])
+            .groupby(["model_name", "language", "question_id"])
+            .first()
+            .reset_index()
+        )
+        for _, r in first_per_cell.iterrows():
+            txt = str(r["response"]).strip().replace("\n", " ").replace("|", "/")
+            if len(txt) > excerpt_chars:
+                txt = txt[:excerpt_chars].rsplit(" ", 1)[0] + "..."
+            excerpt_lookup[(r["model_name"], r["language"], r["question_id"])] = txt
+
+    agg["response_excerpt"] = agg.apply(
+        lambda r: excerpt_lookup.get((r["model_name"], r["language"], r["question_id"]), ""),
+        axis=1,
+    )
+
+    cols = [
+        "model_name",
+        "language",
+        "question_id",
+        "n_runs",
+        "mean_overall",
+        "std_overall",
+        "mean_factual",
+        "mean_fluency",
+        "response_excerpt",
+    ]
+    cols = [c for c in cols if c in agg.columns]
+    top = agg.nlargest(n, "mean_overall")[cols].reset_index(drop=True)
+    bottom = agg.nsmallest(n, "mean_overall")[cols].reset_index(drop=True)
+    return top, bottom
+
+
 def build_report(gpu: str, run_dirs: list[Path], generation_profile: dict, llm_client=None) -> str:
     all_scores: list[pd.DataFrame] = []
     all_results: list[pd.DataFrame] = []
@@ -472,7 +909,6 @@ def build_report(gpu: str, run_dirs: list[Path], generation_profile: dict, llm_c
     model_labels = {m: f"M{i}" for i, m in enumerate(model_names, start=1)}
 
     runs_per_cell: dict[int, int] = {}
-    score_range_df = pd.DataFrame(columns=["metric", "out_of_range_count", "null_count"])
     if not scores.empty:
         scores["base_qid"] = scores["question_id"].map(
             lambda q: str(q).split("_", 1)[0] if isinstance(q, str) and "_" in q else str(q)
@@ -485,22 +921,8 @@ def build_report(gpu: str, run_dirs: list[Path], generation_profile: dict, llm_c
                 .sort_index()
                 .to_dict()
             )
-        out_of_range = []
-        nulls = []
-        for c in SCORE_COLS:
-            if c in scores.columns:
-                out_of_range.append(int(((scores[c] < 0) | (scores[c] > 1)).sum()))
-                nulls.append(int(scores[c].isna().sum()))
-            else:
-                out_of_range.append(0)
-                nulls.append(0)
-        score_range_df = pd.DataFrame(
-            {
-                "metric": SCORE_COLS,
-                "out_of_range_count": out_of_range,
-                "null_count": nulls,
-            }
-        )
+
+    integrity_metric_df, integrity_pairs_df, integrity_constant_pct = _score_integrity_checks(scores)
 
     best_model_name: str | None = None
     best_model_score: float | None = None
@@ -865,10 +1287,10 @@ def build_report(gpu: str, run_dirs: list[Path], generation_profile: dict, llm_c
                 )
                 lines.append("")
 
-        # C) Per-language x per-question
-        c_df = pd.DataFrame()
+        # C) Per-language x per-question -> moved to Appendix A at end of report.
+        per_lang_q_df = pd.DataFrame()
         if {"language", "base_question", "input_tokens", "response_tokens", "total_tokens"}.issubset(token_rows.columns):
-            c_df = (
+            per_lang_q_df = (
                 token_rows.groupby(["language", "base_question"])
                 .agg(
                     input_tokens=("input_tokens", "mean"),
@@ -881,20 +1303,70 @@ def build_report(gpu: str, run_dirs: list[Path], generation_profile: dict, llm_c
                 .reset_index()
                 .sort_values(["language", "base_question"])
             )
-        lines.append("### C) Per-Language x Per-Question (Input + Response + Total)")
+
+        target_cap = generation_profile.get("target_max_output_tokens")
+        try:
+            target_cap = int(target_cap) if target_cap is not None else None
+        except Exception:
+            target_cap = None
+        cap_lang_df, cap_model_lang_df, cap_overall_pct = _output_cap_saturation(token_rows, target_cap)
+
+        lines.append("### Output-Cap Saturation (responses hitting target_max_output_tokens)")
         lines.append("")
-        lines.append(
-            _to_md_table_fmt(
-                c_df,
-                float_cols=[
-                    "input_tokens",
-                    "response_tokens_mean",
-                    "response_tokens_p90",
-                    "total_tokens_mean",
-                ],
-                ndigits=1,
-            ) if not c_df.empty else "_No data_"
-        )
+        if target_cap is None:
+            lines.append("_target_max_output_tokens not configured; cap-saturation analysis skipped._")
+        else:
+            lines.append(
+                f"- Cap value: **{target_cap}** tokens. Saturated responses are likely truncated and may bias quality metrics downward."
+            )
+            lines.append(f"- Overall saturation rate across all responses: **{cap_overall_pct:.2f}%**.")
+            lines.append("")
+            lines.append("**Per language (sorted by saturation rate):**")
+            lines.append("")
+            lines.append(
+                _to_md_table_fmt(cap_lang_df, float_cols=["saturation_pct"], ndigits=2)
+                if not cap_lang_df.empty
+                else "_No data_"
+            )
+            lines.append("")
+            lines.append("**Per (model x language) cells where saturation >= 10%:**")
+            lines.append("")
+            lines.append(
+                _to_md_table_fmt(cap_model_lang_df, float_cols=["saturation_pct"], ndigits=2)
+                if not cap_model_lang_df.empty
+                else "_No (model, language) cell exceeds the 10% threshold._"
+            )
+        lines.append("")
+
+        # Truncation matrix (model x language)
+        trunc_matrix = _truncation_matrix(token_rows, target_cap)
+        lines.append("### Truncation Rate Matrix (% responses at output cap, by model × language)")
+        lines.append("")
+        if trunc_matrix.empty or target_cap is None:
+            lines.append("_Insufficient data to compute truncation matrix._")
+        else:
+            lang_cols = [c for c in trunc_matrix.columns if c != "model_name"]
+            lines.append(_to_md_table_fmt(trunc_matrix, float_cols=lang_cols, ndigits=1))
+        lines.append("")
+
+        # Context utilisation
+        ctx_util_df = _context_utilisation(token_rows)
+        lines.append("### Context Window Utilisation")
+        lines.append("")
+        if ctx_util_df.empty:
+            lines.append("_Insufficient data to compute context utilisation._")
+        else:
+            lines.append(
+                "Mean input usage relative to per-model `max_model_len`. High `headroom_pct` indicates over-provisioned KV-cache memory."
+            )
+            lines.append("")
+            lines.append(
+                _to_md_table_fmt(
+                    ctx_util_df,
+                    float_cols=["input_tokens_mean", "input_tokens_p90", "used_pct", "headroom_pct"],
+                    ndigits=2,
+                )
+            )
         lines.append("")
 
     lines.append("## Metric Methodology and Caveats")
@@ -903,14 +1375,30 @@ def build_report(gpu: str, run_dirs: list[Path], generation_profile: dict, llm_c
         "- Scoring is executed with the **context** profile in `gpu_runtime/evaluate_context_results.py` "
         "via `ResponseEvaluator(metrics_profile=\"context\")`."
     )
-    lines.append("- Context profile weights used in overall quality:")
-    lines.append("  - `relevance`: 0.30")
-    lines.append("  - `factual_accuracy`: 0.30")
-    lines.append("  - `completeness`: 0.20")
-    lines.append("  - `fluency`: 0.15")
-    lines.append("  - `coherence`: 0.05")
-    lines.append("  - `prompt_alignment`: 0.00 (not contributing in context mode)")
-    lines.append("  - `token_efficiency`: 0.00 (disabled in context mode)")
+    profile_info = _load_metrics_profile("context")
+    weights = profile_info["weights"]
+    if profile_info["found"]:
+        lines.append("- Context profile weights used in overall quality (loaded live from `metrics/metrics_config.yaml`):")
+        ordered = [
+            "relevance",
+            "factual_accuracy",
+            "completeness",
+            "fluency",
+            "coherence",
+            "prompt_alignment",
+            "token_efficiency",
+        ]
+        for k in ordered:
+            if k in weights:
+                w = weights[k]
+                note = ""
+                if k == "token_efficiency" and not profile_info["token_efficiency_enabled"]:
+                    note = " (disabled in context mode)"
+                elif w == 0.0:
+                    note = " (not contributing)"
+                lines.append(f"  - `{k}`: {w:.2f}{note}")
+    else:
+        lines.append("- _metrics_config.yaml not readable; weights cannot be displayed live._")
     lines.append(
         "- `factual_accuracy` is NLI-based using **`joeddav/xlm-roberta-large-xnli`** "
         "on response-vs-context premise/hypothesis pairs."
@@ -943,11 +1431,43 @@ def build_report(gpu: str, run_dirs: list[Path], generation_profile: dict, llm_c
         "- `evaluation_results_euf_context_by_model.xlsx` (`all_results`) rows: "
         f"**{results_by_model_all_rows}**"
     )
-    lines.append(f"- Run-count distribution per (model, language, question): **{runs_per_cell}**")
+    if runs_per_cell:
+        cells = sum(runs_per_cell.values())
+        if len(runs_per_cell) == 1:
+            (k, v), = runs_per_cell.items()
+            lines.append(f"- Run-count distribution per (model, language, question): **all {v} cells have exactly {k} runs**")
+        else:
+            parts = ", ".join(f"{v} cells x {k} runs" for k, v in runs_per_cell.items())
+            lines.append(f"- Run-count distribution per (model, language, question): **{parts}** (total cells: {cells})")
     lines.append("")
-    lines.append("### Score Range Validation")
+    lines.append("### Score Integrity Checks")
     lines.append("")
-    lines.append(_to_md_table(score_range_df))
+    lines.append(
+        f"- Boundary saturation flag triggers at >**{BOUNDARY_SATURATION_FLAG_PCT:.0f}%** of rows stuck at exactly 0.000 or 1.000."
+    )
+    lines.append(
+        f"- Constant-row rate (relevance == factual == completeness == fluency == coherence in same row): **{integrity_constant_pct:.2f}%**."
+    )
+    lines.append("")
+    lines.append(
+        _to_md_table_fmt(
+            integrity_metric_df,
+            float_cols=["boundary_saturation_pct", "null_pct"],
+            ndigits=2,
+        ) if not integrity_metric_df.empty else "_No data_"
+    )
+    lines.append("")
+    lines.append(f"#### Suspicious Metric Pairs (Pearson r ≥ {COLLINEARITY_THRESHOLD})")
+    lines.append("")
+    if integrity_pairs_df.empty:
+        lines.append("_No metric pairs are perfectly collinear._")
+    else:
+        lines.append(
+            "Pairs below behave as duplicates. If both contribute to overall_quality, the metric is being double-counted; "
+            "if only one is weighted, the other is rendering misleading information."
+        )
+        lines.append("")
+        lines.append(_to_md_table_fmt(integrity_pairs_df, float_cols=["pearson_r"], ndigits=4))
     lines.append("")
     lines.append("## Model Ranking")
     lines.append("")
@@ -1010,6 +1530,10 @@ def build_report(gpu: str, run_dirs: list[Path], generation_profile: dict, llm_c
                 lang_model[m] = pd.NA
         lang_model = lang_model[model_names]
         lang_model["Avg"] = lang_model.mean(axis=1, numeric_only=True)
+        lang_std = scores.groupby("language")["overall_quality"].std()
+        lang_n = scores.groupby("language")["overall_quality"].count()
+        lang_model["Std"] = lang_std
+        lang_model["N"] = lang_n
         lang_model = lang_model.sort_values("Avg", ascending=False)
         rows = []
         for rank, (code, row) in enumerate(lang_model.iterrows(), start=1):
@@ -1017,13 +1541,15 @@ def build_report(gpu: str, run_dirs: list[Path], generation_profile: dict, llm_c
                 "Rank": rank,
                 "Language": LANGUAGE_NAMES.get(code, code),
                 "Code": code,
+                "N": int(row["N"]) if pd.notna(row["N"]) else 0,
             }
             for m in model_names:
                 item[model_labels[m]] = row[m]
             item["Avg"] = row["Avg"]
+            item["Std"] = row["Std"]
             rows.append(item)
         lang_perf_df = pd.DataFrame(rows)
-        float_cols = [model_labels[m] for m in model_names] + ["Avg"]
+        float_cols = [model_labels[m] for m in model_names] + ["Avg", "Std"]
         lang_perf_md = _to_md_table_fmt(lang_perf_df, float_cols=float_cols, ndigits=3)
         lines.append(lang_perf_md)
         if not lang_perf_df.empty:
@@ -1127,25 +1653,7 @@ def build_report(gpu: str, run_dirs: list[Path], generation_profile: dict, llm_c
     lines.append("")
     lines.append("## Language Insights")
     lines.append("")
-    lines.append("### Top 10 Languages (avg overall quality)")
-    lines.append("")
-    lines.append(
-        _to_md_table_fmt(
-            lang_summary.head(10),
-            float_cols=["avg_overall", "std_overall"],
-            ndigits=3,
-        )
-    )
-    lines.append("")
-    lines.append("### Bottom 10 Languages (avg overall quality)")
-    lines.append("")
-    lines.append(
-        _to_md_table_fmt(
-            lang_summary.tail(10).sort_values("avg_overall", ascending=True),
-            float_cols=["avg_overall", "std_overall"],
-            ndigits=3,
-        )
-    )
+    lines.append("_Per-language averages, std and counts are folded into the section 3.3 table above._")
     lines.append("")
     lines.append("### Language Insights Interpretation")
     lines.append("")
@@ -1198,25 +1706,91 @@ def build_report(gpu: str, run_dirs: list[Path], generation_profile: dict, llm_c
     lines.append("")
     lines.append("## Best and Worst Scored Responses (Diagnostic)")
     lines.append("")
-    lines.append("### Top 10")
-    lines.append("")
     lines.append(
-        _to_md_table_fmt(
-            best_rows,
-            float_cols=["overall_quality", "factual_accuracy", "fluency"],
-            ndigits=3,
-        )
+        "_Aggregated per (model, language, question) cell. Triplicate runs are collapsed into mean ± std. "
+        "Excerpts are taken from the first run and truncated to ~200 characters._"
     )
     lines.append("")
-    lines.append("### Bottom 10")
+    diag_top, diag_bottom = _diagnostic_top_bottom(scores, results, n=10, excerpt_chars=200)
+    diag_float_cols = ["mean_overall", "std_overall", "mean_factual", "mean_fluency"]
+    lines.append("### Top 10 cells (highest mean overall quality)")
     lines.append("")
     lines.append(
-        _to_md_table_fmt(
-            worst_rows,
-            float_cols=["overall_quality", "factual_accuracy", "fluency"],
-            ndigits=3,
-        )
+        _to_md_table_fmt(diag_top, float_cols=diag_float_cols, ndigits=3) if not diag_top.empty else "_No data_"
     )
+    lines.append("")
+    lines.append("### Bottom 10 cells (lowest mean overall quality)")
+    lines.append("")
+    lines.append(
+        _to_md_table_fmt(diag_bottom, float_cols=diag_float_cols, ndigits=3) if not diag_bottom.empty else "_No data_"
+    )
+    lines.append("")
+
+    lines.append("## Pairwise Model Significance (paired bootstrap, 1000 iterations)")
+    lines.append("")
+    sig_df = _paired_bootstrap_ci(scores, n_iter=1000)
+    if sig_df.empty:
+        lines.append("_Not enough paired observations to compute pairwise CIs._")
+    else:
+        lines.append(
+            "Pairs whose 95% CI excludes 0 are flagged `significant=YES`. `mean_diff > 0` means model_a outscores model_b."
+        )
+        lines.append("")
+        lines.append(
+            _to_md_table_fmt(
+                sig_df,
+                float_cols=["mean_diff", "ci_low", "ci_high"],
+                ndigits=4,
+            )
+        )
+    lines.append("")
+
+    lines.append("## Quality vs Latency Pareto")
+    lines.append("")
+    pareto_df = _quality_latency_pareto(model_ranking, latency_model)
+    if pareto_df.empty:
+        lines.append("_Quality or latency data unavailable._")
+    else:
+        lines.append("Models marked `pareto_optimal=YES` are not dominated by any other model on (higher quality, lower latency).")
+        lines.append("")
+        lines.append(
+            _to_md_table_fmt(
+                pareto_df,
+                float_cols=["avg_overall", "avg_latency_ms"],
+                ndigits=3,
+            )
+        )
+    lines.append("")
+
+    lines.append("## Failure Mode Breakdown for Lowest-Scoring Languages")
+    lines.append("")
+    fail_target_cap = generation_profile.get("target_max_output_tokens")
+    try:
+        fail_target_cap = int(fail_target_cap) if fail_target_cap is not None else None
+    except Exception:
+        fail_target_cap = None
+    fail_df = _failure_mode_breakdown(scores, results, token_rows, fail_target_cap, bottom_n_languages=2)
+    if fail_df.empty:
+        lines.append("_Insufficient data to build the failure-mode breakdown._")
+    else:
+        lines.append(
+            "Each row reports failure modes for one of the two lowest-scoring languages. "
+            "`truncated_at_cap_pct` uses token CSV; `very_short_lt200chars_pct` checks raw response strings; "
+            "`lang_mismatch_pct_sample30` is computed on a 30-row sample using `langdetect` (NaN if not installed)."
+        )
+        lines.append("")
+        lines.append(
+            _to_md_table_fmt(
+                fail_df,
+                float_cols=[
+                    "avg_overall",
+                    "truncated_at_cap_pct",
+                    "very_short_lt200chars_pct",
+                    "lang_mismatch_pct_sample30",
+                ],
+                ndigits=2,
+            )
+        )
     lines.append("")
     lines.append("## Key Insights")
     lines.append("")
@@ -1433,6 +2007,26 @@ def build_report(gpu: str, run_dirs: list[Path], generation_profile: dict, llm_c
         "_Note: 'fastest ... with good or best speed' is selected as lowest average latency among models "
         "with quality >= median model quality; if none qualify, lowest latency overall is used._"
     )
+    lines.append("")
+
+    lines.append("## Appendix A — Per-Language × Per-Question Token Profile")
+    lines.append("")
+    appendix_df = locals().get("per_lang_q_df", pd.DataFrame())
+    if appendix_df is None or (isinstance(appendix_df, pd.DataFrame) and appendix_df.empty):
+        lines.append("_No token-budget detail rows aggregated._")
+    else:
+        lines.append(
+            _to_md_table_fmt(
+                appendix_df,
+                float_cols=[
+                    "input_tokens",
+                    "response_tokens_mean",
+                    "response_tokens_p90",
+                    "total_tokens_mean",
+                ],
+                ndigits=1,
+            )
+        )
     lines.append("")
 
     return "\n".join(lines)

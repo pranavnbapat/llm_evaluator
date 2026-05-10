@@ -244,6 +244,7 @@ def main():
             model_name TEXT,
             language TEXT,
             question_id TEXT,
+            run_number INTEGER,
             relevance REAL,
             factual_accuracy REAL,
             completeness REAL,
@@ -255,11 +256,24 @@ def main():
             timestamp TEXT
         )
     """)
-    
-    # Clear existing scores to avoid duplicates
-    scores_cursor.execute("DELETE FROM scores")
+    # Older databases may pre-date the run_number column; add it if absent so the
+    # UNIQUE index below can be created without losing existing rows.
+    cols = {row[1] for row in scores_cursor.execute("PRAGMA table_info(scores)").fetchall()}
+    if "run_number" not in cols:
+        scores_cursor.execute("ALTER TABLE scores ADD COLUMN run_number INTEGER")
+    scores_cursor.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uniq_scores_cell "
+        "ON scores(model_name, language, question_id, run_number)"
+    )
     scores_conn.commit()
-    
+    # Resumable scoring: keep prior rows. Each (model, lang, qid, run_number)
+    # cell is upserted via INSERT OR REPLACE on the unique index above. Pass
+    # FORCE_RESCORE=1 to wipe and re-score everything.
+    if str(os.getenv("FORCE_RESCORE", "")).strip() in {"1", "true", "yes"}:
+        scores_cursor.execute("DELETE FROM scores")
+        scores_conn.commit()
+        print("⚠️  FORCE_RESCORE=1 set; cleared existing scores rows.")
+
     # Evaluate each response (batched inference for heavy metrics)
     print("\n🔍 Evaluating responses...")
     prepared = []
@@ -295,6 +309,7 @@ def main():
             "model_name": model_name,
             "language": language,
             "question_id": question_id,
+            "run_number": run_number,
             "question_text": question_text,
             "response": response,
             "ref_data": ref_data,
@@ -331,24 +346,30 @@ def main():
                 if nli_scores is not None and idx < len(nli_scores):
                     precomputed["factual_accuracy"] = float(nli_scores[idx])
                 
+                # Char-estimated token count, consistent with the budget CSV's
+                # `char_estimated` path (insights/generate_context_token_budget.py).
+                response_text = item["response"] or ""
+                tokens_generated = max(1, int(round(len(response_text) / 4.0)))
+
                 scores = evaluator.evaluate_response(
                     question_id=item["question_id"],
                     question_text=item["question_text"],
-                    response_text=item["response"],
+                    response_text=response_text,
                     language=item["language"],
-                    tokens_generated=len(item["response"].split()),
+                    tokens_generated=tokens_generated,
                     reference_data=item["ref_data"],
                     precomputed_scores=precomputed if precomputed else None,
                 )
-                
+
                 scores_cursor.execute("""
-                    INSERT INTO scores 
-                    (evaluation_id, model_name, language, question_id, relevance, 
-                     factual_accuracy, completeness, fluency, coherence, prompt_alignment,
-                     token_efficiency, overall_quality, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                    INSERT OR REPLACE INTO scores
+                    (evaluation_id, model_name, language, question_id, run_number,
+                     relevance, factual_accuracy, completeness, fluency, coherence,
+                     prompt_alignment, token_efficiency, overall_quality, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 """, (
                     item["eval_id"], item["model_name"], item["language"], item["question_id"],
+                    item["run_number"],
                     scores.relevance,
                     scores.factual_accuracy,
                     scores.completeness,

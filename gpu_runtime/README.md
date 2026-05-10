@@ -20,6 +20,54 @@ Currently tuned GPU targets for config generation are:
 
 Those are the GPUs with first-class sizing support in `gpu_runtime/generate_gpu_config.py` and `model_static_check.py` today.
 
+## TL;DR — Minimum Steps (text/context path)
+
+Pick your GPU class once and substitute it for `<GPU>` below (one of `a40`, `l40s`,
+`3090`, `a100`, `h200_sxm`, `b200`).
+
+```bash
+# 1. Clone and enter the repo (e.g. on RunPod)
+cd /workspace
+git clone https://github.com/pranavnbapat/llm_evaluator
+cd llm_evaluator
+
+# 2. Install dependencies and create the venv
+bash gpu_runtime/setup.sh
+
+# 3. Activate the venv
+source .venv/bin/activate
+
+# 4. Set your HF token (needed for gated model downloads)
+echo "HF_TOKEN=hf_your_token_here" > gpu_runtime/.env
+
+# 5. Generate a GPU-specific model config
+python gpu_runtime/generate_gpu_config.py <GPU> \
+  --repos-file gpu_runtime/model_repos.txt \
+  --config-file gpu_runtime/config.yaml \
+  --concurrent-users 50 \
+  --target-max-output-tokens 512
+
+# 6. Download the models that survived config generation
+python gpu_runtime/download_models.py
+
+# 7. Run the context evaluation (foreground; use the background variant for long runs)
+python gpu_runtime/evaluate_context.py
+
+# 8. Score the responses produced in step 7
+python gpu_runtime/evaluate_context_results.py
+```
+
+After step 8 you have raw results in `results/runs/<GPU>/<run_id>/raw/` and scores in
+`results/runs/<GPU>/<run_id>/scores/`. To turn those into the combined insights
+report, run the post-scoring pipeline (optional but recommended):
+
+```bash
+bash gpu_runtime/run_post_scoring_insights.sh --all-runs --gpu <GPU>
+```
+
+The detailed reference for every step (background runners, env tuning, vision path,
+troubleshooting) is below.
+
 ## Quick Start
 
 ### 1. Clone on GPU server
@@ -133,7 +181,12 @@ python gpu_runtime/evaluate_context_results.py
 
 Background:
 ```bash
-bash gpu_runtime/run_evaluate_context_results_background.sh
+# One run (CLI flag preferred)
+bash gpu_runtime/run_evaluate_context_results_background.sh \
+  --run-dir "results/runs/<gpu_bucket>/<run_id>"
+
+# All runs in the detected GPU bucket
+bash gpu_runtime/run_evaluate_context_results_background.sh --all-runs
 ```
 
 Multimodal image/PDF path
@@ -149,25 +202,42 @@ EVAL_RUN_DIR="results/runs/<gpu_bucket>/<run_id>" \
 bash gpu_runtime/run_evaluate_vision_results_background.sh
 ```
 
-Background scorer default behavior:
-- If `EVAL_RUN_DIR` or `EVAL_RUN_ID` is set: scores that single run.
-- If neither is set: scores all runs under `results/runs/<detected_or_forced_gpu_bucket>/`.
+Single-run resolution order for the context background scorer:
+1. `--run-dir <path>` CLI flag
+2. `EVAL_RUN_DIR` env
+3. `EVAL_RUN_ID` env (joined with the detected GPU bucket)
+4. `results/latest/<gpu_bucket>` symlink
+
+Default behavior: if none of the above is set and `--all-runs` was not explicitly
+passed, the script auto-flips to **`--all-runs`** for the detected GPU bucket. Be
+deliberate: forgetting `--run-dir` re-scores every run in the bucket.
+
+Resumable scoring:
+- Scores are upserted on `(model_name, language, question_id, run_number)`.
+  If you Ctrl-C or crash, just rerun — already-scored cells are not re-evaluated
+  duplicately, only overwritten in place.
+- Set `FORCE_RESCORE=1` to wipe existing rows before scoring.
 
 Examples:
 
 ```bash
 # Score one run
-EVAL_RUN_GPU=a40 EVAL_RUN_DIR="results/runs/a40/<run_id>" \
-bash gpu_runtime/run_evaluate_context_results_background.sh
+bash gpu_runtime/run_evaluate_context_results_background.sh \
+  --run-dir "results/runs/a40/<run_id>"
 
-# Score all a40 runs (useful when hardware is A100 but run data is in a40 bucket)
-EVAL_RUN_GPU=a40 bash gpu_runtime/run_evaluate_context_results_background.sh
+# Score all a40 runs (useful when hardware is A100 but run data lives in a40 bucket)
+EVAL_RUN_GPU=a40 bash gpu_runtime/run_evaluate_context_results_background.sh --all-runs
+
+# Force a full re-score of one run
+FORCE_RESCORE=1 \
+bash gpu_runtime/run_evaluate_context_results_background.sh \
+  --run-dir "results/runs/a40/<run_id>"
 ```
 
 Scoring performance env (recommended):
 
 ```bash
-export EVALUATOR_METRICS_DEVICE=cuda
+export EVALUATOR_METRICS_DEVICE=cuda     # cuda | cpu | auto (default)
 export EVALUATOR_SCORE_COMMIT_EVERY=500
 export TRANSFORMERS_VERBOSITY=error
 export HF_HUB_DISABLE_PROGRESS_BARS=1
@@ -179,31 +249,46 @@ export HF_HUB_DISABLE_PROGRESS_BARS=1
 export EVALUATOR_SCORE_BATCH_SIZE=96
 ```
 
-You can also put the same keys in root `.env` (copy from `.env.sample`) instead of exporting every session.
+`EVALUATOR_METRICS_DEVICE` controls only the scoring metrics (xlm-roberta NLI/zero-shot,
+sentence embeddings). It is independent of vLLM's GPU usage during evaluation.
+
+You can also put the same keys in root `.env` (copy from `.env.sample`) instead of
+exporting every session.
 
 ### 9. Generate insights (run after scoring)
 
 Recommended (single command):
 
 ```bash
-RUN_DIR="results/runs/<gpu_bucket>/<run_id>"
-bash gpu_runtime/run_post_scoring_insights.sh --run-dir "$RUN_DIR"
-```
+# One run + refresh that bucket's aggregate report
+bash gpu_runtime/run_post_scoring_insights.sh \
+  --run-dir "results/runs/<gpu_bucket>/<run_id>"
 
-All runs:
-
-```bash
+# Every run, every bucket
 bash gpu_runtime/run_post_scoring_insights.sh --all-runs
-```
 
-Regenerate outputs:
+# Every run in one bucket only
+bash gpu_runtime/run_post_scoring_insights.sh --all-runs --gpu l40s
 
-```bash
-RUN_DIR="results/runs/<gpu_bucket>/<run_id>"
+# Regenerate even when output artifacts already exist
 bash gpu_runtime/run_post_scoring_insights.sh --run-dir "$RUN_DIR" --force
 ```
 
-Equivalent manual order for one run:
+Run dirs without `scores/evaluation_scores_euf_context.db` are skipped with a
+warning, so you can safely re-run while some buckets are still scoring.
+
+Pipeline order (each step's output feeds the next):
+
+| # | Script | Output | Consumed by |
+|---|---|---|---|
+| 1 | `insights/generate_context_charts.py` | `insights/charts/*.png`, summary CSVs in `insights/data/` | downstream charts |
+| 2 | `insights/generate_presentation_qa.py` | `insights/Presentation_QA.md`, `insights/data/presentation_qa.*` | — |
+| 3 | `insights/generate_context_token_budget.py` | `insights/data/token_budget_response_details.csv` and friends | step 6 (token / truncation tables, context utilisation, failure-mode breakdown) |
+| 4 | `insights/generate_context_vram_docs.py` | VRAM/context markdown | — |
+| 5 | `insights/gpu_efficiency/generate_gpu_efficiency_report.py` | `insights/gpu_efficiency/*` charts + markdown | — |
+| 6 | `insights/generate_gpu_insights_report.py --gpu <bucket>` | `results/runs/<gpu_bucket>/CONTEXT_EVALUATION_INSIGHTS_REPORT.md` (the combined report) | — |
+
+Equivalent manual invocation for one run:
 
 ```bash
 RUN_DIR="results/runs/<gpu_bucket>/<run_id>"
@@ -217,20 +302,20 @@ python insights/gpu_efficiency/generate_gpu_efficiency_report.py --run-dir "$RUN
 python insights/generate_gpu_insights_report.py --gpu "$GPU_BUCKET"
 ```
 
-What each script does:
-- `generate_context_charts.py`: creates `insights/charts/*.png` and summary CSVs in `insights/data/`.
-- `generate_presentation_qa.py`: creates presentation QA artifacts (`insights/Presentation_QA.md`, `insights/data/presentation_qa.*`).
-- `generate_context_token_budget.py`: creates token-budget CSVs in `insights/data/`.
-- `generate_context_vram_docs.py`: creates VRAM/context markdown docs from token-budget outputs.
-- `generate_gpu_insights_report.py`: creates the combined run-level insights report markdown.
-- `gpu_efficiency/generate_gpu_efficiency_report.py`: creates GPU utilization/phase efficiency charts + markdown in `insights/gpu_efficiency/`.
-- `gpu_runtime/run_post_scoring_insights.sh`: runs the full post-scoring pipeline in this order.
-
 Notes:
-- Insights scripts are not auto-triggered by evaluation/scoring.
-- Most scripts support bulk mode without `--run-dir`.
-- Run `gpu_efficiency` after evaluation has produced `logs/gpu_metrics.csv`.
-- Post-scoring insights are currently context-oriented. The multimodal path has raw results and scores, but it does not yet use the same report-generation stack.
+- Insights are not auto-triggered by evaluation/scoring.
+- Step 5 needs `logs/gpu_metrics.csv` from evaluation; missing it just skips the GPU section.
+- Step 6 reads the metric weights live from `metrics/metrics_config.yaml`; the report's
+  methodology section reflects whatever the active `context` profile actually uses.
+- Step 6 also runs an integrity check that flags suspicious patterns in the scores
+  (boundary saturation, perfectly collinear metrics, etc). Read the
+  "Score Integrity Checks" section in the generated report — that's where the
+  `prompt_alignment ≡ relevance` and `completeness saturation` issues surfaced.
+- The failure-mode breakdown for low-quality languages uses optional
+  `langdetect`. Install with `pip install langdetect` to get the
+  `lang_mismatch_pct_sample30` column populated; without it you'll see `NA`.
+- Post-scoring insights are currently context-oriented. The multimodal path has
+  raw results and scores, but it does not yet use the same report stack.
 
 ## Multimodal Dataset
 
