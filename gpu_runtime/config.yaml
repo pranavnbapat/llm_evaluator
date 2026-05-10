@@ -21,11 +21,11 @@ vllm_api_key: "${VLLM_API_KEY:-sk-your-key-eval}"
 # ----------------------------------------------------------------------------
 generation_profile:
   gpu: "l40s"
-  concurrent_users: 15
+  concurrent_users: 20
   target_max_output_tokens: 1024
   seq_lens: "4096,8192,16384"
   allow_fits: "comfortable"
-  generated_at: "2026-05-09 18:53:12"
+  generated_at: "2026-05-10 06:04:11"
 models:
   eurollm_9b_instruct_2512_fp16_l40s:
     name: "eurollm-9b-instruct-2512-l40s"
@@ -43,44 +43,14 @@ models:
     local_path: "/workspace/models/granite_4_1_8b_awq_fp16_l40s"
     quant: null
     dtype: "float16"
-    max_model_len: 8192
-    usable_input_tokens: 7168
-    gpu_memory_util: 0.90
-
-  granite_4_1_8b_fp16_l40s:
-    name: "granite-4-1-8b-l40s"
-    repo: "ibm-granite/granite-4.1-8b"
-    local_path: "/workspace/models/granite_4_1_8b_fp16_l40s"
-    quant: null
-    dtype: "float16"
     max_model_len: 4096
     usable_input_tokens: 3072
     gpu_memory_util: 0.90
 
-  ministral_3_14b_instruct_2512_fp16_l40s:
-    name: "ministral-3-14b-instruct-2512-l40s"
-    repo: "mistralai/Ministral-3-14B-Instruct-2512"
-    local_path: "/workspace/models/ministral_3_14b_instruct_2512_fp16_l40s"
-    quant: null
-    dtype: "float16"
-    max_model_len: 4096
-    usable_input_tokens: 3072
-    gpu_memory_util: 0.90
-
-  qwen3_6_35b_a3b_awq_4bit_fp16_l40s:
-    name: "qwen3-6-35b-a3b-awq-4bit-l40s"
-    repo: "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit"
-    local_path: "/workspace/models/qwen3_6_35b_a3b_awq_4bit_fp16_l40s"
-    quant: null
-    dtype: "float16"
-    max_model_len: 16384
-    usable_input_tokens: 15360
-    gpu_memory_util: 0.90
-
-  qwen3_6_35b_a3b_awq_fp16_l40s:
-    name: "qwen3-6-35b-a3b-awq-l40s"
-    repo: "QuantTrio/Qwen3.6-35B-A3B-AWQ"
-    local_path: "/workspace/models/qwen3_6_35b_a3b_awq_fp16_l40s"
+  qwen3_30b_a3b_instruct_2507_awq_fp16_l40s:
+    name: "qwen3-30b-a3b-instruct-2507-awq-l40s"
+    repo: "stelterlab/Qwen3-30B-A3B-Instruct-2507-AWQ"
+    local_path: "/workspace/models/qwen3_30b_a3b_instruct_2507_awq_fp16_l40s"
     quant: null
     dtype: "float16"
     max_model_len: 16384
