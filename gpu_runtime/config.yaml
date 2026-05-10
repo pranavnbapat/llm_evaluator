@@ -25,28 +25,8 @@ generation_profile:
   target_max_output_tokens: 1024
   seq_lens: "4096,8192,16384"
   allow_fits: "comfortable"
-  generated_at: "2026-05-10 06:04:11"
+  generated_at: "2026-05-10 06:15:03"
 models:
-  eurollm_9b_instruct_2512_fp16_l40s:
-    name: "eurollm-9b-instruct-2512-l40s"
-    repo: "utter-project/EuroLLM-9B-Instruct-2512"
-    local_path: "/workspace/models/eurollm_9b_instruct_2512_fp16_l40s"
-    quant: null
-    dtype: "float16"
-    max_model_len: 4096
-    usable_input_tokens: 3072
-    gpu_memory_util: 0.90
-
-  granite_4_1_8b_awq_fp16_l40s:
-    name: "granite-4-1-8b-awq-l40s"
-    repo: "pranavbapat/granite-4.1-8b-awq"
-    local_path: "/workspace/models/granite_4_1_8b_awq_fp16_l40s"
-    quant: null
-    dtype: "float16"
-    max_model_len: 4096
-    usable_input_tokens: 3072
-    gpu_memory_util: 0.90
-
   qwen3_30b_a3b_instruct_2507_awq_fp16_l40s:
     name: "qwen3-30b-a3b-instruct-2507-awq-l40s"
     repo: "stelterlab/Qwen3-30B-A3B-Instruct-2507-AWQ"
@@ -62,6 +42,7 @@ evaluation:
   num_runs: ${NUM_RUNS:-3}                      # Runs per question
   temperature: ${TEMPERATURE:-0.0}              # Deterministic
   max_tokens: 1024
+
 
 
 
