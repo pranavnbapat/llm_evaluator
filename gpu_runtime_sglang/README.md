@@ -292,6 +292,37 @@ LOG=$(ls -1t /workspace/llm_evaluator/results_sglang/runs/a40/*/logs/evaluate_co
 less "$LOG"
 ```
 
+## Tmux basics
+
+The `run_evaluate_*_background.sh` scripts launch the evaluation/scoring inside
+a `tmux` session so it survives SSH disconnects. The session name is printed
+once at launch — the cheat sheet below is for after that scrolls off.
+
+| Action | Command |
+|---|---|
+| List all sessions | `tmux ls` |
+| Attach to a session | `tmux attach -t <name>` (short form: `tmux a -t <name>`) |
+| Detach from current session | Press `Ctrl+b`, release, then press `d` (chord, not simultaneous) |
+| Kill a session | `tmux kill-session -t <name>` |
+| Kill every session | `tmux kill-server` |
+| Scroll inside attached session | `Ctrl+b` then `[`, navigate with arrows / PageUp, press `q` to exit |
+
+Session names this repo uses (across both engines, in case both are running):
+
+| Script | Session name |
+|---|---|
+| `gpu_runtime/run_evaluate_context_background.sh` | `eval_context` |
+| `gpu_runtime/run_evaluate_context_results_background.sh` | `eval_context_scores` |
+| `gpu_runtime/run_evaluate_vision_background.sh` | `eval_vision` |
+| `gpu_runtime/run_evaluate_vision_results_background.sh` | `eval_vision_scores` |
+| `gpu_runtime_sglang/run_evaluate_context_background.sh` | `eval_context_sglang` |
+| `gpu_runtime_sglang/run_evaluate_context_results_background.sh` | `eval_context_scores_sglang` |
+
+Important:
+- Detaching keeps the run alive. Closing the SSH terminal also keeps it alive.
+- The only way to actually stop the evaluation is `tmux kill-session -t <name>`
+  or `Ctrl+C` while attached.
+
 ## Troubleshooting
 
 ### SGLang startup fails
