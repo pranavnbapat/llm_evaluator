@@ -25,28 +25,8 @@ generation_profile:
   target_max_output_tokens: 1024
   seq_lens: "4096,8192,16384"
   allow_fits: "comfortable"
-  generated_at: "2026-05-23 09:23:32"
+  generated_at: "2026-05-23 15:56:35"
 models:
-  qwen3_5_35b_a3b_awq_fp16_a40:
-    name: "qwen3-5-35b-a3b-awq-a40"
-    repo: "QuantTrio/Qwen3.5-35B-A3B-AWQ"
-    local_path: "/workspace/models/qwen3_5_35b_a3b_awq_fp16_a40"
-    quant: null
-    dtype: "float16"
-    max_model_len: 8192
-    usable_input_tokens: 7168
-    gpu_memory_util: 0.90
-
-  qwen3_6_35b_a3b_awq_4bit_fp16_a40:
-    name: "qwen3-6-35b-a3b-awq-4bit-a40"
-    repo: "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit"
-    local_path: "/workspace/models/qwen3_6_35b_a3b_awq_4bit_fp16_a40"
-    quant: null
-    dtype: "float16"
-    max_model_len: 16384
-    usable_input_tokens: 15360
-    gpu_memory_util: 0.90
-
   qwen3_6_35b_a3b_awq_fp16_a40:
     name: "qwen3-6-35b-a3b-awq-a40"
     repo: "QuantTrio/Qwen3.6-35B-A3B-AWQ"

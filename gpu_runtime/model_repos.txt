@@ -28,5 +28,5 @@
 #microsoft/Phi-3.5-vision-instruct
 
 QuantTrio/Qwen3.6-35B-A3B-AWQ
-QuantTrio/Qwen3.5-35B-A3B-AWQ
-cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
+#QuantTrio/Qwen3.5-35B-A3B-AWQ
+#cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
