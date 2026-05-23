@@ -27,9 +27,6 @@
 #ibm-granite/granite-vision-4.1-4b
 #microsoft/Phi-3.5-vision-instruct
 
-
 QuantTrio/Qwen3.6-35B-A3B-AWQ
 QuantTrio/Qwen3.5-35B-A3B-AWQ
-stelterlab/EuroLLM-9B-Instruct-AWQ
-CarlosRCDev/EuroLLM-22B-Instruct-2512-awq
 cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit

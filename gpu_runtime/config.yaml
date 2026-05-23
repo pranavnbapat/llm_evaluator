@@ -20,87 +20,37 @@ vllm_api_key: "${VLLM_API_KEY:-sk-your-key-eval}"
 # Model Configuration
 # ----------------------------------------------------------------------------
 generation_profile:
-  gpu: "l40s"
+  gpu: "a40"
   concurrent_users: 20
   target_max_output_tokens: 1024
   seq_lens: "4096,8192,16384"
   allow_fits: "comfortable"
-  generated_at: "2026-05-10 13:53:11"
+  generated_at: "2026-05-23 09:23:32"
 models:
-  eurollm_22b_instruct_2512_awq_fp16_l40s:
-    name: "eurollm-22b-instruct-2512-awq-l40s"
-    repo: "CarlosRCDev/EuroLLM-22B-Instruct-2512-awq"
-    local_path: "/workspace/models/eurollm_22b_instruct_2512_awq_fp16_l40s"
+  qwen3_5_35b_a3b_awq_fp16_a40:
+    name: "qwen3-5-35b-a3b-awq-a40"
+    repo: "QuantTrio/Qwen3.5-35B-A3B-AWQ"
+    local_path: "/workspace/models/qwen3_5_35b_a3b_awq_fp16_a40"
     quant: null
     dtype: "float16"
-    max_model_len: 4096
-    usable_input_tokens: 3072
+    max_model_len: 8192
+    usable_input_tokens: 7168
     gpu_memory_util: 0.90
 
-  eurollm_9b_instruct_2512_fp16_l40s:
-    name: "eurollm-9b-instruct-2512-l40s"
-    repo: "utter-project/EuroLLM-9B-Instruct-2512"
-    local_path: "/workspace/models/eurollm_9b_instruct_2512_fp16_l40s"
-    quant: null
-    dtype: "float16"
-    max_model_len: 4096
-    usable_input_tokens: 3072
-    gpu_memory_util: 0.90
-
-  eurollm_9b_instruct_awq_fp16_l40s:
-    name: "eurollm-9b-instruct-awq-l40s"
-    repo: "stelterlab/EuroLLM-9B-Instruct-AWQ"
-    local_path: "/workspace/models/eurollm_9b_instruct_awq_fp16_l40s"
-    quant: null
-    dtype: "float16"
-    max_model_len: 4096
-    usable_input_tokens: 3072
-    gpu_memory_util: 0.90
-
-  mistral_small_24b_instruct_2501_awq_fp16_l40s:
-    name: "mistral-small-24b-instruct-2501-awq-l40s"
-    repo: "stelterlab/Mistral-Small-24B-Instruct-2501-AWQ"
-    local_path: "/workspace/models/mistral_small_24b_instruct_2501_awq_fp16_l40s"
-    quant: null
-    dtype: "float16"
-    max_model_len: 4096
-    usable_input_tokens: 3072
-    gpu_memory_util: 0.90
-
-  qwen3_30b_a3b_instruct_2507_awq_4bit_fp16_l40s:
-    name: "qwen3-30b-a3b-instruct-2507-awq-4bit-l40s"
-    repo: "cyankiwi/Qwen3-30B-A3B-Instruct-2507-AWQ-4bit"
-    local_path: "/workspace/models/qwen3_30b_a3b_instruct_2507_awq_4bit_fp16_l40s"
-    quant: null
-    dtype: "float16"
-    max_model_len: 16384
-    usable_input_tokens: 15360
-    gpu_memory_util: 0.90
-
-  qwen3_30b_a3b_instruct_2507_awq_fp16_l40s:
-    name: "qwen3-30b-a3b-instruct-2507-awq-l40s"
-    repo: "stelterlab/Qwen3-30B-A3B-Instruct-2507-AWQ"
-    local_path: "/workspace/models/qwen3_30b_a3b_instruct_2507_awq_fp16_l40s"
-    quant: null
-    dtype: "float16"
-    max_model_len: 16384
-    usable_input_tokens: 15360
-    gpu_memory_util: 0.90
-
-  qwen3_6_35b_a3b_awq_4bit_fp16_l40s:
-    name: "qwen3-6-35b-a3b-awq-4bit-l40s"
+  qwen3_6_35b_a3b_awq_4bit_fp16_a40:
+    name: "qwen3-6-35b-a3b-awq-4bit-a40"
     repo: "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit"
-    local_path: "/workspace/models/qwen3_6_35b_a3b_awq_4bit_fp16_l40s"
+    local_path: "/workspace/models/qwen3_6_35b_a3b_awq_4bit_fp16_a40"
     quant: null
     dtype: "float16"
     max_model_len: 16384
     usable_input_tokens: 15360
     gpu_memory_util: 0.90
 
-  qwen3_6_35b_a3b_awq_fp16_l40s:
-    name: "qwen3-6-35b-a3b-awq-l40s"
+  qwen3_6_35b_a3b_awq_fp16_a40:
+    name: "qwen3-6-35b-a3b-awq-a40"
     repo: "QuantTrio/Qwen3.6-35B-A3B-AWQ"
-    local_path: "/workspace/models/qwen3_6_35b_a3b_awq_fp16_l40s"
+    local_path: "/workspace/models/qwen3_6_35b_a3b_awq_fp16_a40"
     quant: null
     dtype: "float16"
     max_model_len: 8192
@@ -112,11 +62,6 @@ evaluation:
   num_runs: ${NUM_RUNS:-3}                      # Runs per question
   temperature: ${TEMPERATURE:-0.0}              # Deterministic
   max_tokens: 1024
-
-
-
-
-
 
 
 # ----------------------------------------------------------------------------
