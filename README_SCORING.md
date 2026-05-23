@@ -71,7 +71,7 @@ python gpu_runtime/evaluate_context_results.py
 By default, scoring resolves paths in this order:
 
 1. `EVAL_RUN_DIR` (if set)
-2. `results/latest/<detected_gpu_bucket>` (for example `results/latest/b200`)
+2. `results/runs/<detected_gpu_bucket>/<EVAL_RUN_ID>` (if `EVAL_RUN_ID` is set)
 3. legacy `results/` (fallback)
 
 ## 4) Run Scoring Detached (tmux background)

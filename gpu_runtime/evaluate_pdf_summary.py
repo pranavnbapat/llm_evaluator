@@ -88,16 +88,6 @@ def resolve_run_paths(base_results_dir: Path) -> dict:
     for p in [raw_dir, logs_dir, pages_dir, metadata_dir]:
         p.mkdir(parents=True, exist_ok=True)
 
-    latest_root = (base_results_dir / "latest").resolve()
-    latest_root.mkdir(parents=True, exist_ok=True)
-    latest_link = latest_root / gpu_bucket
-    try:
-        if latest_link.exists() or latest_link.is_symlink():
-            latest_link.unlink()
-        latest_link.symlink_to(os.path.relpath(run_dir, latest_root))
-    except Exception:
-        pass
-
     return {
         "base_results_dir": base_results_dir.resolve(),
         "run_dir": run_dir,

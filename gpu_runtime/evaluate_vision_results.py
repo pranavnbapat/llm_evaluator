@@ -75,15 +75,6 @@ def resolve_scoring_paths(base_results_dir: Path) -> dict:
     elif run_id_env:
         run_dir = (base_results_dir / "runs" / gpu_bucket / run_id_env).resolve()
         source = "env:EVAL_RUN_ID"
-    else:
-        latest_link = base_results_dir / "latest" / gpu_bucket
-        if latest_link.exists() or latest_link.is_symlink():
-            try:
-                run_dir = latest_link.resolve()
-                source = f"latest:{gpu_bucket}"
-            except Exception:
-                run_dir = None
-
     if run_dir:
         raw_dir = run_dir / "raw"
         scores_dir = run_dir / "scores"

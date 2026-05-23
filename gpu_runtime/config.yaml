@@ -25,7 +25,7 @@ generation_profile:
   target_max_output_tokens: 1024
   seq_lens: "4096,8192,16384"
   allow_fits: "comfortable"
-  generated_at: "2026-05-10 09:49:35"
+  generated_at: "2026-05-10 13:53:11"
 models:
   eurollm_22b_instruct_2512_awq_fp16_l40s:
     name: "eurollm-22b-instruct-2512-awq-l40s"

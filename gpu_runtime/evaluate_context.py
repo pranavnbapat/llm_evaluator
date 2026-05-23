@@ -112,19 +112,6 @@ def resolve_run_paths(base_results_dir: Path) -> dict:
     for p in [raw_dir, scores_dir, logs_dir, insights_dir, metadata_dir]:
         p.mkdir(parents=True, exist_ok=True)
 
-    # Maintain latest symlink per GPU bucket
-    latest_root = (base_results_dir / "latest").resolve()
-    latest_root.mkdir(parents=True, exist_ok=True)
-    latest_link = latest_root / gpu_bucket
-    try:
-        if latest_link.exists() or latest_link.is_symlink():
-            latest_link.unlink()
-        rel_target = os.path.relpath(run_dir, latest_root)
-        latest_link.symlink_to(rel_target)
-    except Exception:
-        # Non-fatal; continue without symlink.
-        pass
-
     return {
         "base_results_dir": base_results_dir.resolve(),
         "run_dir": run_dir,

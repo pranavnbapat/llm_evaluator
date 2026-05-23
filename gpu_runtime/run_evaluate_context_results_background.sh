@@ -28,7 +28,6 @@ Single-run resolution order:
   1. --run-dir CLI flag
   2. EVAL_RUN_DIR env
   3. EVAL_RUN_ID env (joined with detected GPU bucket)
-  4. results/latest/<gpu_bucket> symlink
 USAGE
 }
 
@@ -111,8 +110,6 @@ elif [[ -n "${EVAL_RUN_DIR:-}" ]]; then
   RUN_DIR="$EVAL_RUN_DIR"
 elif [[ -n "${EVAL_RUN_ID:-}" ]]; then
   RUN_DIR="$REPO_DIR/results/runs/$GPU_BUCKET/$EVAL_RUN_ID"
-elif [[ -L "$REPO_DIR/results/latest/$GPU_BUCKET" || -e "$REPO_DIR/results/latest/$GPU_BUCKET" ]]; then
-  RUN_DIR="$(readlink -f "$REPO_DIR/results/latest/$GPU_BUCKET")"
 else
   RUN_DIR=""
 fi

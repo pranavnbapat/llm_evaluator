@@ -206,7 +206,7 @@ Single-run resolution order for the context background scorer:
 1. `--run-dir <path>` CLI flag
 2. `EVAL_RUN_DIR` env
 3. `EVAL_RUN_ID` env (joined with the detected GPU bucket)
-4. `results/latest/<gpu_bucket>` symlink
+4. legacy flat `results/` fallback only when no run dir is provided
 
 Default behavior: if none of the above is set and `--all-runs` was not explicitly
 passed, the script auto-flips to **`--all-runs`** for the detected GPU bucket. Be
@@ -385,10 +385,6 @@ Typical DB names:
 - text/context scores: `scores/evaluation_scores_euf_context.db`
 - multimodal eval: `raw/evaluation_results_euf_vision.db`
 - multimodal scores: `scores/evaluation_scores_euf_vision.db`
-
-Latest symlink:
-
-`results/latest/<gpu_bucket> -> ../runs/<gpu_bucket>/<run_id>`
 
 ## Useful Commands
 

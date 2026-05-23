@@ -2,18 +2,11 @@
 # Used by gpu_runtime/generate_gpu_config.py
 
 #new evaluation
-QuantTrio/Qwen3.6-35B-A3B-AWQ
-cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
-
-stelterlab/Qwen3-30B-A3B-Instruct-2507-AWQ
-cyankiwi/Qwen3-30B-A3B-Instruct-2507-AWQ-4bit
-
-stelterlab/Mistral-Small-24B-Instruct-2501-AWQ
-
-utter-project/EuroLLM-9B-Instruct-2512
-stelterlab/EuroLLM-9B-Instruct-AWQ
-
-CarlosRCDev/EuroLLM-22B-Instruct-2512-awq
+#QuantTrio/Qwen3.6-35B-A3B-AWQ
+#stelterlab/Qwen3-30B-A3B-Instruct-2507-AWQ
+#cyankiwi/Qwen3-30B-A3B-Instruct-2507-AWQ-4bit
+#stelterlab/Mistral-Small-24B-Instruct-2501-AWQ
+#utter-project/EuroLLM-9B-Instruct-2512
 
 #Valdemardi/DeepSeek-R1-Distill-Qwen-32B-AWQ
 #ibm-granite/granite-4.1-8b
@@ -33,3 +26,10 @@ CarlosRCDev/EuroLLM-22B-Instruct-2512-awq
 #cyankiwi/InternVL3_5-38B-AWQ-4bit
 #ibm-granite/granite-vision-4.1-4b
 #microsoft/Phi-3.5-vision-instruct
+
+
+QuantTrio/Qwen3.6-35B-A3B-AWQ
+QuantTrio/Qwen3.5-35B-A3B-AWQ
+stelterlab/EuroLLM-9B-Instruct-AWQ
+CarlosRCDev/EuroLLM-22B-Instruct-2512-awq
+cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit

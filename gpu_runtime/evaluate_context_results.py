@@ -75,8 +75,7 @@ def resolve_scoring_paths(base_results_dir: Path) -> dict:
     Priority:
       1) EVAL_RUN_DIR
       2) EVAL_RUN_GPU + EVAL_RUN_ID
-      3) results/latest/<gpu_bucket>
-      4) legacy results/ directory
+      3) legacy results/ directory
     """
     run_dir_env = os.getenv("EVAL_RUN_DIR", "").strip()
     run_id_env = os.getenv("EVAL_RUN_ID", "").strip()
@@ -90,15 +89,6 @@ def resolve_scoring_paths(base_results_dir: Path) -> dict:
     elif run_id_env:
         run_dir = (base_results_dir / "runs" / gpu_bucket / run_id_env).resolve()
         source = "env:EVAL_RUN_ID"
-    else:
-        latest_link = (base_results_dir / "latest" / gpu_bucket)
-        if latest_link.exists() or latest_link.is_symlink():
-            try:
-                run_dir = latest_link.resolve()
-                source = f"latest:{gpu_bucket}"
-            except Exception:
-                run_dir = None
-
     if run_dir:
         raw_dir = run_dir / "raw"
         scores_dir = run_dir / "scores"
@@ -156,8 +146,119 @@ def getenv_int(name: str, default: int, env_file_vals: dict) -> int:
         return default
 
 
-def export_scores_to_excel(scores_db_path: Path, out_xlsx_path: Path) -> bool:
-    """Export scores table to Excel. Returns True on success."""
+def _classify_response_format(text: str) -> str:
+    text = (text or "").strip()
+    if not text:
+        return "empty"
+    if text.startswith("{") or text.startswith("["):
+        return "json_like"
+    bullet_lines = len(re.findall(r"(?m)^\s*(?:[-*•]|\d+\.)\s+", text))
+    if bullet_lines >= 2:
+        return "bullet"
+    return "paragraph"
+
+
+def _build_excel_summaries(scores_df, raw_df):
+    import pandas as pd
+
+    summaries: dict[str, pd.DataFrame] = {}
+
+    model_summary = (
+        scores_df.groupby("model_name", as_index=False)
+        .agg(
+            n=("id", "count"),
+            avg_overall_quality=("overall_quality", "mean"),
+            std_overall_quality=("overall_quality", "std"),
+            avg_relevance=("relevance", "mean"),
+            avg_factual_accuracy=("factual_accuracy", "mean"),
+            avg_completeness=("completeness", "mean"),
+            avg_fluency=("fluency", "mean"),
+            avg_coherence=("coherence", "mean"),
+            avg_prompt_alignment=("prompt_alignment", "mean"),
+            avg_token_efficiency=("token_efficiency", "mean"),
+        )
+        .sort_values(["avg_overall_quality", "avg_factual_accuracy"], ascending=[False, False])
+    )
+    model_summary["quality_rank"] = (
+        model_summary["avg_overall_quality"].rank(method="dense", ascending=False).astype(int)
+    )
+    summaries["model_summary"] = model_summary
+
+    if raw_df is not None and not raw_df.empty:
+        merged = scores_df.merge(
+            raw_df,
+            on=["evaluation_id", "model_name", "language", "question_id", "run_number"],
+            how="left",
+        )
+        merged["latency_ms"] = pd.to_numeric(merged["latency_ms"], errors="coerce")
+        merged["response_text"] = merged["response"].fillna("")
+        merged["char_count"] = merged["response_text"].str.len()
+        merged["word_count"] = merged["response_text"].str.findall(r"\S+").str.len()
+        merged["paragraph_count"] = merged["response_text"].apply(
+            lambda s: len([p for p in re.split(r"\n\s*\n", s.strip()) if p.strip()]) if s.strip() else 0
+        )
+        merged["bullet_line_count"] = merged["response_text"].str.count(r"(?m)^\s*(?:[-*•]|\d+\.)\s+")
+        merged["has_bullets"] = merged["bullet_line_count"] > 0
+        merged["reference_like"] = merged["response_text"].str.contains(
+            r"(?i)(^|\b)(source|sources|reference|references|according to|\[\d+\])",
+            regex=True,
+            na=False,
+        )
+        merged["format_class"] = merged["response_text"].apply(_classify_response_format)
+
+        latency_summary = (
+            merged.groupby("model_name", as_index=False)
+            .agg(
+                avg_latency_ms=("latency_ms", "mean"),
+                p90_latency_ms=("latency_ms", lambda s: s.quantile(0.9)),
+                avg_chars=("char_count", "mean"),
+                avg_words=("word_count", "mean"),
+                avg_paragraphs=("paragraph_count", "mean"),
+                bullet_rate_pct=("has_bullets", lambda s: float(s.mean()) * 100.0),
+                reference_like_rate_pct=("reference_like", lambda s: float(s.mean()) * 100.0),
+            )
+            .sort_values("avg_latency_ms")
+        )
+        summaries["response_profile"] = latency_summary
+
+        fmt_counts = (
+            merged.groupby(["model_name", "format_class"]).size().reset_index(name="n")
+        )
+        idx = fmt_counts.groupby("model_name")["n"].idxmax()
+        dominant = fmt_counts.loc[idx].rename(
+            columns={"format_class": "dominant_format", "n": "dominant_format_n"}
+        )
+        totals = merged.groupby("model_name").size().reset_index(name="total_n")
+        formatting = dominant.merge(totals, on="model_name", how="left")
+        formatting["dominant_format_share_pct"] = (
+            formatting["dominant_format_n"] / formatting["total_n"] * 100.0
+        )
+        summaries["format_stability"] = formatting[
+            ["model_name", "dominant_format", "dominant_format_share_pct"]
+        ].sort_values("dominant_format_share_pct", ascending=False)
+
+        run_stability = (
+            merged.groupby(["model_name", "run_number"], as_index=False)
+            .agg(avg_overall_quality=("overall_quality", "mean"))
+        )
+        run_pivot = (
+            run_stability.pivot(index="model_name", columns="run_number", values="avg_overall_quality")
+            .reset_index()
+        )
+        run_cols = [c for c in run_pivot.columns if c != "model_name"]
+        run_pivot.columns = ["model_name"] + [f"run_{int(c)}_avg_overall" for c in run_cols]
+        run_std = (
+            run_stability.groupby("model_name")["avg_overall_quality"]
+            .agg(run_stddev="std", run_range=lambda s: float(s.max() - s.min()))
+            .reset_index()
+        )
+        summaries["run_stability"] = run_pivot.merge(run_std, on="model_name", how="left")
+
+    return summaries
+
+
+def export_scores_to_excel(scores_db_path: Path, out_xlsx_path: Path, results_db_path: Path | None = None) -> bool:
+    """Export scores table and compact summary sheets to Excel. Returns True on success."""
     try:
         import pandas as pd
     except ImportError:
@@ -171,8 +272,33 @@ def export_scores_to_excel(scores_db_path: Path, out_xlsx_path: Path) -> bool:
     finally:
         conn.close()
 
+    raw_df = None
+    if results_db_path and results_db_path.exists():
+        raw_conn = sqlite3.connect(results_db_path)
+        try:
+            raw_df = pd.read_sql_query(
+                """
+                SELECT
+                    id AS evaluation_id,
+                    model_name,
+                    language,
+                    question_id,
+                    run_number,
+                    response,
+                    latency_ms
+                FROM evaluations
+                """,
+                raw_conn,
+            )
+        finally:
+            raw_conn.close()
+
+    summaries = _build_excel_summaries(df, raw_df)
+
     with pd.ExcelWriter(out_xlsx_path, engine="openpyxl") as writer:
         df.to_excel(writer, sheet_name="scores", index=False)
+        for sheet_name, sheet_df in summaries.items():
+            sheet_df.to_excel(writer, sheet_name=sheet_name[:31], index=False)
     return True
 
 
@@ -427,7 +553,7 @@ def main():
     summary_conn.close()
 
     # Export XLSX
-    exported = export_scores_to_excel(scores_db_path, scores_xlsx_path)
+    exported = export_scores_to_excel(scores_db_path, scores_xlsx_path, db_path)
     if exported:
         print(f"📄 Excel exported to: {scores_xlsx_path}")
     
