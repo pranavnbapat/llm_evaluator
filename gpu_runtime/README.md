@@ -26,7 +26,7 @@ Pick your GPU class once and substitute it for `<GPU>` below (one of `a40`, `l40
 `3090`, `a100`, `h200_sxm`, `b200`).
 
 ```bash
-# 1. Clone and enter the repo (e.g. on RunPod)
+# 1. Clone and enter the repo
 cd /workspace
 git clone https://github.com/pranavnbapat/llm_evaluator
 cd llm_evaluator
