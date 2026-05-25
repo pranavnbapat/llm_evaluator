@@ -25,7 +25,7 @@ generation_profile:
   target_max_output_tokens: 1024
   seq_lens: "4096,8192,16384"
   allow_fits: "comfortable"
-  generated_at: "2026-05-25 12:27:13"
+  generated_at: "2026-05-25 15:06:03"
 models:
   qwen3_30b_a3b_instruct_2507_awq_fp16_a40:
     name: "qwen3-30b-a3b-instruct-2507-awq-a40"
@@ -46,12 +46,14 @@ models:
     max_model_len: 8192
     usable_input_tokens: 7168
     gpu_memory_util: 0.90
+    trust_remote_code: true
 evaluation:
   # All 24 EU languages
   languages: ["BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU", "GA", "IT", "LV", "LT", "MT", "PL", "PT", "RO", "SK", "SL", "ES", "SV"]
   num_runs: ${NUM_RUNS:-3}                      # Runs per question
   temperature: ${TEMPERATURE:-0.0}              # Deterministic
   max_tokens: 1024
+
 
 
 # ----------------------------------------------------------------------------

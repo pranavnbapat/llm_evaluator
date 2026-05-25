@@ -40,6 +40,7 @@ from runtime_common.model_static_check import (  # noqa: E402
 # Setting trust_remote_code=true allows vLLM/Transformers to execute that code at load time;
 # only enable this for repos you trust.
 TRUST_REMOTE_CODE_REPOS = {
+    "DavidAU/Qwen3.5-9B-Claude-4.6-HighIQ-INSTRUCT",
     "openGPT-X/Teuken-7B-instruct-commercial-v0.4",
 }
 
