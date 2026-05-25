@@ -8,7 +8,7 @@ This folder now supports two GPU evaluation paths:
 
 Examples below use `/workspace/llm_evaluator`. If that folder does not exist yet on your machine, create `/workspace` first and then clone the repo there.
 
-Python version: use `python3`. In this project, the current validated interpreter is Python 3.12.3, and the setup examples assume that `python3` resolves to that interpreter or a compatible Python 3.12 install.
+Python version: use the project venv's `python`. In this project, the current validated interpreter is Python 3.12.3, and the setup examples assume you have activated `.venv` first so `python` resolves to that interpreter or a compatible Python 3.12 install.
 
 Currently tuned GPU targets for config generation are:
 - `a40`
@@ -37,7 +37,8 @@ bash gpu_runtime/setup.sh
 # 3. Activate the venv
 source .venv/bin/activate
 
-# 4. Create gpu_runtime/.env (HF token + runtime controls)
+# 4. Create gpu_runtime/.env for runtime settings.
+#    Optional: also create repo-root .env for scoring-only env overrides.
 cat > gpu_runtime/.env <<'EOF'
 HF_TOKEN=hf_your_token_here
 EVAL_CONTEXT_QUESTION_FAMILIES=3
@@ -116,6 +117,8 @@ EOF
 `OPENAI_API_KEY` is not required for the core GPU runtime flow.
 
 An LLM API key is only optional for some insight-generation helpers outside the core runtime flow, such as presentation/report generation scripts under `insights/`.
+
+Scoring note: `gpu_runtime/evaluate_context_results.py` reads scoring-only env overrides from repo-root `.env` if present. Keep runtime secrets in `gpu_runtime/.env`; use repo-root `.env` for scoring overrides such as `EVALUATOR_SCORE_BATCH_SIZE`.
 
 ### 5. Generate GPU-specific model config
 

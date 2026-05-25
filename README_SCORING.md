@@ -29,15 +29,15 @@ tmux -V
 
 ## 2.5) Configure Scoring Performance Env (Recommended)
 
-You can set scoring env once in root `.env` or export in shell.
+You can set scoring env either in repo-root `.env` or export in your shell.
 
-Option A: `.env` (persistent for the repo)
+Option A: repo-root `.env` (persistent for scoring)
 
 ```bash
 cp .env.sample .env
 ```
 
-Set these keys in `.env`:
+Set these keys in repo-root `.env`:
 
 ```bash
 EVALUATOR_METRICS_DEVICE=cuda
@@ -118,9 +118,9 @@ Created/updated in the active run folder (recommended):
 
 Important behavior:
 
-- `gpu_runtime/evaluate_context_results.py` performs a full rescore for the selected run.
-- It clears existing rows in the `scores` table (`DELETE FROM scores`) before inserting new scores.
-- So rerunning scoring overwrites prior score rows for that run DB instead of appending duplicates.
+- `gpu_runtime/evaluate_context_results.py` upserts score rows for the selected run.
+- Rerunning scoring updates existing `(model_name, language, question_id, run_number)` rows instead of appending duplicates.
+- It only clears the `scores` table first when `FORCE_RESCORE=1` is set.
 
 Legacy fallback (if no run folder is resolved):
 
