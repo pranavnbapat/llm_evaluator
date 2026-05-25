@@ -59,6 +59,81 @@ if [[ ! -f "$EVAL_SCRIPT" ]]; then
   exit 1
 fi
 
+read_env_file_value() {
+  local key="$1"
+  local env_file="$SCRIPT_DIR/.env"
+  if [[ ! -f "$env_file" ]]; then
+    return 1
+  fi
+  local line
+  line="$(grep -E "^[[:space:]]*${key}=" "$env_file" | tail -n1 || true)"
+  if [[ -z "$line" ]]; then
+    return 1
+  fi
+  line="${line#*=}"
+  line="${line%%#*}"
+  line="$(printf '%s' "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")"
+  printf '%s' "$line"
+}
+
+resolve_context_question_families() {
+  local raw="${EVAL_CONTEXT_QUESTION_FAMILIES+x}"
+  if [[ -n "$raw" ]]; then
+    printf '%s' "$EVAL_CONTEXT_QUESTION_FAMILIES"
+    return
+  fi
+  local from_file
+  from_file="$(read_env_file_value EVAL_CONTEXT_QUESTION_FAMILIES || true)"
+  if [[ -n "$from_file" ]]; then
+    printf '%s' "$from_file"
+    return
+  fi
+  printf '3'
+}
+
+resolve_context_languages() {
+  local raw_set="${EVAL_CONTEXT_LANGUAGES+x}"
+  local raw=""
+  if [[ -n "$raw_set" ]]; then
+    raw="$EVAL_CONTEXT_LANGUAGES"
+  else
+    raw="$(read_env_file_value EVAL_CONTEXT_LANGUAGES || true)"
+  fi
+  raw="$(printf '%s' "$raw" | tr -d '[:space:]')"
+  if [[ -z "$raw" ]]; then
+    printf 'EN'
+    return
+  fi
+
+  local expanded=()
+  local part
+  IFS=',' read -r -a parts <<< "$raw"
+  local eu_codes=(BG HR CS DA NL EN ET FI FR DE EL HU GA IT LV LT MT PL PT RO SK SL ES SV)
+  for part in "${parts[@]}"; do
+    part="${part^^}"
+    [[ -z "$part" ]] && continue
+    if [[ "$part" == "EU" ]]; then
+      local code
+      for code in "${eu_codes[@]}"; do
+        if [[ ! " ${expanded[*]} " =~ " ${code} " ]]; then
+          expanded+=("$code")
+        fi
+      done
+      continue
+    fi
+    if [[ ! " ${expanded[*]} " =~ " ${part} " ]]; then
+      expanded+=("$part")
+    fi
+  done
+  if [[ ${#expanded[@]} -eq 0 ]]; then
+    printf 'EN'
+  else
+    local joined
+    joined="$(IFS=,; printf '%s' "${expanded[*]}")"
+    printf '%s' "$joined"
+  fi
+}
+
 detect_gpu_bucket() {
   if [[ -n "${EVAL_RUN_GPU:-}" ]]; then
     echo "${EVAL_RUN_GPU,,}"
@@ -77,6 +152,9 @@ detect_gpu_bucket() {
   fi
   echo "unknown_gpu"
 }
+
+CONTEXT_QUESTION_FAMILIES="$(resolve_context_question_families)"
+CONTEXT_LANGUAGES="$(resolve_context_languages)"
 
 GPU_BUCKET="$(detect_gpu_bucket)"
 RUN_ID="${EVAL_RUN_ID:-$(date +%Y-%m-%d_%H%M%S)_context_eval}"
@@ -102,7 +180,7 @@ if [[ "$MODE" == "tmux" ]]; then
     exit 1
   fi
 
-  CMD="cd '$SCRIPT_DIR' && EVAL_RUN_GPU='$GPU_BUCKET' EVAL_RUN_ID='$RUN_ID' EVAL_RUN_DIR='$RUN_DIR' '$PYTHON_BIN' '$EVAL_SCRIPT' 2>&1 | tee '$LOG_FILE'"
+  CMD="cd '$SCRIPT_DIR' && EVAL_RUN_GPU='$GPU_BUCKET' EVAL_RUN_ID='$RUN_ID' EVAL_RUN_DIR='$RUN_DIR' EVAL_CONTEXT_QUESTION_FAMILIES='$CONTEXT_QUESTION_FAMILIES' EVAL_CONTEXT_LANGUAGES='$CONTEXT_LANGUAGES' '$PYTHON_BIN' '$EVAL_SCRIPT' 2>&1 | tee '$LOG_FILE'"
   tmux new-session -d -s "$SESSION_NAME" "$CMD"
 
   echo "Started in tmux session: $SESSION_NAME"
@@ -110,12 +188,14 @@ if [[ "$MODE" == "tmux" ]]; then
   echo "GPU bucket: $GPU_BUCKET"
   echo "Run id: $RUN_ID"
   echo "Log file: $LOG_FILE"
+  echo "Question families: $CONTEXT_QUESTION_FAMILIES"
+  echo "Languages: $CONTEXT_LANGUAGES"
   echo "Attach: tmux attach -t $SESSION_NAME"
   echo "Detach: Ctrl+b then d"
   exit 0
 fi
 
-EVAL_RUN_GPU="$GPU_BUCKET" EVAL_RUN_ID="$RUN_ID" EVAL_RUN_DIR="$RUN_DIR" nohup "$PYTHON_BIN" "$EVAL_SCRIPT" >"$LOG_FILE" 2>&1 &
+EVAL_RUN_GPU="$GPU_BUCKET" EVAL_RUN_ID="$RUN_ID" EVAL_RUN_DIR="$RUN_DIR" EVAL_CONTEXT_QUESTION_FAMILIES="$CONTEXT_QUESTION_FAMILIES" EVAL_CONTEXT_LANGUAGES="$CONTEXT_LANGUAGES" nohup "$PYTHON_BIN" "$EVAL_SCRIPT" >"$LOG_FILE" 2>&1 &
 PID=$!
 echo "$PID" > "$LOG_DIR/evaluate_context.pid"
 
@@ -124,6 +204,8 @@ echo "Run dir: $RUN_DIR"
 echo "GPU bucket: $GPU_BUCKET"
 echo "Run id: $RUN_ID"
 echo "Log file: $LOG_FILE"
+echo "Question families: $CONTEXT_QUESTION_FAMILIES"
+echo "Languages: $CONTEXT_LANGUAGES"
 echo "PID file: $LOG_DIR/evaluate_context.pid"
 echo "Tail logs: tail -f '$LOG_FILE'"
 echo "Stop: kill $PID"

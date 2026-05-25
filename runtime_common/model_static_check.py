@@ -209,7 +209,7 @@ def main() -> int:
         nargs="?",
         default=None,
         help="Optional target GPU (a40|l40s|3090|a100|h200_sxm|b200). "
-             "Allows: model_static_check.py <model> a100 --llm-optimize",
+             "Allows: python -m runtime_common.model_static_check <model> a100 --llm-optimize",
     )
     parser.add_argument("--dtype-bytes", type=int, default=2, help="Bytes per element (fp16/bf16=2)")
     parser.add_argument("--seq-lens", default="4096,8192,16384", help="Comma-separated seq lengths to estimate")

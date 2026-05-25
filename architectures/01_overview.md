@@ -29,7 +29,7 @@ This document describes the model evaluation architecture for the `gpu_runtime/`
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
 │  setup.sh ───────► install deps, uv, venv, vLLM, create dirs (/workspace/models, etc.) │
 │                                                                                         │
-│  generate_gpu_config.py ──► model_static_check.py ──► fetch HF configs, estimate VRAM │
+│  generate_gpu_config.py ──► runtime_common/model_static_check.py ──► fetch HF configs, estimate VRAM │
 │  (text models)                (weights + KV cache fit)    fit, write config.yaml        │
 │                                                                                         │
 │  generate_gpu_vision_config.py ──► same flow but for multimodal/vision models          │

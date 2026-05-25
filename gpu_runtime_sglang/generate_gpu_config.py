@@ -30,7 +30,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from model_static_check import (  # noqa: E402
+from runtime_common.model_static_check import (  # noqa: E402
     TARGET_GPU_VRAM_GB,
     choose_gpu_mem_util,
     classify_fit,

@@ -24,7 +24,7 @@ Currently tuned GPU targets for config generation are:
 - `b200`
 
 These are the GPUs with first-class sizing support in
-`gpu_runtime_sglang/generate_gpu_config.py` and `model_static_check.py` today.
+`gpu_runtime_sglang/generate_gpu_config.py` and `runtime_common/model_static_check.py` today.
 
 ## Quick Start
 
@@ -422,7 +422,7 @@ bash gpu_runtime_sglang/git_bootstrap.sh
 
 The same files as the vLLM flow govern GPU support. To add another GPU:
 
-- `model_static_check.py`: add VRAM size, CLI aliases, and any fit-report text.
+- `runtime_common/model_static_check.py`: add VRAM size, CLI aliases, and any fit-report text.
 - `gpu_runtime_sglang/generate_gpu_config.py`: update CLI help/error text.
 - `gpu_runtime_sglang/evaluate_context.py`
 - `gpu_runtime_sglang/evaluate_context_results.py`

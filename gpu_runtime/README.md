@@ -18,7 +18,7 @@ Currently tuned GPU targets for config generation are:
 - `h200_sxm`
 - `b200`
 
-Those are the GPUs with first-class sizing support in `gpu_runtime/generate_gpu_config.py` and `model_static_check.py` today.
+Those are the GPUs with first-class sizing support in `gpu_runtime/generate_gpu_config.py` and `runtime_common/model_static_check.py` today.
 
 ## TL;DR — Minimum Steps (text/context path)
 
@@ -37,8 +37,12 @@ bash gpu_runtime/setup.sh
 # 3. Activate the venv
 source .venv/bin/activate
 
-# 4. Set your HF token (needed for gated model downloads)
-echo "HF_TOKEN=hf_your_token_here" > gpu_runtime/.env
+# 4. Create gpu_runtime/.env (HF token + runtime controls)
+cat > gpu_runtime/.env <<'EOF'
+HF_TOKEN=hf_your_token_here
+EVAL_CONTEXT_QUESTION_FAMILIES=3
+EVAL_CONTEXT_LANGUAGES=EN
+EOF
 
 # 5. Generate a GPU-specific model config
 python gpu_runtime/generate_gpu_config.py <GPU> \
@@ -95,13 +99,19 @@ bash gpu_runtime/setup.sh
 source .venv/bin/activate
 ```
 
-### 4. Configure tokens
+### 4. Create `gpu_runtime/.env`
 
 ```bash
-echo "HF_TOKEN=hf_your_token" > gpu_runtime/.env
+cat > gpu_runtime/.env <<'EOF'
+HF_TOKEN=hf_your_token
+EVAL_CONTEXT_QUESTION_FAMILIES=3
+EVAL_CONTEXT_LANGUAGES=EN
+EOF
 ```
 
 `HF_TOKEN` is required for downloading gated Hugging Face models and configs.
+`EVAL_CONTEXT_QUESTION_FAMILIES` controls how many question families run per language.
+`EVAL_CONTEXT_LANGUAGES` controls which languages are evaluated; `EN` is the default, and `EU` expands to all 24 supported EU languages.
 
 `OPENAI_API_KEY` is not required for the core GPU runtime flow.
 
@@ -152,6 +162,14 @@ Foreground:
 ```bash
 python gpu_runtime/evaluate_context.py
 ```
+
+By default the evaluator runs `3` question families for `EN` only. Override with:
+```bash
+export EVAL_CONTEXT_QUESTION_FAMILIES=5
+export EVAL_CONTEXT_LANGUAGES=EN,DE,FR
+python gpu_runtime/evaluate_context.py
+```
+`EVAL_CONTEXT_LANGUAGES=EU` expands to all 24 supported EU languages. If it is empty or unset, the evaluator defaults to `EN`.
 
 Background:
 ```bash
@@ -507,7 +525,7 @@ bash gpu_runtime/git_bootstrap.sh
 
 To add another GPU beyond the currently supported set, update these files:
 
-- `model_static_check.py`: add VRAM size, CLI aliases, and any fit-report text.
+- `runtime_common/model_static_check.py`: add VRAM size, CLI aliases, and any fit-report text.
 - `gpu_runtime/generate_gpu_config.py`: update CLI help/error text for the new target.
 - `gpu_runtime/generate_gpu_vision_config.py`: update multimodal sizing/help text for the new target.
 - `gpu_runtime/evaluate_context.py`

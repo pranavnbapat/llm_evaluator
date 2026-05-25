@@ -169,7 +169,7 @@ def detect_gpu_bucket() -> tuple[str, str]:
 
 ## 9. Static VRAM Sizing Before Download
 
-**Decision:** `model_static_check.py` estimates GPU fit using only `config.json` metadata, before any weights are downloaded.
+**Decision:** `runtime_common/model_static_check.py` estimates GPU fit using only `config.json` metadata, before any weights are downloaded.
 
 **Rationale:**
 - Downloading a 70B model (~140GB) only to find it doesn't fit is wasteful

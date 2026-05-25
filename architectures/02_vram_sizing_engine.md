@@ -3,7 +3,7 @@
 Before any model touches the GPU, the system answers: **"Will this model fit, and at what sequence length?"** This happens **statically** — no weights are downloaded.
 
 The core logic lives in:
-- `model_static_check.py` — the math engine
+- `runtime_common/model_static_check.py` — the math engine
 - `generate_gpu_config.py` — text model config generator
 - `generate_gpu_vision_config.py` — vision model config generator
 

@@ -44,6 +44,66 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from translations.eu_24_languages_euf_context import get_all_questions_with_context
 
 
+ALL_EU_LANGUAGE_CODES = ["BG", "HR", "CS", "DA", "NL", "EN", "ET", "FI", "FR", "DE", "EL", "HU", "GA", "IT", "LV", "LT", "MT", "PL", "PT", "RO", "SK", "SL", "ES", "SV"]
+
+
+def get_context_question_family_limit() -> int:
+    """Return how many question families to evaluate per language."""
+    raw = os.getenv("EVAL_CONTEXT_QUESTION_FAMILIES", "3").strip()
+    try:
+        limit = int(raw)
+    except ValueError:
+        print(f"⚠️ Invalid EVAL_CONTEXT_QUESTION_FAMILIES='{raw}', defaulting to 3")
+        return 3
+    return max(1, limit)
+
+
+def get_context_languages() -> list[str]:
+    """Return the language codes to evaluate. Empty defaults to EN; EU expands to all 24."""
+    raw = os.getenv("EVAL_CONTEXT_LANGUAGES", "").strip()
+    if not raw:
+        return ["EN"]
+
+    langs: list[str] = []
+    for part in raw.split(","):
+        code = part.strip().upper()
+        if not code:
+            continue
+        if code == "EU":
+            for eu_code in ALL_EU_LANGUAGE_CODES:
+                if eu_code not in langs:
+                    langs.append(eu_code)
+            continue
+        if code not in langs:
+            langs.append(code)
+    return langs or ["EN"]
+
+
+def filter_questions_by_language(questions: list[dict], languages: list[str]) -> list[dict]:
+    """Keep only questions whose language is in the allowed set."""
+    allowed = {lang.upper() for lang in languages if lang.strip()}
+    if not allowed:
+        allowed = {"EN"}
+    return [q for q in questions if str(q.get("language", "")).upper() in allowed]
+
+
+def limit_questions_by_family(questions: list[dict], max_families: int) -> list[dict]:
+    """Keep only the first N question families while preserving language coverage."""
+    if max_families <= 0:
+        return questions
+
+    kept_families: list[str] = []
+    for item in questions:
+        family = str(item.get("question_id", "")).split("_", 1)[0]
+        if family and family not in kept_families:
+            kept_families.append(family)
+        if len(kept_families) >= max_families:
+            break
+
+    allowed = set(kept_families)
+    return [q for q in questions if str(q.get("question_id", "")).split("_", 1)[0] in allowed]
+
+
 def detect_gpu_bucket() -> tuple[str, str]:
     """
     Detect GPU family bucket from nvidia-smi.
@@ -530,8 +590,20 @@ class Evaluator:
         self._init_db()
         
         # Load questions WITH CONTEXT
-        self.questions = get_all_questions_with_context()
+        all_questions = get_all_questions_with_context()
+        self.question_family_limit = get_context_question_family_limit()
+        self.languages = get_context_languages()
+        filtered_questions = filter_questions_by_language(all_questions, self.languages)
+        self.questions = limit_questions_by_family(filtered_questions, self.question_family_limit)
         self.num_runs = int(config["evaluation"]["num_runs"])
+
+        total_languages = len({q["language"] for q in self.questions})
+        total_families = len({q["question_id"].split("_", 1)[0] for q in self.questions})
+        print(
+            f"🧩 Context question families enabled: {total_families} "
+            f"(EVAL_CONTEXT_QUESTION_FAMILIES={self.question_family_limit}) | "
+            f"languages={total_languages} ({','.join(self.languages)}) | prompts={len(self.questions)}"
+        )
     
     def _init_db(self):
         """Initialize SQLite database."""
