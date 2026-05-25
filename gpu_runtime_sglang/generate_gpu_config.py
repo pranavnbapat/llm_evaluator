@@ -142,6 +142,15 @@ def detect_quant_override(cfg: Dict) -> Optional[str]:
     return None
 
 
+def detect_trust_remote_code(cfg: Dict, repo: str) -> bool:
+    if cfg.get("auto_map"):
+        return True
+    text_cfg = cfg.get("text_config") or {}
+    if isinstance(text_cfg, dict) and text_cfg.get("auto_map"):
+        return True
+    return repo in TRUST_REMOTE_CODE_REPOS
+
+
 def fetch_checkpoint_total_size_mb(repo_id: str, hf_token: Optional[str] = None) -> Optional[float]:
     """Fetch total checkpoint size (MB) from HF shard index metadata, if available."""
     headers = {}
@@ -275,7 +284,7 @@ def render_models_yaml(models: List[Dict[str, str]]) -> str:
         lines.append(f"    max_model_len: {m['max_model_len']}")
         lines.append(f"    usable_input_tokens: {m['usable_input_tokens']}")
         lines.append(f"    gpu_memory_util: {m['gpu_memory_util']}")
-        if m.get("trust_remote_code") == "true":
+        if m.get("trust_remote_code"):
             lines.append("    trust_remote_code: true")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
@@ -576,7 +585,7 @@ def main() -> int:
                 "usable_input_tokens": str(usable_input_tokens),
                 "gpu_memory_util": f"{choose_gpu_mem_util(ratio):.2f}",
                 "fit": fit,
-                "trust_remote_code": "true" if repo in TRUST_REMOTE_CODE_REPOS else "false",
+                "trust_remote_code": detect_trust_remote_code(cfg, repo),
             }
         )
 
