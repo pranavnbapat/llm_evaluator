@@ -155,7 +155,11 @@ python gpu_runtime/evaluate_context.py
 
 Background:
 ```bash
+# Default: starts in tmux session `eval_context`
 bash gpu_runtime/run_evaluate_context_background.sh
+
+# Use a custom tmux session name
+bash gpu_runtime/run_evaluate_context_background.sh --session eval_context_a40
 ```
 
 Multimodal image/PDF path
